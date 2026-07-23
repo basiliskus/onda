@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -97,12 +99,23 @@ fun OndaRoot(graph: AppGraph) {
             composable("discover/stations/{kind}/{value}") { entry ->
                 val kind = entry.arguments?.getString("kind")!!
                 val value = android.net.Uri.decode(entry.arguments?.getString("value")!!)
+                val pendingUrls by graph.favoritesRepository.pendingUrls.collectAsState()
                 StationListScreen(
                     title = if (kind == "top") "Top voted" else value,
                     vm = discoverVm,
                     playingUrl = np?.playingUrl,
                     onBack = { nav.popBackStack() },
                     onPlay = graph.playerConnection::playRb,
+                    trailing = { s ->
+                        val starred = s.url in pendingUrls
+                        IconButton(onClick = { graph.favoritesRepository.toggle(s) }) {
+                            Icon(
+                                if (starred) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                if (starred) "Remove from pending favorites" else "Add to pending favorites",
+                                tint = if (starred) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
                 )
             }
         }
