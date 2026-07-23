@@ -60,6 +60,11 @@ class M3uParserTest {
         assertEquals("Ungrouped", p.stations.single().group)
     }
 
+    @Test fun `empty group-title lands in Ungrouped`() {
+        val p = M3uParser.parsePlaylist("x", "#EXTM3U\n#EXTINF:-1 group-title=\"\",BBC Thing\nhttp://bbc")
+        assertEquals("Ungrouped", p.stations.single().group)
+    }
+
     @Test fun `all six real playlists parse with groups and plausible station count`() {
         val names = listOf("stations", "nts", "fip", "bbc", "public-radio", "radio-garden")
         val playlists = names.map { M3uParser.parsePlaylist(it, fixture(it)) }

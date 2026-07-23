@@ -24,7 +24,7 @@ object M3uParser {
                         stations += Station(
                             name = p.first,
                             url = line,
-                            group = p.second ?: "Ungrouped",
+                            group = p.second?.takeIf { it.isNotBlank() } ?: "Ungrouped",
                             playlist = fileBaseName,
                             logo = p.third,
                         )
