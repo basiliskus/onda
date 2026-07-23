@@ -1,0 +1,25 @@
+#EXTM3U
+#EXTINF:-1 group-title="",FIP
+https://icecast.radiofrance.fr/fip-hifi.aac
+#EXTINF:-1 group-title="",Rock
+https://icecast.radiofrance.fr/fiprock-hifi.aac
+#EXTINF:-1 group-title="",Jazz
+https://icecast.radiofrance.fr/fipjazz-hifi.aac
+#EXTINF:-1 group-title="",Groove
+https://icecast.radiofrance.fr/fipgroove-hifi.aac
+#EXTINF:-1 group-title="",Monde
+https://icecast.radiofrance.fr/fipworld-hifi.aac
+#EXTINF:-1 group-title="",Nouveautés
+https://icecast.radiofrance.fr/fipnouveautes-hifi.aac
+#EXTINF:-1 group-title="",Reggae
+https://icecast.radiofrance.fr/fipreggae-hifi.aac
+#EXTINF:-1 group-title="",Electro
+https://icecast.radiofrance.fr/fipelectro-hifi.aac
+#EXTINF:-1 group-title="",Metal
+https://icecast.radiofrance.fr/fipmetal-hifi.aac
+#EXTINF:-1 group-title="",Hip-Hop
+https://icecast.radiofrance.fr/fiphiphop-hifi.aac
+#EXTINF:-1 group-title="",Pop
+https://icecast.radiofrance.fr/fippop-hifi.aac
+#EXTINF:-1 group-title="",Sacré français !
+https://icecast.radiofrance.fr/fipsacrefrancais-hifi.aac

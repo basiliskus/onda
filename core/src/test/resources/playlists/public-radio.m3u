@@ -1,0 +1,39 @@
+#EXTM3U
+#EXTINF:-1 group-title="College Radio",KALX 90.7FM Berkeley
+http://stream.kalx.berkeley.edu:8000/kalx-320.aac.m3u
+#EXTINF:-1 group-title="College Radio",KZSU 90.1 Stanford
+https://kzsu-streams.stanford.edu/kzsu-1-128.mp3.m3u
+#EXTINF:-1 group-title="College Radio",KFJC 89.7 Los Altos Hills
+https://netcast.kfjc.org/
+#EXTINF:-1 group-title="College Radio",WXYC 89.3 Chapel Hill
+http://audio-mp3.ibiblio.org:8000/wxyc.mp3
+#EXTINF:-1 group-title="College Radio",USMARADIO
+http://usmaradio.out.airtime.pro:8000/usmaradio_a
+#EXTINF:-1 group-title="Community Radio",KPOO 89.5 San Francisco
+http://amber.streamguys.com:5220/xstream
+#EXTINF:-1 group-title="Community Radio",WFMU
+https://stream0.wfmu.org/freeform-extrahigh-primary.aac
+#EXTINF:-1 group-title="Community Radio",WPKN 89.5 Community Radio Station
+https://ice25.securenetsystems.net/WPKN
+#EXTINF:-1 group-title="Community Radio",WWOZ 90.7 New Orleans
+https://wwoz-sc.streamguys1.com/wwoz-hi.mp3
+#EXTINF:-1 group-title="Community Radio",KEXP 90.3 Seattle  WA (AAC 160K)
+https://kexp.streamguys1.com/kexp160.aac
+#EXTINF:-1 group-title="Community Radio",KCRW Eclectic 24 (AAC)
+https://streams.kcrw.com/e24_aac
+#EXTINF:-1 group-title="Community Radio",KCRW Live 89.9 FM (AAC)
+https://streams.kcrw.com/kcrw_aac
+#EXTINF:-1 group-title="Community Radio",MPR The Current
+https://current.stream.publicradio.org/current.mp3
+#EXTINF:-1 group-title="Community Radio",WXPN 88.5 Philadelphia  PA
+https://wxpnhi.xpn.org/xpnhi
+#EXTINF:-1 group-title="Community Radio",KUTX 98.9 (2024 Stream  192 kbps mp3)
+https://streams.kut.org/4428_192.mp3
+#EXTINF:-1 group-title="Community Radio",WBGO Jazz 88.3 Newark
+https://ais-sa8.cdnstream1.com/3629_128.mp3
+#EXTINF:-1 group-title="Community Radio",KCSM Jazz 91.1 Bay Area
+https://ice5.securenetsystems.net/KCSM
+#EXTINF:-1 group-title="News",KQED 128 AAC
+https://hls.kqed.org/hls/kqed_app/playlist.m3u8
+#EXTINF:-1 group-title="News",Public Radio (NPR National Public Radio Stream)
+https://npr-ice.streamguys1.com/live.mp3
