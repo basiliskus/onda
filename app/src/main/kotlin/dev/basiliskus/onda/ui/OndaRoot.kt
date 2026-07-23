@@ -17,11 +17,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import dev.basiliskus.onda.AppGraph
 import dev.basiliskus.onda.BuildConfig
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.sync.PlaylistsState
+import dev.basiliskus.onda.ui.discover.DiscoverScreen
+import dev.basiliskus.onda.ui.discover.DiscoverViewModel
+import dev.basiliskus.onda.ui.discover.StationListScreen
 
 private data class Tab(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
@@ -36,6 +40,7 @@ fun OndaRoot(graph: AppGraph) {
     val onPlayStation: (Station) -> Unit = graph.playerConnection::playStation
     val playingUrl: String? = np?.playingUrl
     var showSheet by remember { mutableStateOf(false) }
+    val discoverVm: DiscoverViewModel = viewModel { DiscoverViewModel(graph.radioBrowser) }
 
     val nav = rememberNavController()
     val tabs = listOf(
@@ -83,7 +88,23 @@ fun OndaRoot(graph: AppGraph) {
                 if (playlist != null) PlaylistDetailScreen(playlist, playingUrl, { nav.popBackStack() }, onPlayStation)
             }
             composable("settings") { SettingsScreen(graph, onBack = { nav.popBackStack() }) }
-            composable("discover") { Text("Discover — Task 12") }
+            composable("discover") {
+                DiscoverScreen(discoverVm) { kind, value ->
+                    discoverVm.openList(kind, value)
+                    nav.navigate("discover/stations/$kind/${android.net.Uri.encode(value)}")
+                }
+            }
+            composable("discover/stations/{kind}/{value}") { entry ->
+                val kind = entry.arguments?.getString("kind")!!
+                val value = android.net.Uri.decode(entry.arguments?.getString("value")!!)
+                StationListScreen(
+                    title = if (kind == "top") "Top voted" else value,
+                    vm = discoverVm,
+                    playingUrl = np?.playingUrl,
+                    onBack = { nav.popBackStack() },
+                    onPlay = graph.playerConnection::playRb,
+                )
+            }
         }
     }
     if (showSheet) {
