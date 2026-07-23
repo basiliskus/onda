@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -41,7 +41,7 @@ fun PlaylistDetailScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
-                items(group.stations, key = { "${group.title}|${it.url}" }) { s ->
+                itemsIndexed(group.stations, key = { i, s -> "$i:${group.title}|${s.url}" }) { _, s ->
                     StationRow(
                         name = s.name, subtitle = null, logoUrl = s.logo,
                         isPlaying = s.url == playingUrl,
