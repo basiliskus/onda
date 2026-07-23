@@ -19,7 +19,10 @@ class FavoritesRepository(
     val pendingUrls: StateFlow<Set<String>> = _pendingUrls
     private val mutex = Mutex()
 
-    init { refresh() }
+    init {
+        refresh()
+        scope.launch { playlists.folderTicks.collect { refresh() } }
+    }
 
     fun refresh() {
         scope.launch(Dispatchers.IO) {

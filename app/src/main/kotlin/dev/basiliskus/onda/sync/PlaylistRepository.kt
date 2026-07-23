@@ -13,7 +13,9 @@ import dev.basiliskus.onda.core.m3u.M3uParser
 import dev.basiliskus.onda.core.model.Playlist
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -38,10 +40,15 @@ class PlaylistRepository(
     private var lastHash = 0
     private val scanMutex = Mutex()
     private var observer: ContentObserver? = null
+    private val _folderTicks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val folderTicks: SharedFlow<Unit> = _folderTicks
 
     init {
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) = rescan()
+            override fun onStart(owner: LifecycleOwner) {
+                rescan()
+                _folderTicks.tryEmit(Unit)
+            }
         })
         registerObserver()
     }
@@ -53,6 +60,7 @@ class PlaylistRepository(
         prefs.treeUri = uri
         registerObserver()
         rescan()
+        _folderTicks.tryEmit(Unit)
     }
 
     fun rescan() {
@@ -107,7 +115,10 @@ class PlaylistRepository(
             tree, DocumentsContract.getTreeDocumentId(tree)
         )
         val newObserver = object : ContentObserver(null) {
-            override fun onChange(selfChange: Boolean) = rescan()
+            override fun onChange(selfChange: Boolean) {
+                rescan()
+                _folderTicks.tryEmit(Unit)
+            }
         }
         observer = newObserver
         context.contentResolver.registerContentObserver(childrenUri, true, newObserver)
