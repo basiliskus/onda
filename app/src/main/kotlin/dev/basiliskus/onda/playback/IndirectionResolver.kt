@@ -1,6 +1,7 @@
 package dev.basiliskus.onda.playback
 
 import android.net.Uri
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.ResolvingDataSource
 import dev.basiliskus.onda.core.m3u.IndirectionParser
@@ -9,6 +10,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /** Play-time resolution of .pls/.m3u indirection. Runs on Media3's loading thread (blocking IO is expected). */
+@UnstableApi
 class IndirectionResolver : ResolvingDataSource.Resolver {
     override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
         var uri = dataSpec.uri
@@ -38,7 +40,16 @@ class IndirectionResolver : ResolvingDataSource.Resolver {
                 current = URL(current, loc)
                 continue
             }
-            body = conn.inputStream.use { String(it.readNBytes(64 * 1024)) }
+            body = conn.inputStream.use { ins ->
+                val buf = ByteArray(64 * 1024)
+                var off = 0
+                while (off < buf.size) {
+                    val n = ins.read(buf, off, buf.size - off)
+                    if (n == -1) break
+                    off += n
+                }
+                String(buf, 0, off)
+            }
             break
         }
         body

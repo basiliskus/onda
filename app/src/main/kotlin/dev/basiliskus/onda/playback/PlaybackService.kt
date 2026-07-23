@@ -12,6 +12,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Metadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
@@ -64,6 +65,7 @@ class PlaybackService : MediaLibraryService() {
         get() = ((application as OndaApp).graph.playlistRepository.state.value as? PlaylistsState.Ready)
             ?.let { MediaIds.stationIndex(it.playlists) } ?: emptyMap()
 
+    @UnstableApi
     override fun onCreate() {
         super.onCreate()
         // DefaultHttpDataSource (HttpURLConnection) is REQUIRED here: it tolerates
@@ -99,6 +101,7 @@ class PlaybackService : MediaLibraryService() {
             // Player.mediaMetadata on its own (androidx/media/issues/153) — do it explicitly so
             // PlayerConnection's `c.mediaMetadata` reflects the current track. replaceMediaItem
             // with an unchanged URI updates metadata without reloading/interrupting the stream.
+            @UnstableApi
             override fun onMetadata(metadata: Metadata) {
                 val current = player.currentMediaItem ?: return
                 for (i in 0 until metadata.length()) {

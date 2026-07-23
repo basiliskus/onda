@@ -14,6 +14,11 @@ android {
         versionName = "0.1.0"
     }
     buildFeatures { compose = true; buildConfig = true }
+    lint {
+        fatal += "NewApi"
+        // Voice search on Android Auto is out of scope for the MVP — no intent-filter to add.
+        disable += "MissingIntentFilterForMediaSearch"
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
