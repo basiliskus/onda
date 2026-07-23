@@ -43,9 +43,9 @@ class PlaybackService : MediaLibraryService() {
     private var connectivityManager: ConnectivityManager? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    // Spec §3: single retry when connectivity returns while the session is active. Distinct
-    // from the immediate single-retry-per-mediaId in onPlayerError below — this one fires when
-    // a network becomes available again while the player is sitting in an error state.
+    // Single retry when connectivity returns while the session is active. Distinct from the
+    // immediate single-retry-per-mediaId in onPlayerError below — this one fires when a
+    // network becomes available again while the player is sitting in an error state.
     // NetworkCallback methods run on an internal ConnectivityThread, not main — ExoPlayer
     // must only ever be touched from the thread it was created on, so hop back to main.
     private val mainHandler = Handler(Looper.getMainLooper())

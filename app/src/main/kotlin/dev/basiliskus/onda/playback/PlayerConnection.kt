@@ -2,6 +2,7 @@ package dev.basiliskus.onda.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -33,15 +34,24 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
     val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying
     private var controller: MediaController? = null
+    // A play request can arrive before the controller finishes connecting (e.g. tapping a
+    // station immediately on cold start) — remember only the latest one and play it once
+    // connected, rather than silently dropping it.
+    private var pendingItem: MediaItem? = null
 
     init {
         scope.launch(Dispatchers.Main) {
-            val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-            controller = MediaController.Builder(context, token).buildAsync().await().also { c ->
+            try {
+                val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
+                val c = MediaController.Builder(context, token).buildAsync().await()
+                controller = c
                 c.addListener(object : Player.Listener {
                     override fun onEvents(player: Player, events: Player.Events) = publish(c)
                 })
+                pendingItem?.let { item -> pendingItem = null; play(item) }
                 publish(c)
+            } catch (e: Exception) {
+                Log.e("Onda", "PlayerConnection: MediaController connection failed", e)
             }
         }
     }
@@ -62,10 +72,16 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
         )
     }
 
-    private fun humanize(e: PlaybackException) = "Station unreachable"
+    private fun humanize(e: PlaybackException): String = when (e.errorCode) {
+        PlaybackException.ERROR_CODE_TIMEOUT,
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+        -> "Station unreachable"
+        else -> "Can't play this stream"
+    }
 
     private fun play(item: MediaItem) {
-        val c = controller ?: return
+        val c = controller ?: run { pendingItem = item; return }
         c.setMediaItem(item); c.prepare(); c.play()
     }
 

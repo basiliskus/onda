@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -17,9 +18,9 @@ fun DiscoverScreen(vm: DiscoverViewModel, onOpenList: (kind: String, value: Stri
     LaunchedEffect(Unit) { vm.loadBrowseLists() }
     var query by remember { mutableStateOf("") }
     var mode by remember { mutableIntStateOf(0) }
-    val tags by vm.tags.collectAsState()
-    val countries by vm.countries.collectAsState()
-    val browseError by vm.browseError.collectAsState()
+    val tags by vm.tags.collectAsStateWithLifecycle()
+    val countries by vm.countries.collectAsStateWithLifecycle()
+    val browseError by vm.browseError.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(

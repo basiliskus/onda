@@ -33,17 +33,26 @@ object M3uParser {
                 }
             }
         }
+        // groupBy already orders keys by first occurrence, so this is already in
+        // first-encounter order — no extra sort needed.
         val groups = stations.groupBy { it.group }.map { (title, ss) -> Group(title, ss) }
-        val order = stations.map { it.group }.distinct()
-        return Playlist(fileBaseName, groups.sortedBy { order.indexOf(it.title) })
+        return Playlist(fileBaseName, groups)
     }
 
     private fun parseExtinf(line: String): Triple<String, String?, String?>? {
         val afterColon = line.substringAfter("#EXTINF:")
-        val name = afterColon.substringAfter(',', "").trim()
+        // Attribute values are matched over the whole string (not just up to the first comma)
+        // so a comma inside a quoted value (e.g. group-title="News, Talk") doesn't truncate the
+        // match. The display name then starts at the first comma AFTER the last attribute match
+        // — everything before it is duration + attributes, everything after is the name (which
+        // may itself contain commas).
+        val matches = attr.findAll(afterColon).toList()
+        val searchFrom = matches.lastOrNull()?.range?.last?.plus(1) ?: 0
+        val commaIndex = afterColon.indexOf(',', searchFrom)
+        if (commaIndex == -1) return null
+        val name = afterColon.substring(commaIndex + 1).trim()
         if (name.isEmpty()) return null
-        val attrsPart = afterColon.substringBefore(',')
-        val attrs = attr.findAll(attrsPart).associate { it.groupValues[1] to it.groupValues[2] }
+        val attrs = matches.associate { it.groupValues[1] to it.groupValues[2] }
         return Triple(name, attrs["group-title"], attrs["tvg-logo"])
     }
 }

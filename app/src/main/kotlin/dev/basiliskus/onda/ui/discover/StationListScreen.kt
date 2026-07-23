@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.basiliskus.onda.core.radiobrowser.RbStation
 import dev.basiliskus.onda.ui.StationRow
 
@@ -21,7 +22,7 @@ fun StationListScreen(
     onPlay: (RbStation) -> Unit,
     trailing: @Composable (RbStation) -> Unit = { s -> Text("▲ ${s.votes}") },
 ) {
-    val state by vm.list.collectAsState()
+    val state by vm.list.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val shouldLoadMore by remember {
         derivedStateOf {

@@ -14,12 +14,12 @@ import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import dev.basiliskus.onda.AppGraph
@@ -34,15 +34,16 @@ private data class Tab(val route: String, val label: String, val icon: androidx.
 
 @Composable
 fun OndaRoot(graph: AppGraph) {
-    val playlistsState by graph.playlistRepository.state.collectAsState()
+    val playlistsState by graph.playlistRepository.state.collectAsStateWithLifecycle()
     if (playlistsState is PlaylistsState.NeedsFolder) {
         OnboardingScreen(onFolderPicked = graph.playlistRepository::setFolder)
         return
     }
-    val np by graph.playerConnection.nowPlaying.collectAsState()
+    val np by graph.playerConnection.nowPlaying.collectAsStateWithLifecycle()
     val onPlayStation: (Station) -> Unit = graph.playerConnection::playStation
     val playingUrl: String? = np?.playingUrl
     var showSheet by remember { mutableStateOf(false) }
+    LaunchedEffect(np) { if (np == null) showSheet = false }
     val discoverVm: DiscoverViewModel = viewModel { DiscoverViewModel(graph.radioBrowser) }
 
     val nav = rememberNavController()
@@ -82,7 +83,7 @@ fun OndaRoot(graph: AppGraph) {
         NavHost(nav, startDestination = "playlists", modifier = Modifier.padding(padding)) {
             composable("playlists") {
                 val ready = playlistsState as? PlaylistsState.Ready
-                val scanning by graph.playlistRepository.scanning.collectAsState()
+                val scanning by graph.playlistRepository.scanning.collectAsStateWithLifecycle()
                 PlaylistsScreen(
                     playlists = ready?.playlists ?: emptyList(),
                     scanning = scanning,
@@ -95,6 +96,9 @@ fun OndaRoot(graph: AppGraph) {
                 val name = entry.arguments?.getString("name")!!
                 val ready = playlistsState as? PlaylistsState.Ready
                 val playlist = ready?.playlists?.firstOrNull { it.name == name }
+                // A playlist can vanish out from under this screen (file deleted/renamed by
+                // sync) — without this, the screen goes blank and strands the user there.
+                LaunchedEffect(playlist == null) { if (playlist == null) nav.popBackStack() }
                 if (playlist != null) PlaylistDetailScreen(playlist, playingUrl, { nav.popBackStack() }, onPlayStation)
             }
             composable("settings") { SettingsScreen(graph, onBack = { nav.popBackStack() }) }
@@ -107,7 +111,7 @@ fun OndaRoot(graph: AppGraph) {
                 val kind = entry.arguments?.getString("kind")!!
                 val value = entry.arguments?.getString("value")!!
                 LaunchedEffect(kind, value) { discoverVm.openList(kind, value) }
-                val pendingUrls by graph.favoritesRepository.pendingUrls.collectAsState()
+                val pendingUrls by graph.favoritesRepository.pendingUrls.collectAsStateWithLifecycle()
                 StationListScreen(
                     title = if (kind == "top") "Top voted" else value,
                     vm = discoverVm,

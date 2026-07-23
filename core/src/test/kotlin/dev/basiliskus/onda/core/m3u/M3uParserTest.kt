@@ -60,6 +60,29 @@ class M3uParserTest {
         assertEquals("Ungrouped", p.stations.single().group)
     }
 
+    @Test fun `comma inside a quoted group-title does not truncate the attribute or the name`() {
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="News, Talk",Radio Show
+            http://url
+        """.trimIndent())
+        val s = p.stations.single()
+        assertEquals("News, Talk", s.group)
+        assertEquals("Radio Show", s.name)
+        assertEquals(listOf("News, Talk"), p.groups.map { it.title })
+    }
+
+    @Test fun `comma inside group-title combined with comma inside the name`() {
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="News, Talk",Radio Show, Live
+            http://url
+        """.trimIndent())
+        val s = p.stations.single()
+        assertEquals("News, Talk", s.group)
+        assertEquals("Radio Show, Live", s.name)
+    }
+
     @Test fun `empty group-title lands in Ungrouped`() {
         val p = M3uParser.parsePlaylist("x", "#EXTM3U\n#EXTINF:-1 group-title=\"\",BBC Thing\nhttp://bbc")
         assertEquals("Ungrouped", p.stations.single().group)
