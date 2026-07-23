@@ -1,3 +1,9 @@
 .claude/settings.local.json
 .pipeline-state/
 .superpowers/
+
+.gradle/
+build/
+local.properties
+*.keystore
+.kotlin/
