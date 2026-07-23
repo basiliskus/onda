@@ -141,15 +141,16 @@ class PlaylistRepository(
 
     /**
      * Blocking I/O — call from Dispatchers.IO.
-     * success(text) when pending.csv was read; success(null) when it legitimately
-     * doesn't exist yet (nothing pending); failure(e) when the synced folder tree is
-     * unreachable or the read otherwise failed.
+     * success(text) when pending.csv was read (recovering it from an orphaned .bak first,
+     * if needed); success(null) when it legitimately doesn't exist yet (nothing pending);
+     * failure(e) when the synced folder tree is unreachable or the read otherwise failed.
      */
     fun readPendingText(): Result<String?> {
         val tree = prefs.treeUri ?: return Result.failure(IOException("no folder configured"))
         return try {
             val dir = DocumentFile.fromTreeUri(context, tree)
                 ?: return Result.failure(IOException("synced folder tree unreachable"))
+            recoverOrphanedBak(dir)
             val file = dir.findFile("pending.csv") ?: return Result.success(null)
             val text = context.contentResolver.openInputStream(file.uri)?.use { it.reader().readText() }
                 ?: return Result.failure(IOException("openInputStream returned null for pending.csv"))
@@ -161,21 +162,48 @@ class PlaylistRepository(
     }
 
     /**
-     * Blocking I/O — call from Dispatchers.IO. Crash-safe: pending.csv is never deleted
-     * without a verified replacement already renamed into place. Returns false (leaving
-     * any existing pending.csv untouched) on any failure; true once the new content is
-     * durably in place as pending.csv.
+     * Restores pending.csv from an orphaned pending.csv.bak — the state left behind if the
+     * process died after writePendingText renamed pending.csv -> .bak but before the new
+     * tmp was promoted into its place (or before promote+rollback could complete). Matches
+     * the exact name plus provider-mangled variants that still start with "pending.csv.bak".
+     * No-op if pending.csv already exists or no .bak is present.
+     */
+    private fun recoverOrphanedBak(dir: DocumentFile) {
+        if (dir.findFile("pending.csv") != null) return
+        val bak = dir.listFiles().firstOrNull { f -> f.name?.startsWith("pending.csv.bak") == true }
+            ?: return
+        try {
+            DocumentsContract.renameDocument(context.contentResolver, bak.uri, "pending.csv")
+            Log.w("Onda", "recoverOrphanedBak: restored orphaned pending.csv.bak -> pending.csv")
+        } catch (e: Exception) {
+            Log.w("Onda", "recoverOrphanedBak: failed to restore pending.csv.bak", e)
+        }
+    }
+
+    /**
+     * Blocking I/O — call from Dispatchers.IO. Crash-safe choreography: at every step, at
+     * least one of {pending.csv, pending.csv.bak} holds the last-good content, and readers
+     * and writers restore from .bak before doing anything else (recoverOrphanedBak above).
+     * pending.csv is never deleted without a verified replacement already renamed into
+     * place. Returns false (leaving any existing pending.csv untouched) on any failure;
+     * true once the new content is durably in place as pending.csv.
      */
     fun writePendingText(text: String): Boolean {
         val tree = prefs.treeUri ?: return false
         return try {
             val dir = DocumentFile.fromTreeUri(context, tree) ?: return false
 
-            // Clean up tmp/bak artifacts left behind by a previous crashed or interrupted write.
-            dir.listFiles().forEach { f ->
-                val name = f.name ?: return@forEach
-                if (name.startsWith("pending.") && (name.contains(".tmp") || name.contains(".bak"))) {
-                    f.delete()
+            recoverOrphanedBak(dir)
+
+            // Clean up tmp/bak artifacts left behind by a previous crashed or interrupted
+            // write. Only once a real pending.csv exists — recoverOrphanedBak above already
+            // restored it from .bak if that .bak held the last-good content.
+            if (dir.findFile("pending.csv") != null) {
+                dir.listFiles().forEach { f ->
+                    val name = f.name ?: return@forEach
+                    if (name.startsWith("pending.") && (name.contains(".tmp") || name.contains(".bak"))) {
+                        f.delete()
+                    }
                 }
             }
 
