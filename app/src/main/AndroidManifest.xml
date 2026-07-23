@@ -9,6 +9,7 @@
     <application
         android:name=".OndaApp"
         android:label="Onda"
+        android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
         <meta-data
