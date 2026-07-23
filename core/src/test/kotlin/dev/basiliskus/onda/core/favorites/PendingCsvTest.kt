@@ -35,6 +35,14 @@ class PendingCsvTest {
         assertTrue(again.isEmpty())
     }
 
+    @Test fun `embedded newlines are sanitized to a single space and stay one row`() {
+        val s = nts.copy(name = "line1\nline2")
+        val out = PendingCsv.serialize(listOf(s))
+        val dataLines = out.lines().filter { it.isNotEmpty() && !it.startsWith("#") }
+        assertEquals(1, dataLines.size)
+        assertEquals(listOf(s.copy(name = "line1 line2")), PendingCsv.parse(out))
+    }
+
     @Test fun `parse skips comments blanks and malformed rows`() {
         val text = "# header\n\n# another comment\nonly-three,fields,here\n" +
             PendingCsv.serialize(listOf(nts)).lines()[1]

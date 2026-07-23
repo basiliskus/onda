@@ -45,10 +45,14 @@ object PendingCsv {
         if (existing.any { it.url == s.url }) existing.filterNot { it.url == s.url }
         else existing + s
 
-    private fun quote(field: String): String =
-        if (field.any { it == ',' || it == '"' || it == '\n' })
-            "\"${field.replace("\"", "\"\"")}\""
-        else field
+    private fun quote(field: String): String {
+        // Embedded newlines would split one logical row across multiple CSV lines — collapse
+        // them to a space so serialize() always emits exactly one line per station.
+        val sanitized = field.replace("\r\n", " ").replace('\r', ' ').replace('\n', ' ')
+        return if (sanitized.any { it == ',' || it == '"' })
+            "\"${sanitized.replace("\"", "\"\"")}\""
+        else sanitized
+    }
 
     private fun splitCsv(line: String): List<String> {
         val out = mutableListOf<String>()
