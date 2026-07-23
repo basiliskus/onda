@@ -2,6 +2,7 @@ package dev.basiliskus.onda.core.radiobrowser
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -77,8 +78,18 @@ class RadioBrowserClient(
                         .execute().use { resp ->
                             if (!resp.isSuccessful) throw IOException("HTTP ${resp.code} from ${mirrors[idx]}")
                             val body = resp.body!!.string()
+                            val decoded = try {
+                                json.decodeFromString<T>(body)
+                            } catch (e: SerializationException) {
+                                throw IOException("bad payload from ${mirrors[idx]}", e)
+                            } catch (e: IllegalArgumentException) {
+                                throw IOException("bad payload from ${mirrors[idx]}", e)
+                            }
+                            // Only trust this mirror as "preferred" once we've actually decoded
+                            // a valid payload from it — a mirror that serves 200-with-garbage
+                            // must not become sticky.
                             preferredMirror = idx
-                            return@withContext json.decodeFromString<T>(body)
+                            return@withContext decoded
                         }
                 } catch (e: IOException) { lastError = e }
             }

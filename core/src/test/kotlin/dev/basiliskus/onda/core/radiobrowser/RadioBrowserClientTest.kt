@@ -57,6 +57,30 @@ class RadioBrowserClientTest {
         bad.shutdown()
     }
 
+    @Test fun `treats a 200 with malformed payload as failover, not a crash`() = runBlocking {
+        val garbage = MockWebServer().also { it.start() }
+        val good = MockWebServer().also { it.start() }
+        garbage.enqueue(MockResponse().setBody("<html>not json</html>"))
+        good.enqueue(MockResponse().setBody(stationJson))
+        good.enqueue(MockResponse().setBody(stationJson))
+        val c = client(garbage, good)
+        assertEquals(1, c.searchStations(StationFilter()).size)
+        // the garbage mirror must not become "preferred" — the next call skips straight to good
+        assertEquals(1, c.searchStations(StationFilter()).size)
+        assertEquals(1, garbage.requestCount)
+        assertEquals(2, good.requestCount)
+        garbage.shutdown(); good.shutdown()
+    }
+
+    @Test fun `throws IOException when every mirror returns garbage`(): Unit = runBlocking {
+        val bad1 = MockWebServer().also { it.start() }
+        val bad2 = MockWebServer().also { it.start() }
+        bad1.enqueue(MockResponse().setBody("<html>nope</html>"))
+        bad2.enqueue(MockResponse().setBody("not even close to json"))
+        assertFailsWith<IOException> { client(bad1, bad2).topTags() }
+        bad1.shutdown(); bad2.shutdown()
+    }
+
     @Test fun `topTags and countries parse`() = runBlocking {
         val server = MockWebServer().also { it.start() }
         server.enqueue(MockResponse().setBody("""[{"name":"jazz","stationcount":2000}]"""))
