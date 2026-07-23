@@ -9,26 +9,44 @@ import androidx.compose.ui.graphics.Color
 
 private val LightScheme = lightColorScheme(
     primary = CatppuccinLatte.blue, onPrimary = CatppuccinLatte.base,
+    primaryContainer = CatppuccinLatte.surface1, onPrimaryContainer = CatppuccinLatte.blue,
     secondary = CatppuccinLatte.mauve, onSecondary = CatppuccinLatte.base,
+    secondaryContainer = CatppuccinLatte.surface1, onSecondaryContainer = CatppuccinLatte.blue,
     tertiary = CatppuccinLatte.teal, onTertiary = CatppuccinLatte.base,
+    tertiaryContainer = CatppuccinLatte.surface1, onTertiaryContainer = CatppuccinLatte.teal,
     error = CatppuccinLatte.red, onError = CatppuccinLatte.base,
+    errorContainer = CatppuccinLatte.surface1, onErrorContainer = CatppuccinLatte.red,
     background = CatppuccinLatte.base, onBackground = CatppuccinLatte.text,
     surface = CatppuccinLatte.base, onSurface = CatppuccinLatte.text,
     surfaceVariant = CatppuccinLatte.surface0, onSurfaceVariant = CatppuccinLatte.subtext0,
+    surfaceContainerLowest = CatppuccinLatte.crust, surfaceContainerLow = CatppuccinLatte.mantle,
     surfaceContainer = CatppuccinLatte.mantle, surfaceContainerHigh = CatppuccinLatte.surface0,
+    surfaceContainerHighest = CatppuccinLatte.surface1,
     outline = CatppuccinLatte.overlay0, outlineVariant = CatppuccinLatte.surface1,
+    inverseSurface = CatppuccinLatte.text, inverseOnSurface = CatppuccinLatte.base,
+    inversePrimary = CatppuccinFrappe.blue,
+    surfaceTint = CatppuccinLatte.blue,
 )
 
 private val DarkScheme = darkColorScheme(
     primary = CatppuccinFrappe.blue, onPrimary = CatppuccinFrappe.crust,
+    primaryContainer = CatppuccinFrappe.surface1, onPrimaryContainer = CatppuccinFrappe.blue,
     secondary = CatppuccinFrappe.mauve, onSecondary = CatppuccinFrappe.crust,
+    secondaryContainer = CatppuccinFrappe.surface1, onSecondaryContainer = CatppuccinFrappe.blue,
     tertiary = CatppuccinFrappe.teal, onTertiary = CatppuccinFrappe.crust,
+    tertiaryContainer = CatppuccinFrappe.surface1, onTertiaryContainer = CatppuccinFrappe.teal,
     error = CatppuccinFrappe.red, onError = CatppuccinFrappe.crust,
+    errorContainer = CatppuccinFrappe.surface1, onErrorContainer = CatppuccinFrappe.red,
     background = CatppuccinFrappe.base, onBackground = CatppuccinFrappe.text,
     surface = CatppuccinFrappe.base, onSurface = CatppuccinFrappe.text,
     surfaceVariant = CatppuccinFrappe.surface0, onSurfaceVariant = CatppuccinFrappe.subtext0,
+    surfaceContainerLowest = CatppuccinFrappe.crust, surfaceContainerLow = CatppuccinFrappe.mantle,
     surfaceContainer = CatppuccinFrappe.mantle, surfaceContainerHigh = CatppuccinFrappe.surface0,
+    surfaceContainerHighest = CatppuccinFrappe.surface1,
     outline = CatppuccinFrappe.overlay0, outlineVariant = CatppuccinFrappe.surface1,
+    inverseSurface = CatppuccinFrappe.text, inverseOnSurface = CatppuccinFrappe.base,
+    inversePrimary = CatppuccinLatte.blue,
+    surfaceTint = CatppuccinFrappe.blue,
 )
 
 @Composable
