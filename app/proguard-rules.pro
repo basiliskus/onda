@@ -1,0 +1,4 @@
+-keepattributes *Annotation*, InnerClasses
+-keep,includedescriptorclasses class dev.basiliskus.onda.core.**$$serializer { *; }
+-keepclassmembers class dev.basiliskus.onda.core.** { *** Companion; }
+-keepclasseswithmembers class dev.basiliskus.onda.core.** { kotlinx.serialization.KSerializer serializer(...); }
