@@ -1,5 +1,10 @@
 package dev.basiliskus.onda.playback
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -34,7 +39,26 @@ import kotlinx.coroutines.launch
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private var lastRetriedMediaId: String? = null
+    private var connectivityManager: ConnectivityManager? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    // Spec §3: single retry when connectivity returns while the session is active. Distinct
+    // from the immediate single-retry-per-mediaId in onPlayerError below — this one fires when
+    // a network becomes available again while the player is sitting in an error state.
+    // NetworkCallback methods run on an internal ConnectivityThread, not main — ExoPlayer
+    // must only ever be touched from the thread it was created on, so hop back to main.
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            mainHandler.post {
+                val player = session?.player ?: return@post
+                if (player.playerError != null && player.currentMediaItem != null) {
+                    player.prepare()
+                    player.play()
+                }
+            }
+        }
+    }
 
     private val stationIndex: Map<String, Station>
         get() = ((application as OndaApp).graph.playlistRepository.state.value as? PlaylistsState.Ready)
@@ -90,6 +114,8 @@ class PlaybackService : MediaLibraryService() {
             }
         })
         session = MediaLibrarySession.Builder(this, player, LibraryCallback()).build()
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        connectivityManager?.registerDefaultNetworkCallback(networkCallback)
         // A browser (e.g. Android Auto) can connect and call onGetChildren before the
         // repository's background rescan finishes — onGetChildren answers from whatever
         // state is current, so without this a root browsed too early comes back empty and
@@ -106,6 +132,8 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onDestroy() {
         serviceScope.cancel()
+        connectivityManager?.unregisterNetworkCallback(networkCallback)
+        connectivityManager = null
         session?.run { player.release(); release() }
         session = null
         super.onDestroy()
