@@ -13,6 +13,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.*
 import dev.basiliskus.onda.AppGraph
@@ -29,9 +32,10 @@ fun OndaRoot(graph: AppGraph) {
         OnboardingScreen(onFolderPicked = graph.playlistRepository::setFolder)
         return
     }
-    // Task 11 replaces these two with the real player wiring.
-    val onPlayStation: (Station) -> Unit = {}
-    val playingUrl: String? = null
+    val np by graph.playerConnection.nowPlaying.collectAsState()
+    val onPlayStation: (Station) -> Unit = graph.playerConnection::playStation
+    val playingUrl: String? = np?.playingUrl
+    var showSheet by remember { mutableStateOf(false) }
 
     val nav = rememberNavController()
     val tabs = listOf(
@@ -41,7 +45,7 @@ fun OndaRoot(graph: AppGraph) {
     Scaffold(
         bottomBar = {
             Column {
-                // Mini player slot — filled in Task 11.
+                np?.let { MiniPlayer(it, graph.playerConnection::toggle, { showSheet = true }) }
                 NavigationBar {
                     val backStack by nav.currentBackStackEntryAsState()
                     val current = backStack?.destination?.route
@@ -81,6 +85,9 @@ fun OndaRoot(graph: AppGraph) {
             composable("settings") { SettingsScreen(graph, onBack = { nav.popBackStack() }) }
             composable("discover") { Text("Discover — Task 12") }
         }
+    }
+    if (showSheet) {
+        np?.let { NowPlayingSheet(it, graph.playerConnection::toggle, { showSheet = false }) }
     }
 }
 

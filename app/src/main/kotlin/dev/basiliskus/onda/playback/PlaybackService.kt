@@ -4,6 +4,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Metadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
@@ -11,6 +12,7 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.metadata.icy.IcyInfo
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import com.google.common.util.concurrent.Futures
@@ -59,6 +61,23 @@ class PlaybackService : MediaLibraryService() {
                     lastRetriedMediaId = id
                     player.prepare(); player.play()
                 } // else: stay idle; controllers observe the error state
+            }
+            // Media3 extracts ICY StreamTitle updates as IcyInfo but does not merge them into
+            // Player.mediaMetadata on its own (androidx/media/issues/153) — do it explicitly so
+            // PlayerConnection's `c.mediaMetadata` reflects the current track. replaceMediaItem
+            // with an unchanged URI updates metadata without reloading/interrupting the stream.
+            override fun onMetadata(metadata: Metadata) {
+                val current = player.currentMediaItem ?: return
+                for (i in 0 until metadata.length()) {
+                    val title = (metadata.get(i) as? IcyInfo)?.title?.takeIf { it.isNotBlank() } ?: continue
+                    if (current.mediaMetadata.title?.toString() == title) continue
+                    player.replaceMediaItem(
+                        player.currentMediaItemIndex,
+                        current.buildUpon()
+                            .setMediaMetadata(current.mediaMetadata.buildUpon().setTitle(title).build())
+                            .build(),
+                    )
+                }
             }
         })
         session = MediaLibrarySession.Builder(this, player, LibraryCallback()).build()

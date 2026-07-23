@@ -39,4 +39,5 @@ dependencies {
     implementation(libs.documentfile)
     implementation(libs.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.guava)
 }
