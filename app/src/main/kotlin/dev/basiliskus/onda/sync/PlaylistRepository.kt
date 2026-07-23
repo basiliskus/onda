@@ -119,37 +119,98 @@ class PlaylistRepository(
         }
     }
 
-    /** Blocking I/O — call from Dispatchers.IO. Returns null on any failure. */
-    fun readPendingText(): String? {
-        val tree = prefs.treeUri ?: return null
+    /**
+     * Blocking I/O — call from Dispatchers.IO.
+     * success(text) when pending.csv was read; success(null) when it legitimately
+     * doesn't exist yet (nothing pending); failure(e) when the synced folder tree is
+     * unreachable or the read otherwise failed.
+     */
+    fun readPendingText(): Result<String?> {
+        val tree = prefs.treeUri ?: return Result.failure(IOException("no folder configured"))
         return try {
-            val dir = DocumentFile.fromTreeUri(context, tree) ?: return null
-            val file = dir.findFile("pending.csv") ?: return null
-            context.contentResolver.openInputStream(file.uri)?.use { it.reader().readText() }
+            val dir = DocumentFile.fromTreeUri(context, tree)
+                ?: return Result.failure(IOException("synced folder tree unreachable"))
+            val file = dir.findFile("pending.csv") ?: return Result.success(null)
+            val text = context.contentResolver.openInputStream(file.uri)?.use { it.reader().readText() }
+                ?: return Result.failure(IOException("openInputStream returned null for pending.csv"))
+            Result.success(text)
         } catch (e: Exception) {
-            Log.w("Onda", "readPendingText: failed", e); null
+            Log.w("Onda", "readPendingText: failed", e)
+            Result.failure(e)
         }
     }
 
-    /** Blocking I/O — call from Dispatchers.IO. Failures are logged, never thrown. */
-    fun writePendingText(text: String) {
-        val tree = prefs.treeUri ?: return
-        try {
-            val dir = DocumentFile.fromTreeUri(context, tree) ?: return
-            dir.findFile("pending.csv.tmp")?.delete()
-            val tmp = dir.createFile("text/csv", "pending.csv.tmp")
-            if (tmp == null) {
-                Log.w("Onda", "writePendingText: createFile returned null"); return
+    /**
+     * Blocking I/O — call from Dispatchers.IO. Crash-safe: pending.csv is never deleted
+     * without a verified replacement already renamed into place. Returns false (leaving
+     * any existing pending.csv untouched) on any failure; true once the new content is
+     * durably in place as pending.csv.
+     */
+    fun writePendingText(text: String): Boolean {
+        val tree = prefs.treeUri ?: return false
+        return try {
+            val dir = DocumentFile.fromTreeUri(context, tree) ?: return false
+
+            // Clean up tmp/bak artifacts left behind by a previous crashed or interrupted write.
+            dir.listFiles().forEach { f ->
+                val name = f.name ?: return@forEach
+                if (name.startsWith("pending.") && (name.contains(".tmp") || name.contains(".bak"))) {
+                    f.delete()
+                }
             }
-            val out = context.contentResolver.openOutputStream(tmp.uri, "wt")
-            if (out == null) {
-                Log.w("Onda", "writePendingText: openOutputStream returned null"); return
+
+            // Write the new content to a fresh tmp file, keeping the DocumentFile handle the
+            // provider returned — re-finding it by name afterwards is unreliable (providers
+            // mangle extensions).
+            val tmp = dir.createFile("text/csv", "pending.csv.tmp") ?: run {
+                Log.w("Onda", "writePendingText: createFile returned null"); return false
+            }
+            val out = context.contentResolver.openOutputStream(tmp.uri, "wt") ?: run {
+                Log.w("Onda", "writePendingText: openOutputStream returned null")
+                tmp.delete()
+                return false
             }
             out.use { it.write(text.toByteArray()) }
-            dir.findFile("pending.csv")?.delete()
-            DocumentsContract.renameDocument(context.contentResolver, tmp.uri, "pending.csv")
+
+            // Move any existing pending.csv aside before touching it. If that move fails and
+            // pending.csv existed, bail without ever having deleted it.
+            val existing = dir.findFile("pending.csv")
+            var bakUri: Uri? = null
+            if (existing != null) {
+                bakUri = try {
+                    DocumentsContract.renameDocument(context.contentResolver, existing.uri, "pending.csv.bak")
+                } catch (e: Exception) {
+                    Log.w("Onda", "writePendingText: rename to .bak failed", e); null
+                }
+                if (bakUri == null) {
+                    tmp.delete()
+                    return false
+                }
+            }
+
+            // Promote tmp -> pending.csv; roll back the .bak on failure so a later retry still
+            // has the old content to fall back to.
+            val finalUri = try {
+                DocumentsContract.renameDocument(context.contentResolver, tmp.uri, "pending.csv")
+            } catch (e: Exception) {
+                Log.w("Onda", "writePendingText: rename tmp to pending.csv failed", e); null
+            }
+            if (finalUri == null) {
+                if (bakUri != null) {
+                    try {
+                        DocumentsContract.renameDocument(context.contentResolver, bakUri, "pending.csv")
+                    } catch (e: Exception) {
+                        Log.w("Onda", "writePendingText: rollback of .bak failed", e)
+                    }
+                }
+                return false
+            }
+
+            if (bakUri != null) DocumentFile.fromSingleUri(context, bakUri)?.delete()
+            true
         } catch (e: Exception) {
             Log.w("Onda", "writePendingText: failed", e)
+            false
         }
     }
 

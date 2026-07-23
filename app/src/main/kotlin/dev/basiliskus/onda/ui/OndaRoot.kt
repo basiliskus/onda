@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,11 +46,16 @@ fun OndaRoot(graph: AppGraph) {
     val discoverVm: DiscoverViewModel = viewModel { DiscoverViewModel(graph.radioBrowser) }
 
     val nav = rememberNavController()
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        graph.favoritesRepository.errors.collect { message -> snackbarHostState.showSnackbar(message) }
+    }
     val tabs = listOf(
         Tab("playlists", "Playlists", Icons.Filled.LibraryMusic),
         Tab("discover", "Discover", Icons.Filled.TravelExplore),
     )
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             Column {
                 np?.let { MiniPlayer(it, graph.playerConnection::toggle, { showSheet = true }) }

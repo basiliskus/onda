@@ -5,7 +5,9 @@ import dev.basiliskus.onda.core.favorites.PendingStation
 import dev.basiliskus.onda.core.radiobrowser.RbStation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -17,6 +19,8 @@ class FavoritesRepository(
 ) {
     private val _pendingUrls = MutableStateFlow<Set<String>>(emptySet())
     val pendingUrls: StateFlow<Set<String>> = _pendingUrls
+    private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val errors: SharedFlow<String> = _errors
     private val mutex = Mutex()
 
     init {
@@ -27,7 +31,11 @@ class FavoritesRepository(
     fun refresh() {
         scope.launch(Dispatchers.IO) {
             mutex.withLock {
-                val current = playlists.readPendingText()?.let(PendingCsv::parse) ?: emptyList()
+                val text = playlists.readPendingText().getOrElse {
+                    _errors.tryEmit(UNAVAILABLE_MESSAGE)
+                    return@withLock
+                }
+                val current = text?.let(PendingCsv::parse) ?: emptyList()
                 _pendingUrls.value = current.map { it.url }.toSet()
             }
         }
@@ -36,14 +44,26 @@ class FavoritesRepository(
     fun toggle(s: RbStation) {
         scope.launch(Dispatchers.IO) {
             mutex.withLock {
-                val current = playlists.readPendingText()?.let(PendingCsv::parse) ?: emptyList()
+                val text = playlists.readPendingText().getOrElse {
+                    _errors.tryEmit(UNAVAILABLE_MESSAGE)
+                    return@withLock
+                }
+                val current = text?.let(PendingCsv::parse) ?: emptyList()
                 val updated = PendingCsv.toggle(current, PendingStation(
                     name = s.name, url = s.url, icon = s.favicon,
                     stationuuid = s.stationuuid, tags = s.tags, country = s.country, votes = s.votes,
                 ))
-                playlists.writePendingText(PendingCsv.serialize(updated))
+                val wrote = playlists.writePendingText(PendingCsv.serialize(updated))
+                if (!wrote) {
+                    _errors.tryEmit(UNAVAILABLE_MESSAGE)
+                    return@withLock
+                }
                 _pendingUrls.value = updated.map { it.url }.toSet()
             }
         }
+    }
+
+    private companion object {
+        const val UNAVAILABLE_MESSAGE = "Favorites unavailable — synced folder unreachable"
     }
 }
