@@ -53,6 +53,9 @@ class PlaylistRepository(
             }
         })
         registerObserver()
+        // Covers service-only process starts (e.g. Android Auto/media browser connects
+        // before any activity ever resumes) where ProcessLifecycleOwner.onStart never fires.
+        if (prefs.treeUri != null) rescan()
     }
 
     fun setFolder(uri: Uri) {

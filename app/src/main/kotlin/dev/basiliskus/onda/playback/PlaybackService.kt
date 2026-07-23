@@ -25,10 +25,16 @@ import dev.basiliskus.onda.core.model.MediaIds
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.radiobrowser.RadioBrowserClient
 import dev.basiliskus.onda.sync.PlaylistsState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
     private var lastRetriedMediaId: String? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val stationIndex: Map<String, Station>
         get() = ((application as OndaApp).graph.playlistRepository.state.value as? PlaylistsState.Ready)
@@ -84,11 +90,22 @@ class PlaybackService : MediaLibraryService() {
             }
         })
         session = MediaLibrarySession.Builder(this, player, LibraryCallback()).build()
+        // A browser (e.g. Android Auto) can connect and call onGetChildren before the
+        // repository's background rescan finishes — onGetChildren answers from whatever
+        // state is current, so without this a root browsed too early comes back empty and
+        // stays that way. Push a change notification whenever the repository's state moves,
+        // so subscribed browsers re-fetch once playlists are actually loaded.
+        serviceScope.launch {
+            (application as OndaApp).graph.playlistRepository.state.collect {
+                session?.notifyChildrenChanged(MediaIds.ROOT, Int.MAX_VALUE, null)
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = session
 
     override fun onDestroy() {
+        serviceScope.cancel()
         session?.run { player.release(); release() }
         session = null
         super.onDestroy()
