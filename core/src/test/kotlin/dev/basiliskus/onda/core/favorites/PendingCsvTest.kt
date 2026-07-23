@@ -43,6 +43,14 @@ class PendingCsvTest {
         assertEquals(listOf(s.copy(name = "line1 line2")), PendingCsv.parse(out))
     }
 
+    @Test fun `station names starting with hash survive serialize-parse round trip`() {
+        val s = nts.copy(name = "#Musik.Main")
+        val out = PendingCsv.serialize(listOf(s))
+        val dataLines = out.lines().filter { it.isNotEmpty() && !it.startsWith("# name,") }
+        assertEquals(1, dataLines.size)
+        assertEquals(listOf(s), PendingCsv.parse(out))
+    }
+
     @Test fun `parse skips comments blanks and malformed rows`() {
         val text = "# header\n\n# another comment\nonly-three,fields,here\n" +
             PendingCsv.serialize(listOf(nts)).lines()[1]

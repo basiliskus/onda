@@ -49,7 +49,9 @@ object PendingCsv {
         // Embedded newlines would split one logical row across multiple CSV lines — collapse
         // them to a space so serialize() always emits exactly one line per station.
         val sanitized = field.replace("\r\n", " ").replace('\r', ' ').replace('\n', ' ')
-        return if (sanitized.any { it == ',' || it == '"' })
+        // A field starting with # would otherwise look like a comment line to parse()'s
+        // startsWith("#") filter once it's the first column on its own line.
+        return if (sanitized.any { it == ',' || it == '"' } || sanitized.startsWith("#"))
             "\"${sanitized.replace("\"", "\"\"")}\""
         else sanitized
     }
