@@ -36,12 +36,14 @@ class DiscoverViewModel(private val client: RadioBrowserClient) : ViewModel() {
     }
 
     fun openList(kind: String, value: String) {
-        filter = when (kind) {
+        val newFilter = when (kind) {
             "tag" -> StationFilter(tag = value)
             "country" -> StationFilter(countrycode = value)
             "search" -> StationFilter(name = value)
             else -> StationFilter() // top: no filter, votes ordering does the work
         }
+        if (newFilter == filter && _list.value.stations.isNotEmpty()) return
+        filter = newFilter
         _list.value = StationListState(loading = true)
         loadMore(reset = true)
     }

@@ -73,9 +73,9 @@ class PlaylistRepository(
     fun rescan() {
         val tree = prefs.treeUri ?: run { _state.value = PlaylistsState.NeedsFolder; return }
         scope.launch(Dispatchers.IO) {
-            _scanning.value = true
-            try {
-                scanMutex.withLock {
+            scanMutex.withLock {
+                _scanning.value = true
+                try {
                     val files = try {
                         val dir = DocumentFile.fromTreeUri(context, tree)
                         if (dir == null || !dir.canRead()) {
@@ -116,9 +116,9 @@ class PlaylistRepository(
                         // than bouncing the user back to the folder picker.
                         Log.w("Onda", "rescan: unexpected failure, keeping last-good state", e)
                     }
+                } finally {
+                    _scanning.value = false
                 }
-            } finally {
-                _scanning.value = false
             }
         }
     }

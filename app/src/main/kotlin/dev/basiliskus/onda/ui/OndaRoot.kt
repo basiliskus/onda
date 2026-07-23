@@ -98,7 +98,11 @@ fun OndaRoot(graph: AppGraph) {
                 val playlist = ready?.playlists?.firstOrNull { it.name == name }
                 // A playlist can vanish out from under this screen (file deleted/renamed by
                 // sync) — without this, the screen goes blank and strands the user there.
-                LaunchedEffect(playlist == null) { if (playlist == null) nav.popBackStack() }
+                // Only pop once the repository has actually settled on Ready and confirmed
+                // the playlist is gone; while still Loading, ready == null must not read as
+                // "vanished" (that would pop immediately on process-death restore).
+                val vanished = ready != null && playlist == null
+                LaunchedEffect(vanished) { if (vanished) nav.popBackStack() }
                 if (playlist != null) PlaylistDetailScreen(playlist, playingUrl, { nav.popBackStack() }, onPlayStation)
             }
             composable("settings") { SettingsScreen(graph, onBack = { nav.popBackStack() }) }
