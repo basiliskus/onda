@@ -19,6 +19,7 @@ jobs:
           ONDA_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           ONDA_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew :core:test :app:assembleRelease
-      - uses: softprops/action-gh-release@v2
+      - run: rm -f onda-release.keystore
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: app/build/outputs/apk/release/app-release.apk

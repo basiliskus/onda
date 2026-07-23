@@ -121,12 +121,21 @@ class PlaybackService : MediaLibraryService() {
         connectivityManager?.registerDefaultNetworkCallback(networkCallback)
         // A browser (e.g. Android Auto) can connect and call onGetChildren before the
         // repository's background rescan finishes — onGetChildren answers from whatever
-        // state is current, so without this a root browsed too early comes back empty and
-        // stays that way. Push a change notification whenever the repository's state moves,
-        // so subscribed browsers re-fetch once playlists are actually loaded.
+        // state is current, so without this a root (or any already-browsed playlist/group)
+        // fetched too early comes back empty and stays that way. Push a change notification
+        // for every node a browser could currently be subscribed to whenever the
+        // repository's state moves, so it re-fetches once playlists are actually loaded.
         serviceScope.launch {
-            (application as OndaApp).graph.playlistRepository.state.collect {
+            (application as OndaApp).graph.playlistRepository.state.collect { state ->
                 session?.notifyChildrenChanged(MediaIds.ROOT, Int.MAX_VALUE, null)
+                (state as? PlaylistsState.Ready)?.playlists?.forEach { playlist ->
+                    session?.notifyChildrenChanged(MediaIds.playlist(playlist.name), Int.MAX_VALUE, null)
+                    playlist.groups.forEach { group ->
+                        session?.notifyChildrenChanged(
+                            MediaIds.group(playlist.name, group.title), Int.MAX_VALUE, null,
+                        )
+                    }
+                }
             }
         }
     }

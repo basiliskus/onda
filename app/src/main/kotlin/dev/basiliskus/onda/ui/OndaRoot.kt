@@ -82,9 +82,11 @@ fun OndaRoot(graph: AppGraph) {
         NavHost(nav, startDestination = "playlists", modifier = Modifier.padding(padding)) {
             composable("playlists") {
                 val ready = playlistsState as? PlaylistsState.Ready
+                val scanning by graph.playlistRepository.scanning.collectAsState()
                 PlaylistsScreen(
                     playlists = ready?.playlists ?: emptyList(),
-                    onOpen = { nav.navigate("playlists/$it") },
+                    scanning = scanning,
+                    onOpen = { nav.navigate("playlists/${android.net.Uri.encode(it)}") },
                     onSettings = { nav.navigate("settings") },
                     onRefresh = graph.playlistRepository::rescan,
                 )
@@ -98,13 +100,13 @@ fun OndaRoot(graph: AppGraph) {
             composable("settings") { SettingsScreen(graph, onBack = { nav.popBackStack() }) }
             composable("discover") {
                 DiscoverScreen(discoverVm) { kind, value ->
-                    discoverVm.openList(kind, value)
                     nav.navigate("discover/stations/$kind/${android.net.Uri.encode(value)}")
                 }
             }
             composable("discover/stations/{kind}/{value}") { entry ->
                 val kind = entry.arguments?.getString("kind")!!
-                val value = android.net.Uri.decode(entry.arguments?.getString("value")!!)
+                val value = entry.arguments?.getString("value")!!
+                LaunchedEffect(kind, value) { discoverVm.openList(kind, value) }
                 val pendingUrls by graph.favoritesRepository.pendingUrls.collectAsState()
                 StationListScreen(
                     title = if (kind == "top") "Top voted" else value,

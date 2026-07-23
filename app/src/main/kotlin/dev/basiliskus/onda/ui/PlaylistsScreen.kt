@@ -9,22 +9,16 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import dev.basiliskus.onda.core.model.Playlist
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistsScreen(
     playlists: List<Playlist>,
+    scanning: Boolean,
     onOpen: (String) -> Unit,
     onSettings: () -> Unit,
     onRefresh: () -> Unit,
@@ -34,15 +28,9 @@ fun PlaylistsScreen(
             title = { Text("Playlists") },
             actions = { IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, "Settings") } },
         )
-        var refreshing by remember { mutableStateOf(false) }
-        val scope = rememberCoroutineScope()
         PullToRefreshBox(
-            isRefreshing = refreshing,
-            onRefresh = {
-                refreshing = true
-                onRefresh()
-                scope.launch { delay(600); refreshing = false }
-            },
+            isRefreshing = scanning,
+            onRefresh = onRefresh,
         ) {
             LazyColumn {
                 items(playlists, key = { it.name }) { p ->

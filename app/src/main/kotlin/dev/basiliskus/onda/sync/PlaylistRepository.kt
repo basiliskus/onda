@@ -40,6 +40,9 @@ class PlaylistRepository(
     val state: StateFlow<PlaylistsState> = _state
     private var lastHash = 0
     private val scanMutex = Mutex()
+    private val _scanning = MutableStateFlow(false)
+    /** True while a scan holds scanMutex — drives pull-to-refresh's spinner directly. */
+    val scanning: StateFlow<Boolean> = _scanning
     // Content observers don't fire for direct writes on ExternalStorageProvider (probed
     // 2026-07-23) — Synology Drive's writes to the synced folder never trigger one. Hot
     // reload is instead: a rescan on every foreground resume, plus pull-to-refresh.
@@ -70,51 +73,69 @@ class PlaylistRepository(
     fun rescan() {
         val tree = prefs.treeUri ?: run { _state.value = PlaylistsState.NeedsFolder; return }
         scope.launch(Dispatchers.IO) {
-            scanMutex.withLock {
-                val files = try {
-                    val dir = DocumentFile.fromTreeUri(context, tree)
-                    if (dir == null || !dir.canRead()) {
-                        _state.value = PlaylistsState.NeedsFolder; return@withLock
-                    }
-                    dir.listFiles().filter { it.name?.endsWith(".m3u") == true }
-                } catch (e: Exception) {
-                    // Tree itself is unreachable (SAF permission revoked, provider gone, etc.)
-                    // — this is the only case that should knock us back to NeedsFolder.
-                    Log.w("Onda", "rescan: tree unreachable", e)
-                    _state.value = PlaylistsState.NeedsFolder
-                    return@withLock
-                }
-                try {
-                    val texts = files.mapNotNull { f ->
-                        // A file mid-replace by sync (deleted/truncated/locked) shouldn't kill the
-                        // whole scan — skip it; a skipped file changes the content hash naturally
-                        // next scan, so it self-heals once sync settles.
-                        try {
-                            val name = f.name!!.removeSuffix(".m3u")
-                            context.contentResolver.openInputStream(f.uri)?.use { ins ->
-                                name to ins.reader().readText()
-                            }
-                        } catch (e: IOException) {
-                            Log.w("Onda", "rescan: skipping unreadable file ${f.name}", e)
-                            null
-                        } catch (e: SecurityException) {
-                            Log.w("Onda", "rescan: skipping unreadable file ${f.name}", e)
-                            null
+            _scanning.value = true
+            try {
+                scanMutex.withLock {
+                    val files = try {
+                        val dir = DocumentFile.fromTreeUri(context, tree)
+                        if (dir == null || !dir.canRead()) {
+                            onTreeUnreadable(tree, "dir null or unreadable"); return@withLock
                         }
+                        dir.listFiles().filter { it.name?.endsWith(".m3u") == true }
+                    } catch (e: Exception) {
+                        onTreeUnreadable(tree, "threw", e)
+                        return@withLock
                     }
-                    val hash = texts.hashCode()
-                    if (hash == lastHash && _state.value is PlaylistsState.Ready) return@withLock
-                    lastHash = hash
-                    val playlists = texts.map { (name, text) -> M3uParser.parsePlaylist(name, text) }
-                        .sortedWith(compareBy({ knownOrder.indexOf(it.name).let { i -> if (i == -1) knownOrder.size else i } }, { it.name }))
-                    _state.value = PlaylistsState.Ready(playlists)
-                } catch (e: Exception) {
-                    // Unexpected failure past the tree-access check (e.g. a parse bug) — the
-                    // tree itself is fine, so keep whatever last-good Ready state we had rather
-                    // than bouncing the user back to the folder picker.
-                    Log.w("Onda", "rescan: unexpected failure, keeping last-good state", e)
+                    try {
+                        val texts = files.mapNotNull { f ->
+                            // A file mid-replace by sync (deleted/truncated/locked) shouldn't kill the
+                            // whole scan — skip it; a skipped file changes the content hash naturally
+                            // next scan, so it self-heals once sync settles.
+                            try {
+                                val name = f.name!!.removeSuffix(".m3u")
+                                context.contentResolver.openInputStream(f.uri)?.use { ins ->
+                                    name to ins.reader().readText()
+                                }
+                            } catch (e: IOException) {
+                                Log.w("Onda", "rescan: skipping unreadable file ${f.name}", e)
+                                null
+                            } catch (e: SecurityException) {
+                                Log.w("Onda", "rescan: skipping unreadable file ${f.name}", e)
+                                null
+                            }
+                        }
+                        val hash = texts.hashCode()
+                        if (hash == lastHash && _state.value is PlaylistsState.Ready) return@withLock
+                        lastHash = hash
+                        val playlists = texts.map { (name, text) -> M3uParser.parsePlaylist(name, text) }
+                            .sortedWith(compareBy({ knownOrder.indexOf(it.name).let { i -> if (i == -1) knownOrder.size else i } }, { it.name }))
+                        _state.value = PlaylistsState.Ready(playlists)
+                    } catch (e: Exception) {
+                        // Unexpected failure past the tree-access check (e.g. a parse bug) — the
+                        // tree itself is fine, so keep whatever last-good Ready state we had rather
+                        // than bouncing the user back to the folder picker.
+                        Log.w("Onda", "rescan: unexpected failure, keeping last-good state", e)
+                    }
                 }
+            } finally {
+                _scanning.value = false
             }
+        }
+    }
+
+    /**
+     * The tree failed to open or list just now. That alone doesn't mean the SAF grant is
+     * gone — Synology Drive can make the provider transiently unavailable mid-sync. Only
+     * bounce to NeedsFolder if we've actually lost the persisted permission; otherwise keep
+     * whatever state we had and let the next rescan retry.
+     */
+    private fun onTreeUnreadable(tree: Uri, reason: String, e: Exception? = null) {
+        val stillGranted = context.contentResolver.persistedUriPermissions.any { it.uri == tree }
+        if (stillGranted) {
+            Log.w("Onda", "rescan: tree transiently unreadable ($reason), keeping last state", e)
+        } else {
+            Log.w("Onda", "rescan: tree permission gone ($reason)", e)
+            _state.value = PlaylistsState.NeedsFolder
         }
     }
 
