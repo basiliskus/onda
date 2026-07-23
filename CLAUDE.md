@@ -27,6 +27,14 @@ implementation work.
 - Cherry-pick `mattpocock-skills` `domain-modeling` during design if
   useful. Do not adopt compound-engineering here.
 
+## Git workflow
+
+- Never commit directly to main. All work goes through a branch and a
+  PR with cohesive scope, reviewed and approved by the user before
+  merge.
+- Large PRs are acceptable early in the project; as it matures, PRs
+  are expected to become smaller and more focused.
+
 ## Decisions already made — do not relitigate
 
 - Kotlin + Jetpack Compose + Media3 (`MediaLibraryService` for
