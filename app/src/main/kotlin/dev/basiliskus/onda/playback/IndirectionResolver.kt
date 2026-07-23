@@ -23,11 +23,24 @@ class IndirectionResolver : ResolvingDataSource.Resolver {
     }
 
     private fun fetch(url: String): String? = try {
-        val conn = URL(url).openConnection() as HttpURLConnection
-        conn.connectTimeout = 10_000
-        conn.readTimeout = 10_000
-        conn.instanceFollowRedirects = true
-        conn.setRequestProperty("User-Agent", RadioBrowserClient.USER_AGENT)
-        conn.inputStream.use { String(it.readNBytes(64 * 1024)) }
+        var current = URL(url)
+        var body: String? = null
+        for (hop in 0 until 5) {
+            val conn = current.openConnection() as HttpURLConnection
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 10_000
+            conn.instanceFollowRedirects = false
+            conn.setRequestProperty("User-Agent", RadioBrowserClient.USER_AGENT)
+            val code = conn.responseCode
+            if (code in 300..399) {
+                val loc = conn.getHeaderField("Location") ?: break
+                conn.disconnect()
+                current = URL(current, loc)
+                continue
+            }
+            body = conn.inputStream.use { String(it.readNBytes(64 * 1024)) }
+            break
+        }
+        body
     } catch (_: Exception) { null }
 }
