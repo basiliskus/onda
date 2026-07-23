@@ -16,6 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 sealed interface PlaylistsState {
     data object NeedsFolder : PlaylistsState
@@ -34,6 +36,8 @@ class PlaylistRepository(
     )
     val state: StateFlow<PlaylistsState> = _state
     private var lastHash = 0
+    private val scanMutex = Mutex()
+    private var observer: ContentObserver? = null
 
     init {
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -54,27 +58,30 @@ class PlaylistRepository(
     fun rescan() {
         val tree = prefs.treeUri ?: run { _state.value = PlaylistsState.NeedsFolder; return }
         scope.launch(Dispatchers.IO) {
-            val dir = DocumentFile.fromTreeUri(context, tree)
-            if (dir == null || !dir.canRead()) {
-                _state.value = PlaylistsState.NeedsFolder; return@launch
-            }
-            val texts = dir.listFiles()
-                .filter { it.name?.endsWith(".m3u") == true }
-                .mapNotNull { f ->
-                    val name = f.name!!.removeSuffix(".m3u")
-                    context.contentResolver.openInputStream(f.uri)?.use { ins ->
-                        name to ins.reader().readText()
-                    }
+            scanMutex.withLock {
+                val dir = DocumentFile.fromTreeUri(context, tree)
+                if (dir == null || !dir.canRead()) {
+                    _state.value = PlaylistsState.NeedsFolder; return@withLock
                 }
-            val hash = texts.hashCode()
-            if (hash == lastHash && _state.value is PlaylistsState.Ready) return@launch
-            lastHash = hash
-            val playlists = texts.map { (name, text) -> M3uParser.parsePlaylist(name, text) }
-                .sortedWith(compareBy({ knownOrder.indexOf(it.name).let { i -> if (i == -1) knownOrder.size else i } }, { it.name }))
-            _state.value = PlaylistsState.Ready(playlists)
+                val texts = dir.listFiles()
+                    .filter { it.name?.endsWith(".m3u") == true }
+                    .mapNotNull { f ->
+                        val name = f.name!!.removeSuffix(".m3u")
+                        context.contentResolver.openInputStream(f.uri)?.use { ins ->
+                            name to ins.reader().readText()
+                        }
+                    }
+                val hash = texts.hashCode()
+                if (hash == lastHash && _state.value is PlaylistsState.Ready) return@withLock
+                lastHash = hash
+                val playlists = texts.map { (name, text) -> M3uParser.parsePlaylist(name, text) }
+                    .sortedWith(compareBy({ knownOrder.indexOf(it.name).let { i -> if (i == -1) knownOrder.size else i } }, { it.name }))
+                _state.value = PlaylistsState.Ready(playlists)
+            }
         }
     }
 
+    /** Blocking I/O — call from Dispatchers.IO. */
     fun readPendingText(): String? {
         val tree = prefs.treeUri ?: return null
         val dir = DocumentFile.fromTreeUri(context, tree) ?: return null
@@ -82,6 +89,7 @@ class PlaylistRepository(
         return context.contentResolver.openInputStream(file.uri)?.use { it.reader().readText() }
     }
 
+    /** Blocking I/O — call from Dispatchers.IO. */
     fun writePendingText(text: String) {
         val tree = prefs.treeUri ?: return
         val dir = DocumentFile.fromTreeUri(context, tree) ?: return
@@ -93,13 +101,15 @@ class PlaylistRepository(
     }
 
     private fun registerObserver() {
+        observer?.let { context.contentResolver.unregisterContentObserver(it) }
         val tree = prefs.treeUri ?: return
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
             tree, DocumentsContract.getTreeDocumentId(tree)
         )
-        context.contentResolver.registerContentObserver(childrenUri, true,
-            object : ContentObserver(null) {
-                override fun onChange(selfChange: Boolean) = rescan()
-            })
+        val newObserver = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) = rescan()
+        }
+        observer = newObserver
+        context.contentResolver.registerContentObserver(childrenUri, true, newObserver)
     }
 }
