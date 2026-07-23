@@ -19,6 +19,26 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    signingConfigs {
+        create("release") {
+            val ksPath = System.getenv("ONDA_KEYSTORE")
+            if (ksPath != null) {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("ONDA_KEYSTORE_PASSWORD")
+                keyAlias = "onda"
+                keyPassword = System.getenv("ONDA_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (System.getenv("ONDA_KEYSTORE") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
 }
 dependencies {
     implementation(project(":core"))

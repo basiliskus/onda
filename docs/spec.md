@@ -56,6 +56,14 @@ The user's 205 stations already span every awkward format:
 The dotfiles tools (`stations-to-m3u.py`, `stations-check.py`) are the
 reference implementations for parsing and probing these.
 
+### Learned during MVP build (2026-07-23)
+
+- FIP/Radio France endpoints (`icecast.radiofrance.fr/*`) send no
+  `icy-metaint` — no ICY titles are available from them.
+- The app manifest sets blanket `android:usesCleartextTraffic="true"`
+  because plain-HTTP icecast is common across the station set
+  (user-approved tradeoff).
+
 ## Sizing (from research)
 
 Transistor is ~10k LOC Kotlin (44 files), mostly stream-quirk
