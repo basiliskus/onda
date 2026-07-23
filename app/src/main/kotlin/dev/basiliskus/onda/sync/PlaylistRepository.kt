@@ -2,7 +2,6 @@ package dev.basiliskus.onda.sync
 
 import android.content.Context
 import android.content.Intent
-import android.database.ContentObserver
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Log
@@ -41,7 +40,9 @@ class PlaylistRepository(
     val state: StateFlow<PlaylistsState> = _state
     private var lastHash = 0
     private val scanMutex = Mutex()
-    private var observer: ContentObserver? = null
+    // Content observers don't fire for direct writes on ExternalStorageProvider (probed
+    // 2026-07-23) — Synology Drive's writes to the synced folder never trigger one. Hot
+    // reload is instead: a rescan on every foreground resume, plus pull-to-refresh.
     private val _folderTicks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val folderTicks: SharedFlow<Unit> = _folderTicks
 
@@ -52,7 +53,6 @@ class PlaylistRepository(
                 _folderTicks.tryEmit(Unit)
             }
         })
-        registerObserver()
         // Covers service-only process starts (e.g. Android Auto/media browser connects
         // before any activity ever resumes) where ProcessLifecycleOwner.onStart never fires.
         if (prefs.treeUri != null) rescan()
@@ -63,7 +63,6 @@ class PlaylistRepository(
             uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
         prefs.treeUri = uri
-        registerObserver()
         rescan()
         _folderTicks.tryEmit(Unit)
     }
@@ -214,19 +213,4 @@ class PlaylistRepository(
         }
     }
 
-    private fun registerObserver() {
-        observer?.let { context.contentResolver.unregisterContentObserver(it) }
-        val tree = prefs.treeUri ?: return
-        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
-            tree, DocumentsContract.getTreeDocumentId(tree)
-        )
-        val newObserver = object : ContentObserver(null) {
-            override fun onChange(selfChange: Boolean) {
-                rescan()
-                _folderTicks.tryEmit(Unit)
-            }
-        }
-        observer = newObserver
-        context.contentResolver.registerContentObserver(childrenUri, true, newObserver)
-    }
 }

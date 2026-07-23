@@ -63,6 +63,9 @@ reference implementations for parsing and probing these.
 - The app manifest sets blanket `android:usesCleartextTraffic="true"`
   because plain-HTTP icecast is common across the station set
   (user-approved tradeoff).
+- Connectivity auto-retry is foreground-reliable only: after a
+  playback error Android 12+ blocks background FGS re-promotion and
+  the process may freeze; accepted MVP limitation (2026-07-23).
 
 ## Sizing (from research)
 
