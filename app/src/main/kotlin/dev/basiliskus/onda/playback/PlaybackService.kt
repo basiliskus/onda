@@ -13,8 +13,11 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.metadata.icy.IcyInfo
+import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
+import androidx.media3.session.MediaLibraryService.LibraryParams
 import androidx.media3.session.MediaSession
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.basiliskus.onda.OndaApp
@@ -105,7 +108,39 @@ class PlaybackService : MediaLibraryService() {
             }.toMutableList()
             return Futures.immediateFuture(resolved)
         }
-        // Task 14 adds onGetLibraryRoot / onGetChildren here.
+
+        override fun onGetLibraryRoot(
+            session: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<MediaItem>> =
+            Futures.immediateFuture(LibraryResult.ofItem(browsableItem(MediaIds.ROOT, "Onda"), params))
+
+        override fun onGetChildren(
+            session: MediaLibrarySession, browser: MediaSession.ControllerInfo,
+            parentId: String, page: Int, pageSize: Int, params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+            val playlists = ((application as OndaApp).graph.playlistRepository.state.value as? PlaylistsState.Ready)
+                ?.playlists ?: emptyList()
+            val children: List<MediaItem> = when (val node = MediaIds.parse(parentId)) {
+                is MediaIds.Parsed.Root ->
+                    playlists.map { browsableItem(MediaIds.playlist(it.name), it.name) }
+                is MediaIds.Parsed.PlaylistNode ->
+                    playlists.firstOrNull { it.name == node.playlist }?.groups
+                        ?.map { g -> browsableItem(MediaIds.group(node.playlist, g.title), g.title) } ?: emptyList()
+                is MediaIds.Parsed.GroupNode ->
+                    playlists.firstOrNull { it.name == node.playlist }?.groups
+                        ?.firstOrNull { MediaIds.groupMatches(node, node.playlist, it.title) }?.stations
+                        ?.map { s -> playableItem(MediaIds.station(s), s.name, s.url, s.logo) } ?: emptyList()
+                else -> emptyList()
+            }
+            return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.copyOf(children), params))
+        }
+
+        private fun browsableItem(id: String, title: String): MediaItem =
+            MediaItem.Builder().setMediaId(id).setMediaMetadata(
+                MediaMetadata.Builder().setTitle(title)
+                    .setIsBrowsable(true).setIsPlayable(false)
+                    .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_MIXED).build()
+            ).build()
     }
 
     companion object {
