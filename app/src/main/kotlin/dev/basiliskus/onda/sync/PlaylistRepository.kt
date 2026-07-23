@@ -5,6 +5,7 @@ import android.content.Intent
 import android.database.ContentObserver
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.IOException
 
 sealed interface PlaylistsState {
     data object NeedsFolder : PlaylistsState
@@ -67,45 +69,85 @@ class PlaylistRepository(
         val tree = prefs.treeUri ?: run { _state.value = PlaylistsState.NeedsFolder; return }
         scope.launch(Dispatchers.IO) {
             scanMutex.withLock {
-                val dir = DocumentFile.fromTreeUri(context, tree)
-                if (dir == null || !dir.canRead()) {
-                    _state.value = PlaylistsState.NeedsFolder; return@withLock
+                val files = try {
+                    val dir = DocumentFile.fromTreeUri(context, tree)
+                    if (dir == null || !dir.canRead()) {
+                        _state.value = PlaylistsState.NeedsFolder; return@withLock
+                    }
+                    dir.listFiles().filter { it.name?.endsWith(".m3u") == true }
+                } catch (e: Exception) {
+                    // Tree itself is unreachable (SAF permission revoked, provider gone, etc.)
+                    // — this is the only case that should knock us back to NeedsFolder.
+                    Log.w("Onda", "rescan: tree unreachable", e)
+                    _state.value = PlaylistsState.NeedsFolder
+                    return@withLock
                 }
-                val texts = dir.listFiles()
-                    .filter { it.name?.endsWith(".m3u") == true }
-                    .mapNotNull { f ->
-                        val name = f.name!!.removeSuffix(".m3u")
-                        context.contentResolver.openInputStream(f.uri)?.use { ins ->
-                            name to ins.reader().readText()
+                try {
+                    val texts = files.mapNotNull { f ->
+                        // A file mid-replace by sync (deleted/truncated/locked) shouldn't kill the
+                        // whole scan — skip it; a skipped file changes the content hash naturally
+                        // next scan, so it self-heals once sync settles.
+                        try {
+                            val name = f.name!!.removeSuffix(".m3u")
+                            context.contentResolver.openInputStream(f.uri)?.use { ins ->
+                                name to ins.reader().readText()
+                            }
+                        } catch (e: IOException) {
+                            Log.w("Onda", "rescan: skipping unreadable file ${f.name}", e)
+                            null
+                        } catch (e: SecurityException) {
+                            Log.w("Onda", "rescan: skipping unreadable file ${f.name}", e)
+                            null
                         }
                     }
-                val hash = texts.hashCode()
-                if (hash == lastHash && _state.value is PlaylistsState.Ready) return@withLock
-                lastHash = hash
-                val playlists = texts.map { (name, text) -> M3uParser.parsePlaylist(name, text) }
-                    .sortedWith(compareBy({ knownOrder.indexOf(it.name).let { i -> if (i == -1) knownOrder.size else i } }, { it.name }))
-                _state.value = PlaylistsState.Ready(playlists)
+                    val hash = texts.hashCode()
+                    if (hash == lastHash && _state.value is PlaylistsState.Ready) return@withLock
+                    lastHash = hash
+                    val playlists = texts.map { (name, text) -> M3uParser.parsePlaylist(name, text) }
+                        .sortedWith(compareBy({ knownOrder.indexOf(it.name).let { i -> if (i == -1) knownOrder.size else i } }, { it.name }))
+                    _state.value = PlaylistsState.Ready(playlists)
+                } catch (e: Exception) {
+                    // Unexpected failure past the tree-access check (e.g. a parse bug) — the
+                    // tree itself is fine, so keep whatever last-good Ready state we had rather
+                    // than bouncing the user back to the folder picker.
+                    Log.w("Onda", "rescan: unexpected failure, keeping last-good state", e)
+                }
             }
         }
     }
 
-    /** Blocking I/O — call from Dispatchers.IO. */
+    /** Blocking I/O — call from Dispatchers.IO. Returns null on any failure. */
     fun readPendingText(): String? {
         val tree = prefs.treeUri ?: return null
-        val dir = DocumentFile.fromTreeUri(context, tree) ?: return null
-        val file = dir.findFile("pending.csv") ?: return null
-        return context.contentResolver.openInputStream(file.uri)?.use { it.reader().readText() }
+        return try {
+            val dir = DocumentFile.fromTreeUri(context, tree) ?: return null
+            val file = dir.findFile("pending.csv") ?: return null
+            context.contentResolver.openInputStream(file.uri)?.use { it.reader().readText() }
+        } catch (e: Exception) {
+            Log.w("Onda", "readPendingText: failed", e); null
+        }
     }
 
-    /** Blocking I/O — call from Dispatchers.IO. */
+    /** Blocking I/O — call from Dispatchers.IO. Failures are logged, never thrown. */
     fun writePendingText(text: String) {
         val tree = prefs.treeUri ?: return
-        val dir = DocumentFile.fromTreeUri(context, tree) ?: return
-        val tmp = dir.findFile("pending.csv.tmp")?.also { it.delete() }
-            .let { dir.createFile("text/csv", "pending.csv.tmp")!! }
-        context.contentResolver.openOutputStream(tmp.uri, "wt")!!.use { it.write(text.toByteArray()) }
-        dir.findFile("pending.csv")?.delete()
-        DocumentsContract.renameDocument(context.contentResolver, tmp.uri, "pending.csv")
+        try {
+            val dir = DocumentFile.fromTreeUri(context, tree) ?: return
+            dir.findFile("pending.csv.tmp")?.delete()
+            val tmp = dir.createFile("text/csv", "pending.csv.tmp")
+            if (tmp == null) {
+                Log.w("Onda", "writePendingText: createFile returned null"); return
+            }
+            val out = context.contentResolver.openOutputStream(tmp.uri, "wt")
+            if (out == null) {
+                Log.w("Onda", "writePendingText: openOutputStream returned null"); return
+            }
+            out.use { it.write(text.toByteArray()) }
+            dir.findFile("pending.csv")?.delete()
+            DocumentsContract.renameDocument(context.contentResolver, tmp.uri, "pending.csv")
+        } catch (e: Exception) {
+            Log.w("Onda", "writePendingText: failed", e)
+        }
     }
 
     private fun registerObserver() {
