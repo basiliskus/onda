@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Playback resumption after process death: media-button and system media-resumption
+  starts now replay the last played playlist station (`onPlaybackResumption` +
+  persisted last-played id). Discover-only stations deliberately do not resume.
+
 ## [0.1.0] - 2026-07-23
 
 ### Added
