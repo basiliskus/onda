@@ -159,6 +159,14 @@
           "done": false
         },
         {
+          "action": "algebra-core features (compaction/netting/merge rules): the manual matrix needs one row per algebra rule that composes with a user-visible operation (undo, retry, refresh) — not just one row per gesture",
+          "done": false
+        },
+        {
+          "action": "emulator UI automation: script interactions as atomic chains (full gesture sequence, then end-state verification via files + UI dump); per-step tap-verify loops race sheet animations and snackbar timers",
+          "done": false
+        },
+        {
           "action": "output TESTS_PASSED or TESTS_FAILED",
           "done": false,
           "mandatory": true
