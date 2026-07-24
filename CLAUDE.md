@@ -55,6 +55,12 @@ to the phone. The app watches that synced folder and hot-reloads —
 importing is not a concept. Six playlists today: stations, nts, fip,
 bbc, public-radio, radio-garden (~205 stations).
 
+Phone-side edits flow back through `ops.jsonl` in the same folder
+(identity-anchored add/delete/move ops; optimistic overlay until the
+desktop merge script consumes-and-clears; the phone owns the journal).
+Replaced `pending.csv` in v0.3.0 (first launch migrates). Contract:
+`docs/superpowers/specs/2026-07-23-ops-journal-design.md`.
+
 <!-- pipeline-config: managed by /pipeline-init -->
 ## Pipeline configuration
 
