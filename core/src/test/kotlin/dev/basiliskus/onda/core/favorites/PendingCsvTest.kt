@@ -3,57 +3,31 @@ package dev.basiliskus.onda.core.favorites
 import kotlin.test.*
 
 class PendingCsvTest {
+    private val ntsRow =
+        "NTS Radio 1,https://stream-relay-geo.ntslive.net/stream,,https://nts.live/favicon.png,,,,,,," +
+            "uuid-1,\"eclectic,london,alternative\",United Kingdom,812"
     private val nts = PendingStation(
         name = "NTS Radio 1", url = "https://stream-relay-geo.ntslive.net/stream",
         icon = "https://nts.live/favicon.png", stationuuid = "uuid-1",
         tags = "eclectic,london,alternative", country = "United Kingdom", votes = 812,
     )
 
-    @Test fun `serialize then parse round-trips`() {
-        val out = PendingCsv.serialize(listOf(nts))
-        assertTrue(out.startsWith("# name,url,encoding,icon,"))
-        assertEquals(listOf(nts), PendingCsv.parse(out))
+    @Test fun `parse maps the 14-field row to name url icon uuid tags country votes`() {
+        assertEquals(listOf(nts), PendingCsv.parse(ntsRow))
     }
 
-    @Test fun `rows have 14 fields with pyradio columns empty except name url icon`() {
-        val row = PendingCsv.serialize(listOf(nts)).lines()[1]
-        // tags field is quoted (contains commas), so count fields via parse of a tag-free station
-        val plain = PendingCsv.serialize(listOf(nts.copy(tags = "t"))).lines()[1]
-        assertEquals(14, plain.split(',').size)
-        assertTrue(row.contains("\"eclectic,london,alternative\""))
+    @Test fun `quoted fields with embedded commas and escaped quotes parse back`() {
+        val row = "\"The \"\"Wave\"\", FM\",http://wave.fm/live,,,,,,,,,,,,0"
+        assertEquals("The \"Wave\", FM", PendingCsv.parse(row).single().name)
     }
 
-    @Test fun `quotes in names are escaped`() {
-        val s = nts.copy(name = "The \"Wave\", FM")
-        assertEquals(listOf(s), PendingCsv.parse(PendingCsv.serialize(listOf(s))))
-    }
-
-    @Test fun `toggle adds when absent removes when present - by url`() {
-        val added = PendingCsv.toggle(emptyList(), nts)
-        assertEquals(listOf(nts), added)
-        val again = PendingCsv.toggle(added, nts.copy(name = "renamed but same url"))
-        assertTrue(again.isEmpty())
-    }
-
-    @Test fun `embedded newlines are sanitized to a single space and stay one row`() {
-        val s = nts.copy(name = "line1\nline2")
-        val out = PendingCsv.serialize(listOf(s))
-        val dataLines = out.lines().filter { it.isNotEmpty() && !it.startsWith("#") }
-        assertEquals(1, dataLines.size)
-        assertEquals(listOf(s.copy(name = "line1 line2")), PendingCsv.parse(out))
-    }
-
-    @Test fun `station names starting with hash survive serialize-parse round trip`() {
-        val s = nts.copy(name = "#Musik.Main")
-        val out = PendingCsv.serialize(listOf(s))
-        val dataLines = out.lines().filter { it.isNotEmpty() && !it.startsWith("# name,") }
-        assertEquals(1, dataLines.size)
-        assertEquals(listOf(s), PendingCsv.parse(out))
+    @Test fun `quoted station names starting with hash are not treated as comments`() {
+        val row = "\"#Musik.Main\",http://musik.example/main,,,,,,,,,,,,0"
+        assertEquals("#Musik.Main", PendingCsv.parse(row).single().name)
     }
 
     @Test fun `parse skips comments blanks and malformed rows`() {
-        val text = "# header\n\n# another comment\nonly-three,fields,here\n" +
-            PendingCsv.serialize(listOf(nts)).lines()[1]
+        val text = "# header\n\n# another comment\nonly-three,fields,here\n$ntsRow\n"
         assertEquals(listOf(nts), PendingCsv.parse(text))
     }
 }

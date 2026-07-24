@@ -49,7 +49,7 @@ fun OndaRoot(graph: AppGraph) {
     val nav = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
-        graph.favoritesRepository.errors.collect { message -> snackbarHostState.showSnackbar(message) }
+        graph.opsRepository.errors.collect { message -> snackbarHostState.showSnackbar(message) }
     }
     val tabs = listOf(
         Tab("playlists", "Playlists", Icons.Filled.LibraryMusic),
@@ -115,7 +115,7 @@ fun OndaRoot(graph: AppGraph) {
                 val kind = entry.arguments?.getString("kind")!!
                 val value = entry.arguments?.getString("value")!!
                 LaunchedEffect(kind, value) { discoverVm.openList(kind, value) }
-                val pendingUrls by graph.favoritesRepository.pendingUrls.collectAsStateWithLifecycle()
+                val starredUrls by graph.opsRepository.starredUrls.collectAsStateWithLifecycle()
                 StationListScreen(
                     title = if (kind == "top") "Top voted" else value,
                     vm = discoverVm,
@@ -123,8 +123,8 @@ fun OndaRoot(graph: AppGraph) {
                     onBack = { nav.popBackStack() },
                     onPlay = graph.playerConnection::playRb,
                     trailing = { s ->
-                        val starred = s.url in pendingUrls
-                        IconButton(onClick = { graph.favoritesRepository.toggle(s) }) {
+                        val starred = s.url in starredUrls
+                        IconButton(onClick = { graph.opsRepository.toggle(s) }) {
                             Icon(
                                 if (starred) Icons.Filled.Star else Icons.Filled.StarBorder,
                                 if (starred) "Remove from pending favorites" else "Add to pending favorites",

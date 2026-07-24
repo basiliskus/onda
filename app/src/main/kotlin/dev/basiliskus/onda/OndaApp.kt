@@ -4,8 +4,8 @@ import android.app.Application
 import android.util.Log
 import dev.basiliskus.onda.core.radiobrowser.RadioBrowserClient
 import dev.basiliskus.onda.playback.PlayerConnection
-import dev.basiliskus.onda.sync.FavoritesRepository
 import dev.basiliskus.onda.sync.FolderPrefs
+import dev.basiliskus.onda.sync.OpsRepository
 import dev.basiliskus.onda.sync.PlaylistRepository
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +25,7 @@ class AppGraph(val app: Application) {
     val folderPrefs: FolderPrefs by lazy { FolderPrefs(app) }
     val playlistRepository: PlaylistRepository by lazy { PlaylistRepository(app, folderPrefs, appScope) }
     val playerConnection: PlayerConnection by lazy { PlayerConnection(app, appScope) }
-    val favoritesRepository: FavoritesRepository by lazy { FavoritesRepository(playlistRepository, appScope) }
+    val opsRepository: OpsRepository by lazy { OpsRepository(playlistRepository, appScope) }
 }
 
 class OndaApp : Application() {
