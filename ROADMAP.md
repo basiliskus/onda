@@ -10,6 +10,7 @@
 | **P3** | android auto polish | No head-unit hint when the folder isn't picked yet (empty tree); Auto pagination ignored (fine at 205 stations) | v0.2.0 |
 | **P3** | pending.csv edge hardening | Multi-line-field parse asymmetry, `pending.csv (1).bak` collision variant in `recoverOrphanedBak`, consumed-entry resurrection window — all logged in PR #3 review | v0.2.0 |
 | **P3** | sleep timer | Deliberately cut from MVP scope; revisit on demand | v0.2.0 |
+| **P2** | playlist editing round-trip | Phone-side add/delete/move-between-groups via an ops.jsonl journal replacing pending.csv; optimistic overlay; desktop merge closes the loop. Design: `docs/superpowers/specs/2026-07-23-ops-journal-design.md` | v0.3.0 |
 
 ## Milestones
 
@@ -47,6 +48,18 @@ review nits, on the record)
 **sleep timer**
 Stop playback after N minutes; coroutine delay + `player.stop()` plus a Now Playing
 sheet control. Cut from MVP scope 2026-07-23; build when actually missed.
+
+### Milestone: v0.3.0 — Playlist editing round-trip
+
+**playlist editing round-trip**
+Ops journal per `docs/superpowers/specs/2026-07-23-ops-journal-design.md`:
+`OpsJournal` + `applyOps` overlay in :core, `OpsRepository` evolving
+`FavoritesRepository`, swipe-to-delete with undo snackbar, long-press move-to-group
+sheet, targeted adds from Discover, `ops.jsonl` replacing `pending.csv` with
+first-launch migration, contract docs updated in `docs/spec.md`. Desktop half
+(`stations-merge-ops.py` + watcher) is a parallel dotfiles-repo deliverable —
+coordinate landing. All journal/overlay logic tested in :core against the real
+playlist fixtures.
 
 ## Completed
 
