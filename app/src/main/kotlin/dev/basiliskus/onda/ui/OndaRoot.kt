@@ -17,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -29,6 +30,7 @@ import dev.basiliskus.onda.sync.PlaylistsState
 import dev.basiliskus.onda.ui.discover.DiscoverScreen
 import dev.basiliskus.onda.ui.discover.DiscoverViewModel
 import dev.basiliskus.onda.ui.discover.StationListScreen
+import kotlinx.coroutines.launch
 
 private data class Tab(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
@@ -50,6 +52,18 @@ fun OndaRoot(graph: AppGraph) {
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
         graph.opsRepository.errors.collect { message -> snackbarHostState.showSnackbar(message) }
+    }
+    val uiScope = rememberCoroutineScope()
+    val onDeleteStation: (Station) -> Unit = { s ->
+        // delete() hands back the op id synchronously, so the snackbar can show
+        // immediately and Undo works regardless of when the journal write lands.
+        val opId = graph.opsRepository.delete(s)
+        uiScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                "Removed ${s.name}", actionLabel = "Undo", duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) graph.opsRepository.removeOp(opId)
+        }
     }
     val tabs = listOf(
         Tab("playlists", "Playlists", Icons.Filled.LibraryMusic),
@@ -103,7 +117,9 @@ fun OndaRoot(graph: AppGraph) {
                 // "vanished" (that would pop immediately on process-death restore).
                 val vanished = ready != null && playlist == null
                 LaunchedEffect(vanished) { if (vanished) nav.popBackStack() }
-                if (playlist != null) PlaylistDetailScreen(playlist, playingUrl, { nav.popBackStack() }, onPlayStation)
+                if (playlist != null) {
+                    PlaylistDetailScreen(playlist, playingUrl, { nav.popBackStack() }, onPlayStation, onDeleteStation)
+                }
             }
             composable("settings") { SettingsScreen(graph, onBack = { nav.popBackStack() }) }
             composable("discover") {

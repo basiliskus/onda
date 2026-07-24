@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
@@ -23,6 +24,7 @@ fun StationRow(
     logoUrl: String?,
     isPlaying: Boolean,
     onClick: () -> Unit,
+    pending: Boolean = false,
     trailing: @Composable () -> Unit = {},
 ) {
     ListItem(
@@ -32,6 +34,7 @@ fun StationRow(
             Text(
                 name,
                 fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Normal,
+                fontStyle = if (pending) FontStyle.Italic else FontStyle.Normal,
                 color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             )
         },
