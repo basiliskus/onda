@@ -172,7 +172,7 @@ fun OndaRoot(graph: AppGraph) {
                         ) {
                             Icon(
                                 if (starred) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                if (starred) "Remove from pending favorites" else "Add to pending favorites",
+                                if (starred) "Unstar station" else "Star station",
                                 tint = if (starred) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }

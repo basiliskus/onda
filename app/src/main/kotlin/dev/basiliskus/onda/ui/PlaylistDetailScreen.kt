@@ -71,7 +71,7 @@ fun PlaylistDetailScreen(
         GroupPickerSheet(
             title = "Move to group",
             options = playlist.groups.map { it.title },
-            onPick = { group -> movingStation = null; onMoveStation(s, group) },
+            onPick = { group -> movingStation = null; if (group != s.group) onMoveStation(s, group) },
             onDismiss = { movingStation = null },
             newOptionLabel = "New group",
         )

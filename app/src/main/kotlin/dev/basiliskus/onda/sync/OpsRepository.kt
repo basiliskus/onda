@@ -33,9 +33,13 @@ class OpsRepository(
     private val scope: CoroutineScope,
 ) {
     private val _ops = MutableStateFlow<List<Op>>(emptyList())
-    /** Urls with an unconsumed add op (quick or targeted) — drives the Discover star. */
+    /** Urls with an unconsumed quick-star add (playlist == null) — drives the Discover
+     *  star. Targeted adds neither light the star nor respond to it; they surface as
+     *  pending rows in the playlist UI instead. */
     val starredUrls: StateFlow<Set<String>> = _ops
-        .map { ops -> ops.filterIsInstance<Op.Add>().map { it.station.url }.toSet() }
+        .map { ops ->
+            ops.filterIsInstance<Op.Add>().filter { it.playlist == null }.map { it.station.url }.toSet()
+        }
         .stateIn(scope, SharingStarted.Eagerly, emptySet())
     /**
      * THE derived flow — raw playlists with the compacted journal overlaid. Every
@@ -57,8 +61,10 @@ class OpsRepository(
     /**
      * Opaque handle returned by [delete] for [undo]. Compaction can consume the delete op
      * itself (deleting a pending add, or a just-moved row), so undo is snapshot-based: the
-     * token captures the pre-delete ops list plus the generation the delete committed at,
-     * and any later journal change (mutation, refresh, migration) voids it.
+     * token captures the pre-delete ops list plus the generation of the delete's optimistic
+     * update, and any later journal change (mutation, refresh, migration) voids it — a
+     * failed write's rollback bumps the generation too, so a rolled-back delete auto-voids
+     * its token.
      */
     class UndoToken internal constructor() {
         internal var snapshot: List<Op>? = null
@@ -89,8 +95,8 @@ class OpsRepository(
 
     fun toggle(s: RbStation) {
         mutate { ops ->
-            if (ops.any { it is Op.Add && it.station.url == s.url })
-                ops.filterNot { it is Op.Add && it.station.url == s.url }
+            if (ops.any { it is Op.Add && it.playlist == null && it.station.url == s.url })
+                ops.filterNot { it is Op.Add && it.playlist == null && it.station.url == s.url }
             else ops + Op.Add(newId(), now(), opStation(s))
         }
     }
@@ -100,10 +106,11 @@ class OpsRepository(
     }
 
     /** Returns an [UndoToken] synchronously so the caller can offer Undo via [undo];
-     *  the token is armed once the delete commits (a rolled-back write leaves it inert). */
+     *  the token arms with the delete's optimistic update (see [mutate]), so undo works
+     *  as soon as the UI reflects the delete; a rolled-back write auto-voids it. */
     fun delete(station: Station): UndoToken {
         val token = UndoToken()
-        mutate(onCommit = { before, gen -> token.snapshot = before; token.generation = gen }) {
+        mutate(armUndo = token) {
             it + Op.Delete(newId(), now(), url = station.url, playlist = station.playlist)
         }
         return token
@@ -131,7 +138,7 @@ class OpsRepository(
     }
 
     private fun mutate(
-        onCommit: ((before: List<Op>, generation: Long) -> Unit)? = null,
+        armUndo: UndoToken? = null,
         transform: (List<Op>) -> List<Op>,
     ) {
         scope.launch(Dispatchers.IO) {
@@ -142,11 +149,15 @@ class OpsRepository(
                 // write lands; rolled back on write failure so the UI never sticks in a
                 // state the journal doesn't back.
                 setOps(updated)
+                // Arm undo now, at optimistic-update time (snapshot = pre-mutation ops,
+                // generation = the post-bump value), not after the write: this closes the
+                // window where a fast Undo tap landed before the write finished and found
+                // an unarmed token. Safe because a failed write's rollback setOps bumps
+                // the generation again, auto-voiding the token.
+                armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)
                     _errors.tryEmit(UNAVAILABLE_MESSAGE)
-                } else {
-                    onCommit?.invoke(before, generation)
                 }
             }
         }
