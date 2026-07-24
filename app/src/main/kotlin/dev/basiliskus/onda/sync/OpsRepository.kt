@@ -33,7 +33,6 @@ class OpsRepository(
     private val scope: CoroutineScope,
 ) {
     private val _ops = MutableStateFlow<List<Op>>(emptyList())
-    val ops: StateFlow<List<Op>> = _ops
     /** Urls with an unconsumed add op (quick or targeted) — drives the Discover star. */
     val starredUrls: StateFlow<Set<String>> = _ops
         .map { ops -> ops.filterIsInstance<Op.Add>().map { it.station.url }.toSet() }
@@ -52,6 +51,19 @@ class OpsRepository(
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val errors: SharedFlow<String> = _errors
     private val mutex = Mutex()
+    /** Bumped (under [mutex]) on every _ops change; guards [UndoToken] validity. */
+    private var generation = 0L
+
+    /**
+     * Opaque handle returned by [delete] for [undo]. Compaction can consume the delete op
+     * itself (deleting a pending add, or a just-moved row), so undo is snapshot-based: the
+     * token captures the pre-delete ops list plus the generation the delete committed at,
+     * and any later journal change (mutation, refresh, migration) voids it.
+     */
+    class UndoToken internal constructor() {
+        internal var snapshot: List<Op>? = null
+        internal var generation = -1L
+    }
 
     init {
         refresh()
@@ -70,7 +82,7 @@ class OpsRepository(
                 if (parsed != null && parsed.malformed > 0) {
                     _errors.tryEmit("Skipped ${parsed.malformed} malformed journal line(s)")
                 }
-                _ops.value = OpsJournal.compact(parsed?.ops ?: emptyList())
+                setOps(OpsJournal.compact(parsed?.ops ?: emptyList()))
             }
         }
     }
@@ -87,24 +99,41 @@ class OpsRepository(
         mutate { it + Op.Add(newId(), now(), opStation(s), playlist = playlist, group = group) }
     }
 
-    /** Returns the delete op's id synchronously so the caller can offer Undo via [removeOp]. */
-    fun delete(station: Station): String {
-        val id = newId()
-        mutate { it + Op.Delete(id, now(), url = station.url, playlist = station.playlist) }
-        return id
+    /** Returns an [UndoToken] synchronously so the caller can offer Undo via [undo];
+     *  the token is armed once the delete commits (a rolled-back write leaves it inert). */
+    fun delete(station: Station): UndoToken {
+        val token = UndoToken()
+        mutate(onCommit = { before, gen -> token.snapshot = before; token.generation = gen }) {
+            it + Op.Delete(newId(), now(), url = station.url, playlist = station.playlist)
+        }
+        return token
     }
 
     fun move(station: Station, toGroup: String) {
         mutate { it + Op.Move(newId(), now(), url = station.url, playlist = station.playlist, toGroup = toGroup) }
     }
 
-    /** Undo / un-star primitive: the op never happened. Unknown id (e.g. after a rolled-back
-     *  write) leaves the list unchanged — the identical rewrite is harmless. */
-    fun removeOp(id: String) {
-        mutate { OpsJournal.removeOp(it, id) }
+    /** Restores the pre-delete snapshot iff no journal change intervened since [delete]
+     *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops. */
+    fun undo(token: UndoToken) {
+        scope.launch(Dispatchers.IO) {
+            mutex.withLock {
+                val snapshot = token.snapshot ?: return@withLock
+                if (token.generation != generation) return@withLock
+                val before = _ops.value
+                setOps(snapshot)
+                if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(snapshot))) {
+                    setOps(before)
+                    _errors.tryEmit(UNAVAILABLE_MESSAGE)
+                }
+            }
+        }
     }
 
-    private fun mutate(transform: (List<Op>) -> List<Op>) {
+    private fun mutate(
+        onCommit: ((before: List<Op>, generation: Long) -> Unit)? = null,
+        transform: (List<Op>) -> List<Op>,
+    ) {
         scope.launch(Dispatchers.IO) {
             mutex.withLock {
                 val before = _ops.value
@@ -112,13 +141,21 @@ class OpsRepository(
                 // Optimistic: _ops (and everything derived from it) updates before the SAF
                 // write lands; rolled back on write failure so the UI never sticks in a
                 // state the journal doesn't back.
-                _ops.value = updated
+                setOps(updated)
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
-                    _ops.value = before
+                    setOps(before)
                     _errors.tryEmit(UNAVAILABLE_MESSAGE)
+                } else {
+                    onCommit?.invoke(before, generation)
                 }
             }
         }
+    }
+
+    /** Sole writer of _ops — every change bumps [generation]. Call only under [mutex]. */
+    private fun setOps(value: List<Op>) {
+        generation++
+        _ops.value = value
     }
 
     /**

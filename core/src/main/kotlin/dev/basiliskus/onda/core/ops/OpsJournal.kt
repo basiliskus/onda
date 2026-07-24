@@ -30,8 +30,6 @@ object OpsJournal {
     fun serialize(ops: List<Op>): String =
         ops.joinToString("") { json.encodeToString(Op.serializer(), it) + "\n" }
 
-    fun removeOp(ops: List<Op>, id: String): List<Op> = ops.filterNot { it.id == id }
-
     fun compact(ops: List<Op>): List<Op> {
         val residues = LinkedHashMap<Pair<String, String?>, MutableList<Op>>()
         for (op in ops) {

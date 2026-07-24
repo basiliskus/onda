@@ -45,7 +45,8 @@ class PlaylistRepository(
     val scanning: StateFlow<Boolean> = _scanning
     // Content observers don't fire for direct writes on ExternalStorageProvider (probed
     // 2026-07-23) — Synology Drive's writes to the synced folder never trigger one. Hot
-    // reload is instead: a rescan on every foreground resume, plus pull-to-refresh.
+    // reload is instead: a rescan on every foreground resume, plus pull-to-refresh. Every
+    // completed rescan emits a tick so journal readers re-read the folder too.
     private val _folderTicks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val folderTicks: SharedFlow<Unit> = _folderTicks
 
@@ -53,7 +54,6 @@ class PlaylistRepository(
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 rescan()
-                _folderTicks.tryEmit(Unit)
             }
         })
         // Covers service-only process starts (e.g. Android Auto/media browser connects
@@ -67,7 +67,6 @@ class PlaylistRepository(
         )
         prefs.treeUri = uri
         rescan()
-        _folderTicks.tryEmit(Unit)
     }
 
     fun rescan() {
@@ -120,6 +119,9 @@ class PlaylistRepository(
                     _scanning.value = false
                 }
             }
+            // After the scan settles (even a failed or no-op one): journal readers only
+            // read ops.jsonl on a tick, never trigger a scan, so no feedback loop.
+            _folderTicks.tryEmit(Unit)
         }
     }
 

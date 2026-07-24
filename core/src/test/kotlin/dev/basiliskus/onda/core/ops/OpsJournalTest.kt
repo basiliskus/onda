@@ -85,9 +85,4 @@ class OpsJournalTest {
             assertEquals(0, result.malformed)
         }
     }
-
-    @Test fun `removeOp filters the op with that id and nothing else`() {
-        assertEquals(listOf<Op>(add, move), OpsJournal.removeOp(listOf(add, delete, move), "d1"))
-        assertEquals(listOf<Op>(add), OpsJournal.removeOp(listOf(add), "no-such-id"))
-    }
 }

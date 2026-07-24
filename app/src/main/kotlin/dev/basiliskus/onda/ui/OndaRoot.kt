@@ -64,14 +64,15 @@ fun OndaRoot(graph: AppGraph) {
     }
     val uiScope = rememberCoroutineScope()
     val onDeleteStation: (Station) -> Unit = { s ->
-        // delete() hands back the op id synchronously, so the snackbar can show
-        // immediately and Undo works regardless of when the journal write lands.
-        val opId = graph.opsRepository.delete(s)
+        // delete() hands back an undo token synchronously, so the snackbar can show
+        // immediately; undo() restores the pre-delete journal snapshot (and no-ops if a
+        // later journal change already voided it).
+        val undoToken = graph.opsRepository.delete(s)
         uiScope.launch {
             val result = snackbarHostState.showSnackbar(
                 "Removed ${s.name}", actionLabel = "Undo", duration = SnackbarDuration.Short,
             )
-            if (result == SnackbarResult.ActionPerformed) graph.opsRepository.removeOp(opId)
+            if (result == SnackbarResult.ActionPerformed) graph.opsRepository.undo(undoToken)
         }
     }
     val tabs = listOf(
