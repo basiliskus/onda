@@ -8,16 +8,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
+private const val TOP_INDEX = 2
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(vm: DiscoverViewModel, onOpenList: (kind: String, value: String) -> Unit) {
     LaunchedEffect(Unit) { vm.loadBrowseLists() }
     var query by remember { mutableStateOf("") }
-    var mode by remember { mutableIntStateOf(0) }
+    var mode by rememberSaveable { mutableIntStateOf(0) }
     val tags by vm.tags.collectAsStateWithLifecycle()
     val countries by vm.countries.collectAsStateWithLifecycle()
     val browseError by vm.browseError.collectAsStateWithLifecycle()
@@ -37,13 +40,19 @@ fun DiscoverScreen(vm: DiscoverViewModel, onOpenList: (kind: String, value: Stri
         SingleChoiceSegmentedButtonRow(Modifier.padding(horizontal = 16.dp)) {
             listOf("Tags", "Countries", "Top voted").forEachIndexed { i, label ->
                 SegmentedButton(
-                    selected = mode == i, onClick = { mode = i },
+                    selected = mode == i, onClick = { mode = i; if (i == TOP_INDEX) onOpenList("top", "-") },
                     shape = SegmentedButtonDefaults.itemShape(i, 3),
                 ) { Text(label) }
             }
         }
         browseError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
         when (mode) {
+            // Navigation happens in the segment's onClick; a restored Top
+            // selection must render content, not re-navigate from composition.
+            TOP_INDEX -> ListItem(
+                modifier = Modifier.clickable { onOpenList("top", "-") },
+                headlineContent = { Text("Top voted stations") },
+            )
             0 -> LazyColumn {
                 items(tags.orEmpty(), key = { it.name }) { t ->
                     ListItem(
@@ -62,7 +71,6 @@ fun DiscoverScreen(vm: DiscoverViewModel, onOpenList: (kind: String, value: Stri
                     )
                 }
             }
-            else -> LaunchedEffect(mode) { onOpenList("top", "-") }
         }
     }
 }

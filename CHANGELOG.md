@@ -14,6 +14,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   `versionName` (before any build work or keystore decode), and CI now builds
   `main` after every merge.
 
+### Fixed
+
+- Discover: the "radio-browser unreachable" banner now clears once both browse
+  lists load after a retry, and the Tags/Countries/Top selection survives
+  back-navigation (Top no longer auto-reopens its list when restored).
+
 ## [0.1.0] - 2026-07-23
 
 ### Added
