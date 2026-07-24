@@ -12,7 +12,7 @@ issue or be explicitly closed with a reason.
 | 3 | Persist Discover search text (`query` rememberSaveable) | PR #8 | #11 | Open | Polish pass |
 | 4 | Stations route missing `launchSingleTop` | PR #8 | #12 | Open | Pre-existing 🔵 |
 | 5 | Browse fetches catch only `IOException` | PR #8 | #13 | Open | Pre-existing 🔵; `SerializationException` would crash |
-| 6 | Confirm tag↔versionName guard ran when v0.2.0 is tagged | PR #7 | — | Open | One-time release-step; note added to `docs/smoke-checklist.md` |
+| 6 | Confirm tag↔versionName guard ran when v0.2.0 is tagged | PR #7 | — | Closed | Guard ran green on the v0.2.0 tag (run 30107921024, step "Verify tag matches versionName": success) |
 
 ## v0.2.0 — Daily-driver polish (PRs #6–#8)
 
