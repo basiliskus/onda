@@ -26,18 +26,33 @@ class DiscoverViewModel(private val client: RadioBrowserClient) : ViewModel() {
     val list: StateFlow<StationListState> = _list
     private var filter = StationFilter()
 
+    // In-flight guards: re-entering the screen mid-fetch must not launch a
+    // duplicate whose late failure could set a banner no retry would clear.
+    private var tagsLoading = false
+    private var countriesLoading = false
+
     fun loadBrowseLists() {
-        if (tags.value == null) viewModelScope.launch {
-            try {
-                tags.value = client.topTags()
-                clearBrowseErrorIfLoaded()
-            } catch (e: IOException) { browseError.value = "radio-browser unreachable" }
+        if (tags.value == null && !tagsLoading) {
+            tagsLoading = true
+            viewModelScope.launch {
+                try {
+                    tags.value = client.topTags()
+                    clearBrowseErrorIfLoaded()
+                } catch (e: IOException) {
+                    browseError.value = "radio-browser unreachable"
+                } finally { tagsLoading = false }
+            }
         }
-        if (countries.value == null) viewModelScope.launch {
-            try {
-                countries.value = client.countries()
-                clearBrowseErrorIfLoaded()
-            } catch (e: IOException) { browseError.value = "radio-browser unreachable" }
+        if (countries.value == null && !countriesLoading) {
+            countriesLoading = true
+            viewModelScope.launch {
+                try {
+                    countries.value = client.countries()
+                    clearBrowseErrorIfLoaded()
+                } catch (e: IOException) {
+                    browseError.value = "radio-browser unreachable"
+                } finally { countriesLoading = false }
+            }
         }
     }
 
