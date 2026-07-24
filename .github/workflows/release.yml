@@ -8,6 +8,14 @@ jobs:
     permissions: { contents: write }
     steps:
       - uses: actions/checkout@v4
+      - name: Verify tag matches versionName
+        run: |
+          VERSION=$(sed -n 's/^[[:space:]]*versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag v$TAG does not match versionName $VERSION in app/build.gradle.kts"
+            exit 1
+          fi
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
