@@ -61,11 +61,19 @@ conditional-clear semantics.
   actually missed.
 - Song capture (candidate v0.4.0, brainstorm before scheduling): favorite the
   currently playing track from the ICY `streamTitle` already surfaced in
-  `NowPlaying` — capture raw title + station + timestamp to a synced append-only
-  file the desktop can consume. Open design questions: destination format and
-  desktop consumption, notification/Android Auto capture action, and coverage
-  honesty (no-metadata stations like FIP can't capture). Store raw strings; don't
-  parse "Artist - Title".
+  `NowPlaying`, feeding the EXISTING desktop pipeline (pyradio titles log →
+  `~/Code/Personal/data/music/scripts/pyradio-to-json.py` → catalog). Contract
+  pinned 2026-07-23 from pyradio 0.9.3 source (`log.py`: title + `' (LIKED)'`):
+  Onda appends liked-only lines to a SIBLING file
+  `~/Sync/Radio/recordings/onda-titles.log` (never pyradio's own log — single
+  writer per file) formatted exactly
+  `MMM d (EEE) HH:mm |     <raw streamTitle> (LIKED)` — English locale
+  explicitly (device locale would break the parse), no year in timestamp, four
+  spaces after the pipe, raw title never parsed. Harvester change: read
+  `*-titles.log` glob (one-line edit, data repo). Remaining design questions:
+  capture UI reach (Now Playing sheet button trivial; notification/Android Auto
+  custom action is the real value) and coverage honesty (no-metadata stations
+  like FIP can't capture).
 - Snapshot-reorder op and drag-to-adjacent-group gesture: future candidates noted in
   the ops-journal design.
 - Upstream (dotfiles repo, not this repo): fix shell-escaped URL on `stations.m3u`
