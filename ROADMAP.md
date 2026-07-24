@@ -5,10 +5,12 @@
 | Priority | Feature | Why | Milestone |
 |----------|---------|-----|-----------|
 | **P2** | app-module test harness | :app state machines (async bridge, banner VM, undo/compaction) shipped untested three milestones running; the v0.3.0 🔴 was a five-line test away. Action Tracker #1, GitHub #9 | v0.4.0 |
+| **P2** | song capture | Like the playing track from the Now Playing sheet or the media notification; feeds the existing desktop titles-log → catalog pipeline. Contract pinned 2026-07-23 | v0.4.0 |
+| **P3** | cross-playlist move | "Move to playlist…" in the long-press sheet via the existing delete + targeted-add op pair; closes the only phone-side gap for stations not on radio-browser | v0.4.0 |
 
 ## Milestones
 
-### Milestone: v0.4.0 — Test the platform layer
+### Milestone: v0.4.0 — Harness and capture
 
 **app-module test harness**
 Stand up `app/src/test` (JUnit + kotlinx-coroutines-test + a fake
@@ -20,7 +22,34 @@ in-flight guards — the PR #8 🟡 class), and the resumption wait-and-resolve 
 (extract the :core seam per GitHub #10 or test in place — decide at plan time).
 SAF write-failure rollback becomes testable here (fake repository failure
 injection), retiring the standing matrix skip. (Action Tracker #1, GitHub #9;
-third-occurrence escalation from the v0.3.0 retro.)
+third-occurrence escalation from the v0.3.0 retro.) Runs FIRST in the milestone
+so the two features below get harness coverage from day one.
+
+**song capture**
+Like the currently playing track from the ICY `streamTitle` already surfaced in
+`NowPlaying`. Reach: a like button in the Now Playing sheet AND a custom action on
+the media notification (Android Auto custom action deferred — Future). Disabled
+when no `streamTitle` is available (no-metadata stations like FIP cannot capture —
+shown disabled, never a silent no-op). Appends liked-only lines to a SIBLING file
+`~/Sync/Radio/recordings/onda-titles.log` (never pyradio's own log — single writer
+per file), formatted exactly `MMM d (EEE) HH:mm |     <raw streamTitle> (LIKED)`:
+English locale explicitly (device locale would break the parse), no year in the
+timestamp, four spaces after the pipe, raw title never parsed (contract pinned
+2026-07-23 from pyradio 0.9.3 `log.py`). Capture logic gets harness tests
+(formatter is :core-able; writer uses the synced-file choreography). Cross-repo:
+the data-repo harvester needs its one-line `*-titles.log` glob change — hand off
+when this lands.
+
+**cross-playlist move**
+"Move to playlist…" entry in the existing long-press station sheet: playlist
+picker → group picker (existing + free-text, reusing `GroupPickerSheet`), emitting
+the already-supported delete + targeted-add op pair — no new op type, no journal
+contract change, no desktop work (`stations-merge-ops.py` handles both ops
+today). Undo must restore the pair atomically (snapshot undo already covers
+multi-op restoration — verify with a harness test). Playlist-origin stations
+carry empty extras (stationuuid/tags/country/votes) in the add op; the desktop
+drops them anyway. Closes the gap for stations not on radio-browser, which
+currently have no phone-side path between playlists.
 
 ## Completed
 
@@ -48,29 +77,9 @@ third-occurrence escalation from the v0.3.0 retro.)
   head-unit limits. Build when felt.
 - Sleep timer (unscheduled, was v0.2.0): cut from MVP scope 2026-07-23; build when
   actually missed.
-- Song capture (candidate v0.4.0, brainstorm before scheduling): favorite the
-  currently playing track from the ICY `streamTitle` already surfaced in
-  `NowPlaying`, feeding the EXISTING desktop pipeline (pyradio titles log →
-  `~/Code/Personal/data/music/scripts/pyradio-to-json.py` → catalog). Contract
-  pinned 2026-07-23 from pyradio 0.9.3 source (`log.py`: title + `' (LIKED)'`):
-  Onda appends liked-only lines to a SIBLING file
-  `~/Sync/Radio/recordings/onda-titles.log` (never pyradio's own log — single
-  writer per file) formatted exactly
-  `MMM d (EEE) HH:mm |     <raw streamTitle> (LIKED)` — English locale
-  explicitly (device locale would break the parse), no year in timestamp, four
-  spaces after the pipe, raw title never parsed. Harvester change: read
-  `*-titles.log` glob (one-line edit, data repo). Remaining design questions:
-  capture UI reach (Now Playing sheet button trivial; notification/Android Auto
-  custom action is the real value) and coverage honesty (no-metadata stations
-  like FIP can't capture).
-- Move station to a different playlist (candidate, post-v0.4.0): "Move to
-  playlist…" entry in the existing long-press sheet, emitting the already-supported
-  delete + targeted-add op pair — no new op type, no journal contract change, no
-  desktop work (`stations-merge-ops.py` handles both today). Phone UI affordance
-  only; playlist-origin stations carry empty extras (stationuuid/votes) in the add
-  op, which the desktop drops anyway. Undo must restore the pair atomically
-  (snapshot undo already does). Closes the gap for stations not on radio-browser,
-  which currently have no phone-side path between playlists.
+- Android Auto custom action for song capture (deferred from v0.4.0): like a song
+  from the car — the highest-value capture moment; adds Auto custom-action scope
+  and DHU verification. Build after v0.4.0's sheet + notification reach ships.
 - Snapshot-reorder op and drag-to-adjacent-group gesture: future candidates noted in
   the ops-journal design. Note from the v0.3.0 retro: any new op type must design
   undo with snapshot semantics — id-references die under compaction.
