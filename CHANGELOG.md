@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-24
+
 ### Added
 
 - Playlist editing round-trip: swipe-to-delete with undo, long-press move-to-group
