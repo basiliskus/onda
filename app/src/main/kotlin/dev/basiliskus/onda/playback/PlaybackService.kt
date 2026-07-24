@@ -65,7 +65,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private val stationIndex: Map<String, Station>
-        get() = ((application as OndaApp).graph.playlistRepository.state.value as? PlaylistsState.Ready)
+        get() = ((application as OndaApp).graph.opsRepository.effectivePlaylists.value as? PlaylistsState.Ready)
             ?.let { MediaIds.stationIndex(it.playlists) } ?: emptyMap()
 
     @UnstableApi
@@ -132,7 +132,7 @@ class PlaybackService : MediaLibraryService() {
         // for every node a browser could currently be subscribed to whenever the
         // repository's state moves, so it re-fetches once playlists are actually loaded.
         serviceScope.launch {
-            (application as OndaApp).graph.playlistRepository.state.collect { state ->
+            (application as OndaApp).graph.opsRepository.effectivePlaylists.collect { state ->
                 session?.notifyChildrenChanged(MediaIds.ROOT, Int.MAX_VALUE, null)
                 (state as? PlaylistsState.Ready)?.playlists?.forEach { playlist ->
                     session?.notifyChildrenChanged(MediaIds.playlist(playlist.name), Int.MAX_VALUE, null)
@@ -181,7 +181,7 @@ class PlaybackService : MediaLibraryService() {
             session: MediaLibrarySession, browser: MediaSession.ControllerInfo,
             parentId: String, page: Int, pageSize: Int, params: LibraryParams?,
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-            val playlists = ((application as OndaApp).graph.playlistRepository.state.value as? PlaylistsState.Ready)
+            val playlists = ((application as OndaApp).graph.opsRepository.effectivePlaylists.value as? PlaylistsState.Ready)
                 ?.playlists ?: emptyList()
             val children: List<MediaItem> = when (val node = MediaIds.parse(parentId)) {
                 is MediaIds.Parsed.Root ->
@@ -211,7 +211,7 @@ class PlaybackService : MediaLibraryService() {
                 // folder or stuck scan fails the future well inside the ~5s
                 // foreground-service/ANR budget.
                 val playlists = withTimeout(3_000) {
-                    graph.playlistRepository.state
+                    graph.opsRepository.effectivePlaylists
                         .first { it !is PlaylistsState.Loading }
                         .let { it as? PlaylistsState.Ready }
                 }?.playlists ?: throw IllegalStateException("playlists unavailable")

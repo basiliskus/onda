@@ -34,7 +34,7 @@ private data class Tab(val route: String, val label: String, val icon: androidx.
 
 @Composable
 fun OndaRoot(graph: AppGraph) {
-    val playlistsState by graph.playlistRepository.state.collectAsStateWithLifecycle()
+    val playlistsState by graph.opsRepository.effectivePlaylists.collectAsStateWithLifecycle()
     if (playlistsState is PlaylistsState.NeedsFolder) {
         OnboardingScreen(onFolderPicked = graph.playlistRepository::setFolder)
         return

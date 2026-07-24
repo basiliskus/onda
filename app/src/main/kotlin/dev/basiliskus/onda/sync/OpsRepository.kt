@@ -5,6 +5,7 @@ import dev.basiliskus.onda.core.ops.LegacyPendingMigration
 import dev.basiliskus.onda.core.ops.Op
 import dev.basiliskus.onda.core.ops.OpStation
 import dev.basiliskus.onda.core.ops.OpsJournal
+import dev.basiliskus.onda.core.ops.applyOps
 import dev.basiliskus.onda.core.radiobrowser.RbStation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -36,6 +38,17 @@ class OpsRepository(
     val starredUrls: StateFlow<Set<String>> = _ops
         .map { ops -> ops.filterIsInstance<Op.Add>().map { it.station.url }.toSet() }
         .stateIn(scope, SharingStarted.Eagerly, emptySet())
+    /**
+     * THE derived flow — raw playlists with the compacted journal overlaid. Every
+     * playlist-content consumer (playlist UI, media session station index, Auto browse
+     * tree, playback resumption) renders from this; raw PlaylistRepository.state remains
+     * only for NeedsFolder/Loading gating and the scanning flag. NeedsFolder/Loading pass
+     * through untouched, so gating semantics are unchanged for consumers of this flow too.
+     */
+    val effectivePlaylists: StateFlow<PlaylistsState> =
+        combine(playlists.state, _ops) { st, opList ->
+            if (st is PlaylistsState.Ready) PlaylistsState.Ready(applyOps(st.playlists, opList)) else st
+        }.stateIn(scope, SharingStarted.Eagerly, playlists.state.value)
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val errors: SharedFlow<String> = _errors
     private val mutex = Mutex()
