@@ -14,7 +14,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,7 +32,10 @@ fun PlaylistDetailScreen(
     onBack: () -> Unit,
     onPlayStation: (Station) -> Unit,
     onDeleteStation: (Station) -> Unit,
+    onMoveStation: (Station, String) -> Unit,
 ) {
+    var actionsFor by remember { mutableStateOf<Station?>(null) }
+    var movingStation by remember { mutableStateOf<Station?>(null) }
     Column {
         TopAppBar(
             title = { Text(playlist.name) },
@@ -48,10 +54,27 @@ fun PlaylistDetailScreen(
                     )
                 }
                 itemsIndexed(group.stations, key = { i, s -> "$i:${group.title}|${s.url}" }) { _, s ->
-                    DismissibleStationRow(s, playingUrl, onPlayStation, onDeleteStation)
+                    DismissibleStationRow(s, playingUrl, onPlayStation, onDeleteStation, onLongPress = { actionsFor = s })
                 }
             }
         }
+    }
+    actionsFor?.let { s ->
+        StationActionsSheet(
+            stationName = s.name,
+            onMove = { actionsFor = null; movingStation = s },
+            onRemove = { actionsFor = null; onDeleteStation(s) },
+            onDismiss = { actionsFor = null },
+        )
+    }
+    movingStation?.let { s ->
+        GroupPickerSheet(
+            title = "Move to group",
+            options = playlist.groups.map { it.title },
+            onPick = { group -> movingStation = null; onMoveStation(s, group) },
+            onDismiss = { movingStation = null },
+            newOptionLabel = "New group",
+        )
     }
 }
 
@@ -61,6 +84,7 @@ private fun DismissibleStationRow(
     playingUrl: String?,
     onPlayStation: (Station) -> Unit,
     onDeleteStation: (Station) -> Unit,
+    onLongPress: () -> Unit,
 ) {
     // Deliberately NOT rememberSwipeToDismissBoxState: that state is saveable, and
     // LazyColumn's saveable state holder would restore the dismissed value when an
@@ -88,6 +112,7 @@ private fun DismissibleStationRow(
             isPlaying = s.url == playingUrl,
             onClick = { onPlayStation(s) },
             pending = s.pending,
+            onLongClick = onLongPress,
         )
     }
 }
