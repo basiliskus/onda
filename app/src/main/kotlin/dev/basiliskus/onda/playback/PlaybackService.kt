@@ -35,7 +35,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
@@ -89,7 +92,10 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(object : Player.Listener {
-            override fun onMediaItemTransition(item: MediaItem?, reason: Int) { lastRetriedMediaId = null }
+            override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+                lastRetriedMediaId = null
+                if (item != null) (application as OndaApp).graph.folderPrefs.lastPlayedMediaId = item.mediaId
+            }
             override fun onPlayerError(error: PlaybackException) {
                 val id = player.currentMediaItem?.mediaId ?: return
                 if (lastRetriedMediaId != id) {
@@ -191,6 +197,32 @@ class PlaybackService : MediaLibraryService() {
             }
             return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.copyOf(children), params))
         }
+
+        @UnstableApi
+        override fun onPlaybackResumption(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> =
+            serviceScope.future {
+                val graph = (application as OndaApp).graph
+                val lastId = graph.folderPrefs.lastPlayedMediaId
+                    ?: throw IllegalStateException("no last played station")
+                // Cold start: wait for the first playlist scan, bounded so a missing
+                // folder or stuck scan fails the future well inside the ~5s
+                // foreground-service/ANR budget.
+                val playlists = withTimeout(3_000) {
+                    graph.playlistRepository.state
+                        .first { it !is PlaylistsState.Loading }
+                        .let { it as? PlaylistsState.Ready }
+                }?.playlists ?: throw IllegalStateException("playlists unavailable")
+                val station = MediaIds.resolveStation(lastId, playlists)
+                    ?: throw IllegalStateException("last played station no longer in playlists")
+                MediaSession.MediaItemsWithStartPosition(
+                    ImmutableList.of(playableItem(MediaIds.station(station), station.name, station.url, station.logo)),
+                    /* startIndex = */ 0,
+                    /* startPositionMs = */ C.TIME_UNSET,
+                )
+            }
 
         private fun browsableItem(id: String, title: String): MediaItem =
             MediaItem.Builder().setMediaId(id).setMediaMetadata(

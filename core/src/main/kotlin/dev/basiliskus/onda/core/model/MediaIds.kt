@@ -17,6 +17,9 @@ object MediaIds {
     fun stationIndex(playlists: List<Playlist>): Map<String, Station> =
         playlists.flatMap { it.stations }.associateBy { station(it) }
 
+    fun resolveStation(lastPlayedId: String?, playlists: List<Playlist>): Station? =
+        lastPlayedId?.let { stationIndex(playlists)[it] }
+
     sealed interface Parsed {
         data object Root : Parsed
         data class PlaylistNode(val playlist: String) : Parsed

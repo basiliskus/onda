@@ -17,6 +17,24 @@ class MediaIdsTest {
         assertNotNull(MediaIds.stationIndex(listOf(Playlist("p", listOf(Group("a|b", listOf(odd))))))[MediaIds.station(odd)])
     }
 
+    @Test fun `resolveStation finds the persisted station id`() {
+        assertEquals(kexp, MediaIds.resolveStation(MediaIds.station(kexp), playlists))
+    }
+
+    @Test fun `resolveStation returns null for null id`() {
+        assertNull(MediaIds.resolveStation(null, playlists))
+    }
+
+    @Test fun `resolveStation returns null for stale id`() {
+        val removed = kexp.copy(name = "Gone FM", url = "https://gone.example/stream")
+        assertNull(MediaIds.resolveStation(MediaIds.station(removed), playlists))
+    }
+
+    @Test fun `resolveStation returns null for rb and non-station ids`() {
+        assertNull(MediaIds.resolveStation(MediaIds.rb("abc-123"), playlists))
+        assertNull(MediaIds.resolveStation("garbage", playlists))
+    }
+
     @Test fun `parse round-trips each node type`() {
         assertEquals(MediaIds.Parsed.Root, MediaIds.parse(MediaIds.ROOT))
         assertEquals(MediaIds.Parsed.PlaylistNode("nts"), MediaIds.parse(MediaIds.playlist("nts")))

@@ -16,3 +16,4 @@ Run on a real phone before tagging. One station per quirk class.
 | 10 | Android Auto | browse root → playlist → group → play | works on head unit/DHU |
 | 11 | Rotation + dark mode | rotate; toggle system theme | no state loss, Latte↔Frappé |
 | 12 | Kill + notification | swipe app away while playing | audio continues, notification controls work |
+| 13 | Resumption after process death | play KEXP, force-stop the app, then media button (or quick-settings media carousel) | last station resumes; a Discover-only station or empty folder must fail silently, no crash |

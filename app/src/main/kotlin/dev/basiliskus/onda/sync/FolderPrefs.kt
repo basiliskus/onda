@@ -9,4 +9,7 @@ class FolderPrefs(context: Context) {
     var treeUri: Uri?
         get() = prefs.getString("tree_uri", null)?.let(Uri::parse)
         set(value) = prefs.edit { putString("tree_uri", value?.toString()) }
+    var lastPlayedMediaId: String?
+        get() = prefs.getString("last_played_media_id", null)
+        set(value) = prefs.edit { putString("last_played_media_id", value) }
 }
