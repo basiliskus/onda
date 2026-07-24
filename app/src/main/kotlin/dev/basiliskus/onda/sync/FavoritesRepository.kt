@@ -31,7 +31,7 @@ class FavoritesRepository(
     fun refresh() {
         scope.launch(Dispatchers.IO) {
             mutex.withLock {
-                val text = playlists.readPendingText().getOrElse {
+                val text = playlists.readSyncedText("pending.csv").getOrElse {
                     _errors.tryEmit(UNAVAILABLE_MESSAGE)
                     return@withLock
                 }
@@ -44,7 +44,7 @@ class FavoritesRepository(
     fun toggle(s: RbStation) {
         scope.launch(Dispatchers.IO) {
             mutex.withLock {
-                val text = playlists.readPendingText().getOrElse {
+                val text = playlists.readSyncedText("pending.csv").getOrElse {
                     _errors.tryEmit(UNAVAILABLE_MESSAGE)
                     return@withLock
                 }
@@ -53,7 +53,7 @@ class FavoritesRepository(
                     name = s.name, url = s.url, icon = s.favicon,
                     stationuuid = s.stationuuid, tags = s.tags, country = s.country, votes = s.votes,
                 ))
-                val wrote = playlists.writePendingText(PendingCsv.serialize(updated))
+                val wrote = playlists.writeSyncedText("pending.csv", PendingCsv.serialize(updated))
                 if (!wrote) {
                     _errors.tryEmit(UNAVAILABLE_MESSAGE)
                     return@withLock

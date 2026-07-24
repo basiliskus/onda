@@ -141,67 +141,67 @@ class PlaylistRepository(
 
     /**
      * Blocking I/O — call from Dispatchers.IO.
-     * success(text) when pending.csv was read (recovering it from an orphaned .bak first,
-     * if needed); success(null) when it legitimately doesn't exist yet (nothing pending);
-     * failure(e) when the synced folder tree is unreachable or the read otherwise failed.
+     * success(text) when [name] was read (recovering it from an orphaned .bak first, if
+     * needed); success(null) when it legitimately doesn't exist yet; failure(e) when the
+     * synced folder tree is unreachable or the read otherwise failed.
      */
-    fun readPendingText(): Result<String?> {
+    fun readSyncedText(name: String): Result<String?> {
         val tree = prefs.treeUri ?: return Result.failure(IOException("no folder configured"))
         return try {
             val dir = DocumentFile.fromTreeUri(context, tree)
                 ?: return Result.failure(IOException("synced folder tree unreachable"))
-            recoverOrphanedBak(dir)
-            val file = dir.findFile("pending.csv") ?: return Result.success(null)
+            recoverOrphanedBak(dir, name)
+            val file = dir.findFile(name) ?: return Result.success(null)
             val text = context.contentResolver.openInputStream(file.uri)?.use { it.reader().readText() }
-                ?: return Result.failure(IOException("openInputStream returned null for pending.csv"))
+                ?: return Result.failure(IOException("openInputStream returned null for $name"))
             Result.success(text)
         } catch (e: Exception) {
-            Log.w("Onda", "readPendingText: failed", e)
+            Log.w("Onda", "readSyncedText($name): failed", e)
             Result.failure(e)
         }
     }
 
     /**
-     * Restores pending.csv from an orphaned pending.csv.bak — the state left behind if the
-     * process died after writePendingText renamed pending.csv -> .bak but before the new
-     * tmp was promoted into its place (or before promote+rollback could complete). Matches
-     * the exact name plus provider-mangled variants that still start with "pending.csv.bak".
-     * No-op if pending.csv already exists or no .bak is present.
+     * Restores [name] from an orphaned [name].bak — the state left behind if the process
+     * died after writeSyncedText renamed [name] -> .bak but before the new tmp was
+     * promoted into its place (or before promote+rollback could complete). Matches the
+     * exact name plus provider-mangled variants that still start with "[name].bak".
+     * No-op if [name] already exists or no .bak is present.
      */
-    private fun recoverOrphanedBak(dir: DocumentFile) {
-        if (dir.findFile("pending.csv") != null) return
-        val bak = dir.listFiles().firstOrNull { f -> f.name?.startsWith("pending.csv.bak") == true }
+    private fun recoverOrphanedBak(dir: DocumentFile, name: String) {
+        if (dir.findFile(name) != null) return
+        val bak = dir.listFiles().firstOrNull { f -> f.name?.startsWith("$name.bak") == true }
             ?: return
         try {
-            DocumentsContract.renameDocument(context.contentResolver, bak.uri, "pending.csv")
-            Log.w("Onda", "recoverOrphanedBak: restored orphaned pending.csv.bak -> pending.csv")
+            DocumentsContract.renameDocument(context.contentResolver, bak.uri, name)
+            Log.w("Onda", "recoverOrphanedBak: restored orphaned $name.bak -> $name")
         } catch (e: Exception) {
-            Log.w("Onda", "recoverOrphanedBak: failed to restore pending.csv.bak", e)
+            Log.w("Onda", "recoverOrphanedBak: failed to restore $name.bak", e)
         }
     }
 
     /**
      * Blocking I/O — call from Dispatchers.IO. Crash-safe choreography: at every step, at
-     * least one of {pending.csv, pending.csv.bak} holds the last-good content, and readers
-     * and writers restore from .bak before doing anything else (recoverOrphanedBak above).
-     * pending.csv is never deleted without a verified replacement already renamed into
-     * place. Returns false (leaving any existing pending.csv untouched) on any failure;
-     * true once the new content is durably in place as pending.csv.
+     * least one of {[name], [name].bak} holds the last-good content, and readers and
+     * writers restore from .bak before doing anything else (recoverOrphanedBak above).
+     * [name] is never deleted without a verified replacement already renamed into place.
+     * Returns false (leaving any existing [name] untouched) on any failure; true once the
+     * new content is durably in place as [name].
      */
-    fun writePendingText(text: String): Boolean {
+    fun writeSyncedText(name: String, text: String): Boolean {
         val tree = prefs.treeUri ?: return false
         return try {
             val dir = DocumentFile.fromTreeUri(context, tree) ?: return false
 
-            recoverOrphanedBak(dir)
+            recoverOrphanedBak(dir, name)
 
             // Clean up tmp/bak artifacts left behind by a previous crashed or interrupted
-            // write. Only once a real pending.csv exists — recoverOrphanedBak above already
+            // write. Only once a real target file exists — recoverOrphanedBak above already
             // restored it from .bak if that .bak held the last-good content.
-            if (dir.findFile("pending.csv") != null) {
+            if (dir.findFile(name) != null) {
                 dir.listFiles().forEach { f ->
-                    val name = f.name ?: return@forEach
-                    if (name.startsWith("pending.") && (name.contains(".tmp") || name.contains(".bak"))) {
+                    val n = f.name ?: return@forEach
+                    if (n.startsWith("$name.") && (n.contains(".tmp") || n.contains(".bak"))) {
                         f.delete()
                     }
                 }
@@ -210,25 +210,25 @@ class PlaylistRepository(
             // Write the new content to a fresh tmp file, keeping the DocumentFile handle the
             // provider returned — re-finding it by name afterwards is unreliable (providers
             // mangle extensions).
-            val tmp = dir.createFile("text/csv", "pending.csv.tmp") ?: run {
-                Log.w("Onda", "writePendingText: createFile returned null"); return false
+            val tmp = dir.createFile(mimeFor(name), "$name.tmp") ?: run {
+                Log.w("Onda", "writeSyncedText($name): createFile returned null"); return false
             }
             val out = context.contentResolver.openOutputStream(tmp.uri, "wt") ?: run {
-                Log.w("Onda", "writePendingText: openOutputStream returned null")
+                Log.w("Onda", "writeSyncedText($name): openOutputStream returned null")
                 tmp.delete()
                 return false
             }
             out.use { it.write(text.toByteArray()) }
 
-            // Move any existing pending.csv aside before touching it. If that move fails and
-            // pending.csv existed, bail without ever having deleted it.
-            val existing = dir.findFile("pending.csv")
+            // Move any existing target file aside before touching it. If that move fails and
+            // the file existed, bail without ever having deleted it.
+            val existing = dir.findFile(name)
             var bakUri: Uri? = null
             if (existing != null) {
                 bakUri = try {
-                    DocumentsContract.renameDocument(context.contentResolver, existing.uri, "pending.csv.bak")
+                    DocumentsContract.renameDocument(context.contentResolver, existing.uri, "$name.bak")
                 } catch (e: Exception) {
-                    Log.w("Onda", "writePendingText: rename to .bak failed", e); null
+                    Log.w("Onda", "writeSyncedText($name): rename to .bak failed", e); null
                 }
                 if (bakUri == null) {
                     tmp.delete()
@@ -236,19 +236,19 @@ class PlaylistRepository(
                 }
             }
 
-            // Promote tmp -> pending.csv; roll back the .bak on failure so a later retry still
-            // has the old content to fall back to.
+            // Promote tmp -> name; roll back the .bak on failure so a later retry still has
+            // the old content to fall back to.
             val finalUri = try {
-                DocumentsContract.renameDocument(context.contentResolver, tmp.uri, "pending.csv")
+                DocumentsContract.renameDocument(context.contentResolver, tmp.uri, name)
             } catch (e: Exception) {
-                Log.w("Onda", "writePendingText: rename tmp to pending.csv failed", e); null
+                Log.w("Onda", "writeSyncedText($name): rename tmp to $name failed", e); null
             }
             if (finalUri == null) {
                 if (bakUri != null) {
                     try {
-                        DocumentsContract.renameDocument(context.contentResolver, bakUri, "pending.csv")
+                        DocumentsContract.renameDocument(context.contentResolver, bakUri, name)
                     } catch (e: Exception) {
-                        Log.w("Onda", "writePendingText: rollback of .bak failed", e)
+                        Log.w("Onda", "writeSyncedText($name): rollback of .bak failed", e)
                     }
                 }
                 return false
@@ -257,9 +257,35 @@ class PlaylistRepository(
             if (bakUri != null) DocumentFile.fromSingleUri(context, bakUri)?.delete()
             true
         } catch (e: Exception) {
-            Log.w("Onda", "writePendingText: failed", e)
+            Log.w("Onda", "writeSyncedText($name): failed", e)
             false
         }
     }
 
+    /**
+     * Blocking I/O — call from Dispatchers.IO. Deletes [name] plus any .tmp/.bak artifacts
+     * the write choreography may have left for it. Returns true once [name] no longer
+     * exists in the folder.
+     */
+    fun deleteSyncedFile(name: String): Boolean {
+        val tree = prefs.treeUri ?: return false
+        return try {
+            val dir = DocumentFile.fromTreeUri(context, tree) ?: return false
+            dir.listFiles().forEach { f ->
+                val n = f.name ?: return@forEach
+                if (n == name || (n.startsWith("$name.") && (n.contains(".tmp") || n.contains(".bak")))) {
+                    f.delete()
+                }
+            }
+            dir.findFile(name) == null
+        } catch (e: Exception) {
+            Log.w("Onda", "deleteSyncedFile($name): failed", e)
+            false
+        }
+    }
+
+    // Mime only influences how the provider names the tmp file (whose handle is kept, so
+    // mangling is harmless); text/csv preserved for csv files as the E2E-proven choice.
+    private fun mimeFor(name: String) =
+        if (name.endsWith(".csv")) "text/csv" else "application/octet-stream"
 }
