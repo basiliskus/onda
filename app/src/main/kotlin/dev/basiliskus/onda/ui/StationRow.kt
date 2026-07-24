@@ -1,6 +1,8 @@
 package dev.basiliskus.onda.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ListItem
@@ -10,12 +12,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import coil3.compose.SubcomposeAsyncImage
 import dev.basiliskus.onda.ui.theme.accentFor
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StationRow(
     name: String,
@@ -23,15 +27,24 @@ fun StationRow(
     logoUrl: String?,
     isPlaying: Boolean,
     onClick: () -> Unit,
+    pending: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit = {},
 ) {
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        // combinedClickable surfaces onLongClick as a TalkBack custom action, so the
+        // sheet behind it stays reachable without the swipe gesture.
+        modifier = if (onLongClick != null) {
+            Modifier.combinedClickable(onClick = onClick, onLongClickLabel = "Station actions", onLongClick = onLongClick)
+        } else {
+            Modifier.clickable(onClick = onClick)
+        },
         leadingContent = { StationLogo(name, logoUrl) },
         headlineContent = {
             Text(
                 name,
                 fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Normal,
+                fontStyle = if (pending) FontStyle.Italic else FontStyle.Normal,
                 color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             )
         },

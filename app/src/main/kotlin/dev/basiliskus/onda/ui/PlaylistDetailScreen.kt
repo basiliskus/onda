@@ -2,15 +2,23 @@ package dev.basiliskus.onda.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.basiliskus.onda.core.model.Playlist
@@ -23,7 +31,11 @@ fun PlaylistDetailScreen(
     playingUrl: String?,
     onBack: () -> Unit,
     onPlayStation: (Station) -> Unit,
+    onDeleteStation: (Station) -> Unit,
+    onMoveStation: (Station, String) -> Unit,
 ) {
+    var actionsFor by remember { mutableStateOf<Station?>(null) }
+    var movingStation by remember { mutableStateOf<Station?>(null) }
     Column {
         TopAppBar(
             title = { Text(playlist.name) },
@@ -42,13 +54,65 @@ fun PlaylistDetailScreen(
                     )
                 }
                 itemsIndexed(group.stations, key = { i, s -> "$i:${group.title}|${s.url}" }) { _, s ->
-                    StationRow(
-                        name = s.name, subtitle = null, logoUrl = s.logo,
-                        isPlaying = s.url == playingUrl,
-                        onClick = { onPlayStation(s) },
-                    )
+                    DismissibleStationRow(s, playingUrl, onPlayStation, onDeleteStation, onLongPress = { actionsFor = s })
                 }
             }
         }
+    }
+    actionsFor?.let { s ->
+        StationActionsSheet(
+            stationName = s.name,
+            onMove = { actionsFor = null; movingStation = s },
+            onRemove = { actionsFor = null; onDeleteStation(s) },
+            onDismiss = { actionsFor = null },
+        )
+    }
+    movingStation?.let { s ->
+        GroupPickerSheet(
+            title = "Move to group",
+            options = playlist.groups.map { it.title },
+            onPick = { group -> movingStation = null; if (group != s.group) onMoveStation(s, group) },
+            onDismiss = { movingStation = null },
+            newOptionLabel = "New group",
+        )
+    }
+}
+
+@Composable
+private fun DismissibleStationRow(
+    s: Station,
+    playingUrl: String?,
+    onPlayStation: (Station) -> Unit,
+    onDeleteStation: (Station) -> Unit,
+    onLongPress: () -> Unit,
+) {
+    // Deliberately NOT rememberSwipeToDismissBoxState: that state is saveable, and
+    // LazyColumn's saveable state holder would restore the dismissed value when an
+    // undone row re-enters under the same key, leaving it stuck dismissed. Plain
+    // remember is discarded with the row, so undo re-inserts a settled row.
+    val positionalThreshold = SwipeToDismissBoxDefaults.positionalThreshold
+    val dismissState = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, positionalThreshold) }
+    SwipeToDismissBox(
+        state = dismissState,
+        onDismiss = { onDeleteStation(s) },
+        backgroundContent = {
+            Box(
+                Modifier.fillMaxSize()
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(horizontal = 16.dp),
+                contentAlignment = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart)
+                    Alignment.CenterEnd else Alignment.CenterStart,
+            ) {
+                Icon(Icons.Filled.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        },
+    ) {
+        StationRow(
+            name = s.name, subtitle = null, logoUrl = s.logo,
+            isPlaying = s.url == playingUrl,
+            onClick = { onPlayStation(s) },
+            pending = s.pending,
+            onLongClick = onLongPress,
+        )
     }
 }

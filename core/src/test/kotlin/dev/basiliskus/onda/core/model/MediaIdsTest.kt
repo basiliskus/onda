@@ -12,6 +12,10 @@ class MediaIdsTest {
         assertEquals(id, MediaIds.station(kexp.copy(logo = "x"))) // logo not part of identity
     }
 
+    @Test fun `station id ignores pending flag`() {
+        assertEquals(MediaIds.station(kexp), MediaIds.station(kexp.copy(pending = true)))
+    }
+
     @Test fun `ids with pipes in names do not collide with structure`() {
         val odd = kexp.copy(name = "we|rd", group = "a|b")
         assertNotNull(MediaIds.stationIndex(listOf(Playlist("p", listOf(Group("a|b", listOf(odd))))))[MediaIds.station(odd)])

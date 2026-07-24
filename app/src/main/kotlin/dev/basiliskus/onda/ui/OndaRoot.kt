@@ -2,9 +2,13 @@ package dev.basiliskus.onda.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LibraryMusic
@@ -17,24 +21,31 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import dev.basiliskus.onda.AppGraph
 import dev.basiliskus.onda.BuildConfig
 import dev.basiliskus.onda.core.model.Station
+import dev.basiliskus.onda.core.radiobrowser.RbStation
 import dev.basiliskus.onda.sync.PlaylistsState
 import dev.basiliskus.onda.ui.discover.DiscoverScreen
 import dev.basiliskus.onda.ui.discover.DiscoverViewModel
 import dev.basiliskus.onda.ui.discover.StationListScreen
+import kotlinx.coroutines.launch
 
 private data class Tab(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OndaRoot(graph: AppGraph) {
-    val playlistsState by graph.playlistRepository.state.collectAsStateWithLifecycle()
+    val playlistsState by graph.opsRepository.effectivePlaylists.collectAsStateWithLifecycle()
     if (playlistsState is PlaylistsState.NeedsFolder) {
         OnboardingScreen(onFolderPicked = graph.playlistRepository::setFolder)
         return
@@ -49,7 +60,20 @@ fun OndaRoot(graph: AppGraph) {
     val nav = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
-        graph.favoritesRepository.errors.collect { message -> snackbarHostState.showSnackbar(message) }
+        graph.opsRepository.errors.collect { message -> snackbarHostState.showSnackbar(message) }
+    }
+    val uiScope = rememberCoroutineScope()
+    val onDeleteStation: (Station) -> Unit = { s ->
+        // delete() hands back an undo token synchronously, so the snackbar can show
+        // immediately; undo() restores the pre-delete journal snapshot (and no-ops if a
+        // later journal change already voided it).
+        val undoToken = graph.opsRepository.delete(s)
+        uiScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                "Removed ${s.name}", actionLabel = "Undo", duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) graph.opsRepository.undo(undoToken)
+        }
     }
     val tabs = listOf(
         Tab("playlists", "Playlists", Icons.Filled.LibraryMusic),
@@ -103,7 +127,12 @@ fun OndaRoot(graph: AppGraph) {
                 // "vanished" (that would pop immediately on process-death restore).
                 val vanished = ready != null && playlist == null
                 LaunchedEffect(vanished) { if (vanished) nav.popBackStack() }
-                if (playlist != null) PlaylistDetailScreen(playlist, playingUrl, { nav.popBackStack() }, onPlayStation)
+                if (playlist != null) {
+                    PlaylistDetailScreen(
+                        playlist, playingUrl, { nav.popBackStack() }, onPlayStation, onDeleteStation,
+                        onMoveStation = graph.opsRepository::move,
+                    )
+                }
             }
             composable("settings") { SettingsScreen(graph, onBack = { nav.popBackStack() }) }
             composable("discover") {
@@ -115,7 +144,9 @@ fun OndaRoot(graph: AppGraph) {
                 val kind = entry.arguments?.getString("kind")!!
                 val value = entry.arguments?.getString("value")!!
                 LaunchedEffect(kind, value) { discoverVm.openList(kind, value) }
-                val pendingUrls by graph.favoritesRepository.pendingUrls.collectAsStateWithLifecycle()
+                val starredUrls by graph.opsRepository.starredUrls.collectAsStateWithLifecycle()
+                var addTarget by remember { mutableStateOf<RbStation?>(null) }
+                var addPlaylist by remember { mutableStateOf<String?>(null) }
                 StationListScreen(
                     title = if (kind == "top") "Top voted" else value,
                     vm = discoverVm,
@@ -123,16 +154,54 @@ fun OndaRoot(graph: AppGraph) {
                     onBack = { nav.popBackStack() },
                     onPlay = graph.playerConnection::playRb,
                     trailing = { s ->
-                        val starred = s.url in pendingUrls
-                        IconButton(onClick = { graph.favoritesRepository.toggle(s) }) {
+                        val starred = s.url in starredUrls
+                        // IconButton has no long-press slot, so the star is a Box with
+                        // combinedClickable: tap toggles the quick star, long-press opens
+                        // the targeted-add picker (a TalkBack custom action).
+                        Box(
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .clip(CircleShape)
+                                .combinedClickable(
+                                    role = Role.Button,
+                                    onClick = { graph.opsRepository.toggle(s) },
+                                    onLongClickLabel = "Add to playlist",
+                                    onLongClick = { addTarget = s; addPlaylist = null },
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Icon(
                                 if (starred) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                if (starred) "Remove from pending favorites" else "Add to pending favorites",
+                                if (starred) "Unstar station" else "Star station",
                                 tint = if (starred) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     },
                 )
+                addTarget?.let { s ->
+                    val ready = playlistsState as? PlaylistsState.Ready
+                    val playlistName = addPlaylist
+                    if (playlistName == null) {
+                        GroupPickerSheet(
+                            title = "Add to playlist",
+                            options = ready?.playlists?.map { it.name } ?: emptyList(),
+                            onPick = { addPlaylist = it },
+                            onDismiss = { addTarget = null },
+                        )
+                    } else {
+                        GroupPickerSheet(
+                            title = "Add to group in $playlistName",
+                            options = ready?.playlists?.firstOrNull { it.name == playlistName }
+                                ?.groups?.map { it.title } ?: emptyList(),
+                            onPick = { group ->
+                                graph.opsRepository.addTargeted(s, playlistName, group)
+                                addTarget = null
+                            },
+                            onDismiss = { addTarget = null },
+                            newOptionLabel = "New group",
+                        )
+                    }
+                }
             }
         }
     }

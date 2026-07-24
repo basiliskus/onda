@@ -158,3 +158,11 @@ Semantics:
 Rename op; reorder ops (snapshot-order noted as future candidate);
 drag-to-adjacent-group gesture (future sugar); multi-device journal
 merging (single phone assumed).
+
+## Amendments
+
+2026-07-24 (PR #17 review): Discover star scope narrowed to quick-star
+(playlist:null) adds only — a lit star no longer reflects targeted
+adds, and un-star never removes them; targeted adds are managed as
+pending rows in the playlist UI. Supersedes the "an unconsumed add op
+for this url exists" wording above.

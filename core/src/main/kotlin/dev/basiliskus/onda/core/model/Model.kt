@@ -6,6 +6,7 @@ data class Station(
     val group: String,
     val playlist: String,
     val logo: String? = null,
+    val pending: Boolean = false,
 )
 
 data class Group(val title: String, val stations: List<Station>)
