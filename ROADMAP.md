@@ -63,6 +63,14 @@ third-occurrence escalation from the v0.3.0 retro.)
   capture UI reach (Now Playing sheet button trivial; notification/Android Auto
   custom action is the real value) and coverage honesty (no-metadata stations
   like FIP can't capture).
+- Move station to a different playlist (candidate, post-v0.4.0): "Move to
+  playlist…" entry in the existing long-press sheet, emitting the already-supported
+  delete + targeted-add op pair — no new op type, no journal contract change, no
+  desktop work (`stations-merge-ops.py` handles both today). Phone UI affordance
+  only; playlist-origin stations carry empty extras (stationuuid/votes) in the add
+  op, which the desktop drops anyway. Undo must restore the pair atomically
+  (snapshot undo already does). Closes the gap for stations not on radio-browser,
+  which currently have no phone-side path between playlists.
 - Snapshot-reorder op and drag-to-adjacent-group gesture: future candidates noted in
   the ops-journal design. Note from the v0.3.0 retro: any new op type must design
   undo with snapshot semantics — id-references die under compaction.
