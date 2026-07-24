@@ -7,25 +7,22 @@ implementation work.
 
 ## Development process
 
-**Phase: DESIGN/MVP — superpowers drives all work.**
+**Phase: OWNERSHIP — pipeline-skills drives all work.**
 
-- Design conversations → `superpowers:brainstorming`; outcomes become
-  documents in `docs/`.
-- Implementation plans → `superpowers:writing-plans`, checked into
-  `docs/plans/`; execute via `superpowers:subagent-driven-development`.
-- **pipeline-skills is deliberately NOT initialized** — no
-  `.pipeline-templates/` exists, and that absence is the phase guard.
-  Do not run `/pipeline-init` or any `/pipeline-*` command in this
-  phase.
-- **The phase flip is the MVP plan's final task** (verbatim, include it
-  in the plan): run `/pipeline-init`; rewrite this section to the
-  OWNERSHIP phase — milestones and bugfixes run as pipeline
-  feature/bugfix runs, retros graduate lessons into template canon,
-  superpowers demoted to brainstorming-only for new-feature design;
-  state the direct-to-main threshold (trivial one-liners direct,
-  multi-file work through pipeline); commit.
-- Cherry-pick `mattpocock-skills` `domain-modeling` during design if
-  useful. Do not adopt compound-engineering here.
+- The MVP shipped as v0.1.0 (2026-07-23). `/pipeline-init` has run:
+  `.pipeline-templates/` exists and `ROADMAP.md` is the work queue.
+- Milestones and bugfixes run as pipeline feature/bugfix runs
+  (`/pipeline-next` → `/pipeline-run`); retrospectives
+  (`/pipeline-retro`) graduate lessons into the template canon
+  (`.pipeline-templates/*.json` — project-local templates are
+  customized deliberately and never regenerated blindly).
+- superpowers is demoted to brainstorming-only: use
+  `superpowers:brainstorming` for new-feature design conversations;
+  everything after the design doc goes through the pipeline.
+- Direct-to-main threshold, reconciled with the Git workflow section
+  (which always wins): nothing is ever committed directly to main.
+  Trivial one-liners go as a single-commit PR without a pipeline run;
+  multi-file work goes through a pipeline run + PR.
 
 ## Git workflow
 
@@ -57,3 +54,15 @@ The app renders playlists it does not own. Source of truth is
 to the phone. The app watches that synced folder and hot-reloads —
 importing is not a concept. Six playlists today: stations, nts, fip,
 bbc, public-radio, radio-garden (~205 stations).
+
+<!-- pipeline-config: managed by /pipeline-init -->
+## Pipeline configuration
+
+- default_branch: main
+- pr_target_branch: main
+- test_command: ./gradlew :core:test
+- lint_command: ./gradlew :app:lintDebug
+- build_command: ./gradlew :app:assembleDebug
+- venv_path:
+- changelog: keep-a-changelog
+<!-- /pipeline-config -->
