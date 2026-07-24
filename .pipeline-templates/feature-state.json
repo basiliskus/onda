@@ -114,6 +114,10 @@
           "done": false
         },
         {
+          "action": "if the design spans two repos/owners on a shared contract, list the cross-side warnings to relay and where they were relayed",
+          "done": false
+        },
+        {
           "action": "write plan to .pipeline-state/<branch>-plan.md so later stages can read it",
           "done": false,
           "mandatory": true
@@ -192,6 +196,14 @@
           "done": false
         },
         {
+          "action": "algebra-core features (compaction/netting/merge rules): the manual matrix needs one row per algebra rule that composes with a user-visible operation (undo, retry, refresh) — not just one row per gesture",
+          "done": false
+        },
+        {
+          "action": "emulator UI automation: script interactions as atomic chains (full gesture sequence, then end-state verification via files + UI dump); per-step tap-verify loops race sheet animations and snackbar timers",
+          "done": false
+        },
+        {
           "action": "output TESTS_PASSED or TESTS_FAILED",
           "done": false,
           "mandatory": true
@@ -251,6 +263,11 @@
         },
         {
           "action": "output REVIEW_PASSED or REVIEW_FAILED",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "any undo/rollback/compensation path referencing a mutation by id: verify the id survives every transformation (compaction, dedup, merge) between arming and firing; if not, snapshot semantics are required",
           "done": false,
           "mandatory": true
         },

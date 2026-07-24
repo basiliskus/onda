@@ -99,6 +99,10 @@
           "done": false
         },
         {
+          "action": "if the design spans two repos/owners on a shared contract, list the cross-side warnings to relay and where they were relayed",
+          "done": false
+        },
+        {
           "action": "write diagnosis to .pipeline-state/<branch>-diagnosis.md so later stages can read it",
           "done": false,
           "mandatory": true
@@ -163,6 +167,14 @@
         },
         {
           "action": "execute the plan's manual test matrix where feasible; record pass/skip(reason) per row and post evidence for executed rows as a PR comment",
+          "done": false
+        },
+        {
+          "action": "algebra-core features (compaction/netting/merge rules): the manual matrix needs one row per algebra rule that composes with a user-visible operation (undo, retry, refresh) — not just one row per gesture",
+          "done": false
+        },
+        {
+          "action": "emulator UI automation: script interactions as atomic chains (full gesture sequence, then end-state verification via files + UI dump); per-step tap-verify loops race sheet animations and snackbar timers",
           "done": false
         },
         {

@@ -4,26 +4,32 @@
 
 | Priority | Feature | Why | Milestone |
 |----------|---------|-----|-----------|
-| **P2** | playlist editing round-trip | Phone-side add/delete/move-between-groups via an ops.jsonl journal replacing pending.csv; optimistic overlay; desktop merge closes the loop. Design: `docs/superpowers/specs/2026-07-23-ops-journal-design.md` | v0.3.0 |
+| **P2** | app-module test harness | :app state machines (async bridge, banner VM, undo/compaction) shipped untested three milestones running; the v0.3.0 🔴 was a five-line test away. Action Tracker #1, GitHub #9 | v0.4.0 |
 
 ## Milestones
 
-### Milestone: v0.3.0 — Playlist editing round-trip
+### Milestone: v0.4.0 — Test the platform layer
 
-**playlist editing round-trip**
-Ops journal per `docs/superpowers/specs/2026-07-23-ops-journal-design.md`:
-`OpsJournal` + `applyOps` overlay in :core, `OpsRepository` evolving
-`FavoritesRepository`, swipe-to-delete with undo snackbar, long-press move-to-group
-sheet, targeted adds from Discover, `ops.jsonl` replacing `pending.csv` with
-first-launch migration, contract docs updated in `docs/spec.md`. Desktop half
-(`stations-merge-ops.py` + watcher) is a parallel dotfiles-repo deliverable —
-coordinate landing. All journal/overlay logic tested in :core against the real
-playlist fixtures. Supersedes the retired "pending.csv edge hardening" item: the
-journal replaces pending.csv, and the bak-collision + consumed-entry-resurrection
-concerns from the PR #3 review carry into this design's file-safety and
-conditional-clear semantics.
+**app-module test harness**
+Stand up `app/src/test` (JUnit + kotlinx-coroutines-test + a fake
+`PlaylistRepository`). First targets, in order: `OpsRepository` undo/compaction
+semantics (delete-pending-then-undo, delete-after-move-then-undo, generation-CAS
+voiding — the PR #17 🔴 class), the browse-banner state machine in
+`DiscoverViewModel` (load, partial failure keeps banner, clear-on-both-loaded,
+in-flight guards — the PR #8 🟡 class), and the resumption wait-and-resolve logic
+(extract the :core seam per GitHub #10 or test in place — decide at plan time).
+SAF write-failure rollback becomes testable here (fake repository failure
+injection), retiring the standing matrix skip. (Action Tracker #1, GitHub #9;
+third-occurrence escalation from the v0.3.0 retro.)
 
 ## Completed
+
+- v0.3.0 — Playlist editing round-trip (2026-07-24, PR #17): ops.jsonl journal with
+  compaction algebra and optimistic overlay in :core, OpsRepository with
+  snapshot/generation-CAS undo, swipe-delete + move sheet + targeted adds,
+  pending.csv migration, single derived flow feeding UI/media session/Auto.
+  Desktop consumer (`stations-merge-ops.py` + watcher) landed in parallel in the
+  dotfiles repo — round-trip live end to end. Retro: `RETRO.md`.
 
 - v0.2.0 — Daily-driver polish (2026-07-24, PRs #6–#8): playback resumption after
   process death (`onPlaybackResumption` + persisted last-played id +
@@ -58,9 +64,10 @@ conditional-clear semantics.
   custom action is the real value) and coverage honesty (no-metadata stations
   like FIP can't capture).
 - Snapshot-reorder op and drag-to-adjacent-group gesture: future candidates noted in
-  the ops-journal design.
-- Upstream (dotfiles repo, not this repo): fix shell-escaped URL on `stations.m3u`
-  line 74 (`stations-to-m3u.py` or stations.csv) — it defeats indirection detection.
+  the ops-journal design. Note from the v0.3.0 retro: any new op type must design
+  undo with snapshot semantics — id-references die under compaction.
+- ~~Upstream: fix shell-escaped URL on `stations.m3u` line 74~~ — fixed at source in
+  the dotfiles repo (7fcb2d9 there) during the v0.3.0 parallel deliverable.
 - Escrow decision follow-up: record in Bitwarden whether an escrow copy of the
   release keystore exists (see "Onda release keystore" vault entry).
 

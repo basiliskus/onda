@@ -17,3 +17,5 @@ Run on a real phone before tagging. One station per quirk class.
 | 11 | Rotation + dark mode | rotate; toggle system theme | no state loss, Latte↔Frappé |
 | 12 | Kill + notification | swipe app away while playing | audio continues, notification controls work |
 | 13 | Resumption after process death | play KEXP, force-stop the app, then media button (or quick-settings media carousel) | last station resumes; a Discover-only station or empty folder must fail silently, no crash |
+| 14 | TalkBack | enable TalkBack; playlist row long-press; Discover star | actions sheet reachable and announced ("Station actions"); star announces Star/Unstar; move + remove completable without swipe gestures |
+| 15 | New-group IME | long-press move → New group field | keyboard doesn't cover the field or + button inside the sheet; typed name lands in the op |

@@ -7,12 +7,114 @@ issue or be explicitly closed with a reason.
 
 | # | Action | Source | GitHub | Status | Notes |
 |---|--------|--------|--------|--------|-------|
-| 1 | :app-module ViewModel test harness (banner state machine first) | PR #6, PR #8 | #9 | Open | Top carry-forward; second occurrence of the untested-:app-logic gap |
+| 1 | :app-module test harness (undo/compaction, banner VM, resumption) | PR #6, PR #8, PR #17 | #9 | Open | THIRD occurrence (v0.3.0 🔴 was this class) — escalated to scheduled v0.4.0 milestone work |
 | 2 | Extract resumption wait-and-resolve seam into :core | PR #6 | #10 | Open | Service-layer logic → extraction; ViewModels → harness (#1) |
 | 3 | Persist Discover search text (`query` rememberSaveable) | PR #8 | #11 | Open | Polish pass |
 | 4 | Stations route missing `launchSingleTop` | PR #8 | #12 | Open | Pre-existing 🔵 |
 | 5 | Browse fetches catch only `IOException` | PR #8 | #13 | Open | Pre-existing 🔵; `SerializationException` would crash |
 | 6 | Confirm tag↔versionName guard ran when v0.2.0 is tagged | PR #7 | — | Closed | Guard ran green on the v0.2.0 tag (run 30107921024, step "Verify tag matches versionName": success) |
+| 7 | Ops-journal UX polish: voided-undo feedback, sheet rotation survival | PR #17 | #18 | Open | One polish pass with #3 (#11) |
+| 8 | Relay desktop contract notes (fresh-UUID/url-dedup backstop; move collapses dup urls) | PR #17 | — | Closed | Relayed to the dotfiles agent during the run; url-dedup kept mandatory in stations-merge-ops.py |
+
+## v0.3.0 — Playlist editing round-trip (PR #17)
+
+**Date**: 2026-07-24
+**Scope**: Phone-side playlist editing through an `ops.jsonl` journal (swipe-delete
+with undo, move-to-group sheet, targeted adds), optimistic overlay, pending.csv
+migration; desktop consumer landed in parallel in the dotfiles repo — the full
+round-trip is live. Largest run since the MVP: 12 commits, 26+ files, three
+serialized implementer agents.
+**Tests at close**: 68 (:core), 0 in :app.
+
+### What We Learned
+
+**1. The 🔴 lived in the twice-flagged gap — untested :app state machines, third
+occurrence.**
+Undo referenced ops by id, but compaction consumes ids: swiping a pending add
+netted `[add]+delete → []` and Undo silently lost the edit. Plan, three
+implementers, Self-Review, and a 13-row emulator matrix all missed it; the
+fresh-context Code Review caught it. The same class escaped as PR #6's untested
+async bridge and PR #8's untested banner VM. A fake-PlaylistRepository harness
+would have caught this as a five-line JVM test — and the snapshot/CAS fix itself
+is still uncovered.
+**Action taken**: scheduled as the v0.4.0 milestone in `ROADMAP.md` (this commit);
+Action Tracker #1 (GitHub #9) escalated with PR #17 as third source.
+
+**2. The verification matrix inherited the plan's blind spot.**
+The matrix had an Undo row — it passed against a plain delete, the one case where
+id-based undo is sound. For algebra-core features, gestures aren't the unit of
+coverage; algebra rules composed with user-visible operations are
+(undo-after-move and undo-of-pending were enumerable straight from the compaction
+table). Same lesson from the adb side: per-step tap-verify loops raced sheet
+animations and snackbar timers; atomic interaction chains with end-state
+verification held up.
+**Action taken**: `.pipeline-templates/{feature,bugfix,refactor}-state.json` (this
+commit) — Test Execution gains the algebra-rule-row requirement and the
+atomic-chains guidance; Self-Review gains a mandatory id-survival check for
+undo/rollback paths; Planning gains a cross-side contract-warning relay item.
+
+**3. Accepted review leftovers are felt-UX debt, not noise.**
+Two of PR #17's accepted 🔵s degrade daily use once editing is habitual: a voided
+Undo (generation mismatch) gives no feedback, and mid-flow sheets vanish on
+rotation. Same polish class as the Discover query nit from v0.2.0.
+**Action taken**: Open — tracked in Action Tracker #7 (GitHub #18), grouped with
+#3 (GitHub #11) as one polish pass.
+
+**4. Deferred verification now has named homes instead of matrix skips.**
+The three reasoned matrix skips (DHU, SAF fault injection, TalkBack) and the
+reviewer's IME watch-item each needed a landing place, or they'd silently vanish.
+**Action taken**: `docs/smoke-checklist.md` rows 14–15 added (TalkBack, New-group
+IME) in this commit; DHU was already row 10; SAF fault injection becomes testable
+inside the v0.4.0 harness (named in the ROADMAP milestone spec).
+
+### Insights
+
+- Three review layers, three disjoint real findings: subagent review (🔴 undo/
+  compaction, 🟡 stale journal on refresh), re-review (demanded post-fix evidence,
+  verified CAS ABA-proof), user review (star-scope semantics, token-arming race).
+  None was redundant; keep all three for feature-scale PRs.
+- Behavioral semantics at feature seams (who owns an add: Discover star vs
+  playlist?) are owner decisions — two agent layers accepted the design's literal
+  wording; only the user could rule quick-stars-only. Route seam semantics to user
+  review explicitly.
+- Pre-litigating risky deviations in the plan (derived-flow placement,
+  plain-remember swipe state) turned the two most contestable calls into review
+  non-events — both ratified, the second one catching an upstream API's
+  rememberSaveable trap in the process.
+- Pinning the wire contract in the design doc before either side built let the
+  phone and desktop halves land independently with zero drift; the one contract
+  subtlety discovered late (fresh-UUID resurrection vs url-dedup) crossed repos
+  because it was relayed deliberately.
+- v0.2.0's error-banner work absorbed this run's transient radio-browser failures
+  mid-E2E — recovery on retry, exactly as built.
+- Accepted-by-design residue (refresh voids live token on identical content,
+  mimeFor octet-stream, empty-csv redundant rewrite) is documented in the PR
+  thread; deliberately not tracked — conservative-safe behaviors, not debt.
+
+### Review Stats
+
+| Metric | PR #17 |
+|--------|--------|
+| Tests added | 33 net (:core 35→68) |
+| 🔴 Findings | 1 (fixed pre-merge, 35059dc) |
+| 🟡 Findings | 1 (fixed pre-merge, same commit) |
+| 🔵 Findings | 11 across three layers (3 fixed, 2 tracked as #18, rest accepted) |
+| User-review findings | 2 fixed (8700a18) + 1 owner decision (star scope, doc amended 400f807) |
+| CI failures | 0 |
+
+### Process Improvements Applied
+
+**Pipeline templates**: 9 edits across the three templates (finding 2).
+**ROADMAP**: v0.3.0 → Completed; v0.4.0 harness milestone scheduled (finding 1);
+line-74 upstream item struck (fixed at source, dotfiles 7fcb2d9).
+**Docs**: smoke rows 14–15 (finding 4); ops-journal design doc gained an
+Amendments section during the run (star scope, 400f807).
+
+### Open Items
+
+- [ ] :app test harness (v0.4.0 milestone) — Action Tracker #1 (GitHub #9)
+- [ ] Ops-journal UX polish — Action Tracker #7 (GitHub #18), with #3 (GitHub #11)
+- [ ] :core resumption seam decision folds into the harness plan — Action Tracker #2 (GitHub #10)
 
 ## v0.2.0 — Daily-driver polish (PRs #6–#8)
 
@@ -111,7 +213,8 @@ note (finding 5).
 - [ ] Discover `query` persistence — Action Tracker #3 (GitHub #11)
 - [ ] `launchSingleTop` on stations route — Action Tracker #4 (GitHub #12)
 - [ ] Widen browse-fetch error handling — Action Tracker #5 (GitHub #13)
-- [ ] Confirm release guard on v0.2.0 tag — Action Tracker #6 (one-time)
+- [x] Confirm release guard on v0.2.0 tag — Action Tracker #6 — resolved: guard ran
+  green on the v0.2.0 tag (run 30107921024; closed via PR #16)
 
 <!-- Milestone retro entry template:
 ## <milestone> — <date>
