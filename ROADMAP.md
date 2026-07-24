@@ -4,31 +4,9 @@
 
 | Priority | Feature | Why | Milestone |
 |----------|---------|-----|-----------|
-| **P1** | playback resumption after process death | Media-button/notification resume from a dead process silently fails; `onPlaybackResumption` (#PlaybackService) unimplemented — felt daily | v0.2.0 |
-| **P2** | release pipeline guards | No tag↔versionCode consistency check in release.yml (Obtainium silently misses updates); CI never builds main post-merge | v0.2.0 |
-| **P2** | discover polish | Stale "radio-browser unreachable" banner never clears on success (`DiscoverViewModel.browseError`); Top segment resets to Tags on back-navigation | v0.2.0 |
 | **P2** | playlist editing round-trip | Phone-side add/delete/move-between-groups via an ops.jsonl journal replacing pending.csv; optimistic overlay; desktop merge closes the loop. Design: `docs/superpowers/specs/2026-07-23-ops-journal-design.md` | v0.3.0 |
 
 ## Milestones
-
-### Milestone: v0.2.0 — Daily-driver polish
-
-**playback resumption after process death**
-Implement `MediaLibrarySession.Callback.onPlaybackResumption` in `PlaybackService` so
-media-button/notification resume works after the process is killed. Resolve the last
-played media id via `MediaIds` and the station index; persist the last id in
-`FolderPrefs` (was final-review known-future-work item).
-
-**discover polish**
-Clear `browseError` in `DiscoverViewModel` when a later `topTags()`/`countries()` call
-succeeds. Make the Tags/Countries/Top segmented selection survive back-navigation
-(`rememberSaveable`). (was PR #3 review nits)
-
-**release pipeline guards**
-release.yml: fail the build if the pushed tag does not match `versionName` in
-`app/build.gradle.kts` (Obtainium won't see an upgrade otherwise). ci.yml: add a
-`push: branches: [main]` trigger so main is built post-merge. (was final-review
-known-future-work items)
 
 ### Milestone: v0.3.0 — Playlist editing round-trip
 
@@ -47,6 +25,11 @@ conditional-clear semantics.
 
 ## Completed
 
+- v0.2.0 — Daily-driver polish (2026-07-24, PRs #6–#8): playback resumption after
+  process death (`onPlaybackResumption` + persisted last-played id +
+  `MediaButtonReceiver`), release pipeline guards (tag↔versionName check, post-merge
+  main builds), discover polish (self-healing error banner, segment selection
+  survives back-navigation). Retro: `RETRO.md`.
 - v0.1.0 — MVP (2026-07-23, PR #3): watched playlists with hot reload, Media3
   playback with quirk-aware data sources, radio-browser discovery, pending.csv
   favorites round-trip, Android Auto browse tree, Catppuccin theme, signed-release
