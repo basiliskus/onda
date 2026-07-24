@@ -4,12 +4,10 @@
 
 | Priority | Feature | Why | Milestone |
 |----------|---------|-----|-----------|
-| **P1** | playback resumption after process death | Media-button/notification resume from a dead process silently fails; `onPlaybackResumption` (#PlaybackService) unimplemented | v0.2.0 |
+| **P1** | playback resumption after process death | Media-button/notification resume from a dead process silently fails; `onPlaybackResumption` (#PlaybackService) unimplemented — felt daily | v0.2.0 |
+| **P2** | release pipeline guards | No tag↔versionCode consistency check in release.yml (Obtainium silently misses updates); CI never builds main post-merge | v0.2.0 |
 | **P2** | discover polish | Stale "radio-browser unreachable" banner never clears on success (`DiscoverViewModel.browseError`); Top segment resets to Tags on back-navigation | v0.2.0 |
-| **P2** | release pipeline guards | No tag↔versionCode consistency check in release.yml; CI never builds main post-merge (pull_request trigger only) | v0.2.0 |
-| **P3** | android auto polish | No head-unit hint when the folder isn't picked yet (empty tree); Auto pagination ignored (fine at 205 stations) | v0.2.0 |
-| **P3** | pending.csv edge hardening | Multi-line-field parse asymmetry, `pending.csv (1).bak` collision variant in `recoverOrphanedBak`, consumed-entry resurrection window — all logged in PR #3 review | v0.2.0 |
-| **P3** | sleep timer | Deliberately cut from MVP scope; revisit on demand | v0.2.0 |
+| **P2** | playlist editing round-trip | Phone-side add/delete/move-between-groups via an ops.jsonl journal replacing pending.csv; optimistic overlay; desktop merge closes the loop. Design: `docs/superpowers/specs/2026-07-23-ops-journal-design.md` | v0.3.0 |
 
 ## Milestones
 
@@ -32,21 +30,20 @@ release.yml: fail the build if the pushed tag does not match `versionName` in
 `push: branches: [main]` trigger so main is built post-merge. (was final-review
 known-future-work items)
 
-**android auto polish**
-Show a "open Onda on your phone to pick the synced folder" browsable hint item at the
-Auto root when `PlaylistsState.NeedsFolder`. Respect `page`/`pageSize` in
-`onGetChildren` if any group ever exceeds head-unit limits. (was Task 14 review notes)
+### Milestone: v0.3.0 — Playlist editing round-trip
 
-**pending.csv edge hardening**
-Make `PendingCsv.parse` tolerant of quoted multi-line fields (or keep the serialize-side
-sanitize as the contract and document it in `docs/spec.md`); widen `recoverOrphanedBak`
-matching to provider-mangled `pending.csv (1).bak` variants; add a spec line on the
-consumed-entry resurrection window when desktop sync lands mid-toggle. (was PR #3
-review nits, on the record)
-
-**sleep timer**
-Stop playback after N minutes; coroutine delay + `player.stop()` plus a Now Playing
-sheet control. Cut from MVP scope 2026-07-23; build when actually missed.
+**playlist editing round-trip**
+Ops journal per `docs/superpowers/specs/2026-07-23-ops-journal-design.md`:
+`OpsJournal` + `applyOps` overlay in :core, `OpsRepository` evolving
+`FavoritesRepository`, swipe-to-delete with undo snackbar, long-press move-to-group
+sheet, targeted adds from Discover, `ops.jsonl` replacing `pending.csv` with
+first-launch migration, contract docs updated in `docs/spec.md`. Desktop half
+(`stations-merge-ops.py` + watcher) is a parallel dotfiles-repo deliverable —
+coordinate landing. All journal/overlay logic tested in :core against the real
+playlist fixtures. Supersedes the retired "pending.csv edge hardening" item: the
+journal replaces pending.csv, and the bak-collision + consumed-entry-resurrection
+concerns from the PR #3 review carry into this design's file-safety and
+conditional-clear semantics.
 
 ## Completed
 
@@ -57,6 +54,28 @@ sheet control. Cut from MVP scope 2026-07-23; build when actually missed.
 
 ## Future
 
+- Android Auto polish (unscheduled, was v0.2.0): folder-pick hint at the Auto root on
+  `NeedsFolder`; honor `page`/`pageSize` in `onGetChildren` if a group ever exceeds
+  head-unit limits. Build when felt.
+- Sleep timer (unscheduled, was v0.2.0): cut from MVP scope 2026-07-23; build when
+  actually missed.
+- Song capture (candidate v0.4.0, brainstorm before scheduling): favorite the
+  currently playing track from the ICY `streamTitle` already surfaced in
+  `NowPlaying`, feeding the EXISTING desktop pipeline (pyradio titles log →
+  `~/Code/Personal/data/music/scripts/pyradio-to-json.py` → catalog). Contract
+  pinned 2026-07-23 from pyradio 0.9.3 source (`log.py`: title + `' (LIKED)'`):
+  Onda appends liked-only lines to a SIBLING file
+  `~/Sync/Radio/recordings/onda-titles.log` (never pyradio's own log — single
+  writer per file) formatted exactly
+  `MMM d (EEE) HH:mm |     <raw streamTitle> (LIKED)` — English locale
+  explicitly (device locale would break the parse), no year in timestamp, four
+  spaces after the pipe, raw title never parsed. Harvester change: read
+  `*-titles.log` glob (one-line edit, data repo). Remaining design questions:
+  capture UI reach (Now Playing sheet button trivial; notification/Android Auto
+  custom action is the real value) and coverage honesty (no-metadata stations
+  like FIP can't capture).
+- Snapshot-reorder op and drag-to-adjacent-group gesture: future candidates noted in
+  the ops-journal design.
 - Upstream (dotfiles repo, not this repo): fix shell-escaped URL on `stations.m3u`
   line 74 (`stations-to-m3u.py` or stations.csv) — it defeats indirection detection.
 - Escrow decision follow-up: record in Bitwarden whether an escrow copy of the
