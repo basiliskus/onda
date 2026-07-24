@@ -17,7 +17,3 @@ Run on a real phone before tagging. One station per quirk class.
 | 11 | Rotation + dark mode | rotate; toggle system theme | no state loss, Latte↔Frappé |
 | 12 | Kill + notification | swipe app away while playing | audio continues, notification controls work |
 | 13 | Resumption after process death | play KEXP, force-stop the app, then media button (or quick-settings media carousel) | last station resumes; a Discover-only station or empty folder must fail silently, no crash |
-
-Release-pipeline note: on the first tag push after v0.1.0 (i.e. v0.2.0), confirm
-the "Verify tag matches versionName" step actually ran in the release workflow —
-the guard has never been exercised by a real tag. Remove this note afterwards.
