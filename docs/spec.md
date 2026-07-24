@@ -31,9 +31,16 @@ Tried and rejected:
    (`de1.api.radio-browser.info/json/stations/search?...` — probed and
    used extensively during research; also `order=votes&reverse=true` is
    the quality filter that works).
-3. **Favorites round-trip.** Favoriting in-app writes a pending file
-   into the synced folder for the desktop side to merge into
-   stations.csv (the source of truth) — the app never mutates the M3Us.
+3. **Playlist editing round-trip.** Phone-side edits (star/targeted
+   add, swipe-delete, move-between-groups) append identity-anchored ops
+   to `ops.jsonl` in the synced folder; playlists render with the
+   pending ops applied as an optimistic overlay (pending rows italic)
+   until the desktop merge script consumes the journal into
+   stations.csv (the source of truth) and re-exports the M3Us — the app
+   never mutates the M3Us. The phone owns the journal (compacts its own
+   unconsumed entries; undo removes the op); the desktop's only verbs
+   are consume-everything-and-clear or don't-touch. Full contract:
+   `docs/superpowers/specs/2026-07-23-ops-journal-design.md`.
 4. **Android Auto** via Media3 `MediaLibraryService` — near-free.
 5. Catppuccin Frappé, dark/light.
 

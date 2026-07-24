@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Playlist editing round-trip: swipe-to-delete with undo, long-press move-to-group
+  sheet (existing or new group), star long-press targeted add from Discover. Edits
+  append to an `ops.jsonl` journal in the synced folder and render as an optimistic
+  overlay (pending rows italic) until the desktop merge consumes the journal;
+  playlists, media session, and Android Auto all reflect edits immediately.
+
+### Changed
+
+- `ops.jsonl` replaces `pending.csv`; a legacy `pending.csv` is migrated to journal
+  ops on first launch and deleted.
+
 ## [0.2.0] - 2026-07-24
 
 ### Added
