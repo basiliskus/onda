@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -17,7 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun DiscoverScreen(vm: DiscoverViewModel, onOpenList: (kind: String, value: String) -> Unit) {
     LaunchedEffect(Unit) { vm.loadBrowseLists() }
     var query by remember { mutableStateOf("") }
-    var mode by remember { mutableIntStateOf(0) }
+    var mode by rememberSaveable { mutableIntStateOf(0) }
     val tags by vm.tags.collectAsStateWithLifecycle()
     val countries by vm.countries.collectAsStateWithLifecycle()
     val browseError by vm.browseError.collectAsStateWithLifecycle()
@@ -37,7 +38,7 @@ fun DiscoverScreen(vm: DiscoverViewModel, onOpenList: (kind: String, value: Stri
         SingleChoiceSegmentedButtonRow(Modifier.padding(horizontal = 16.dp)) {
             listOf("Tags", "Countries", "Top voted").forEachIndexed { i, label ->
                 SegmentedButton(
-                    selected = mode == i, onClick = { mode = i },
+                    selected = mode == i, onClick = { mode = i; if (i == 2) onOpenList("top", "-") },
                     shape = SegmentedButtonDefaults.itemShape(i, 3),
                 ) { Text(label) }
             }
@@ -62,7 +63,12 @@ fun DiscoverScreen(vm: DiscoverViewModel, onOpenList: (kind: String, value: Stri
                     )
                 }
             }
-            else -> LaunchedEffect(mode) { onOpenList("top", "-") }
+            // Navigation happens in the segment's onClick; a restored Top
+            // selection must render content, not re-navigate from composition.
+            else -> ListItem(
+                modifier = Modifier.clickable { onOpenList("top", "-") },
+                headlineContent = { Text("Top voted stations") },
+            )
         }
     }
 }

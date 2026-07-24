@@ -28,11 +28,23 @@ class DiscoverViewModel(private val client: RadioBrowserClient) : ViewModel() {
 
     fun loadBrowseLists() {
         if (tags.value == null) viewModelScope.launch {
-            try { tags.value = client.topTags() } catch (e: IOException) { browseError.value = "radio-browser unreachable" }
+            try {
+                tags.value = client.topTags()
+                clearBrowseErrorIfLoaded()
+            } catch (e: IOException) { browseError.value = "radio-browser unreachable" }
         }
         if (countries.value == null) viewModelScope.launch {
-            try { countries.value = client.countries() } catch (e: IOException) { browseError.value = "radio-browser unreachable" }
+            try {
+                countries.value = client.countries()
+                clearBrowseErrorIfLoaded()
+            } catch (e: IOException) { browseError.value = "radio-browser unreachable" }
         }
+    }
+
+    // Both fetches run concurrently and either can fail alone; a partial
+    // failure must keep the banner up.
+    private fun clearBrowseErrorIfLoaded() {
+        if (tags.value != null && countries.value != null) browseError.value = null
     }
 
     fun openList(kind: String, value: String) {
