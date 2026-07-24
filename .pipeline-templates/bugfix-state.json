@@ -22,15 +22,11 @@
           "done": false
         },
         {
-          "action": "verify python/venv",
+          "action": "verify JDK + Gradle wrapper (./gradlew --version)",
           "done": false
         },
         {
-          "action": "install dependencies",
-          "done": false
-        },
-        {
-          "action": "smoke test imports",
+          "action": "warm the build (./gradlew help -q)",
           "done": false
         },
         {
@@ -83,7 +79,23 @@
           "done": false
         },
         {
-          "action": "scope check \u2014 output SCOPE_EXPANDED if broader than spec",
+          "action": "scope check — output SCOPE_EXPANDED if broader than spec",
+          "done": false
+        },
+        {
+          "action": "any suspend/timeout/flow logic placed in :app? propose the :core testable seam or justify why not",
+          "done": false
+        },
+        {
+          "action": "new platform API surface: check stability annotations / lint suppressions required (@UnstableApi, @RequiresApi)",
+          "done": false
+        },
+        {
+          "action": "composition-time side effects (LaunchedEffect that navigates, mutates shared state, or fires callbacks) are a smell: justify or move to an event handler",
+          "done": false
+        },
+        {
+          "action": "if manual verification is planned, write the test matrix into the plan; the Test Execution stage records pass/skip(reason) per row",
           "done": false
         },
         {
@@ -150,6 +162,10 @@
           "done": false
         },
         {
+          "action": "execute the plan's manual test matrix where feasible; record pass/skip(reason) per row and post evidence for executed rows as a PR comment",
+          "done": false
+        },
+        {
           "action": "output TESTS_PASSED or TESTS_FAILED",
           "done": false,
           "mandatory": true
@@ -176,7 +192,7 @@
           "_note": "operator-supplied lint command (pipeline-init)"
         },
         {
-          "action": "cross-ref diagnosis vs fix \u2014 flag if fix diverged",
+          "action": "cross-ref diagnosis vs fix — flag if fix diverged",
           "done": false
         },
         {
@@ -225,7 +241,7 @@
           "done": false
         },
         {
-          "action": "if this change adds/renames/removes an enumerated unit (skill, CLI/slash command, plugin, make target, item in a 'supported X' list), update EVERY inventory/index doc that lists its siblings \u2014 grep a sibling's name across non-source files to find them; DOCS_ONLY does not exempt this",
+          "action": "if this change adds/renames/removes an enumerated unit (skill, CLI/slash command, plugin, make target, item in a 'supported X' list), update EVERY inventory/index doc that lists its siblings — grep a sibling's name across non-source files to find them; DOCS_ONLY does not exempt this",
           "done": false
         },
         {
@@ -245,7 +261,7 @@
           "done": false
         },
         {
-          "action": "git remote -v \u2014 verify github remote exists",
+          "action": "git remote -v — verify github remote exists",
           "done": false
         },
         {
@@ -273,7 +289,7 @@
           "done": false
         },
         {
-          "action": "verify PR body against actual diff \u2014 no phantom features, wrong counts, or incorrect terminology; fix with gh pr edit if needed",
+          "action": "verify PR body against actual diff — no phantom features, wrong counts, or incorrect terminology; fix with gh pr edit if needed",
           "done": false,
           "mandatory": true
         },
@@ -289,7 +305,7 @@
       "status": "pending",
       "verdict": null,
       "run_as": "subagent",
-      "subagent_prompt": "You are reviewing PR #{pr_number} for a bug fix. Project: {project_path}. PR targets {pr_target_branch}. Step 0: Read .pipeline-state/*-diagnosis.md for the original diagnosis. Step 1: Run git diff {pr_target_branch}...HEAD, read changed files. Check docs/PULL_REQUEST_CHECKLIST.md if exists. Step 2: Cross-ref diagnosis vs fix \u2014 verify root cause was addressed, not just symptom. Step 3: Review for correctness, security (XSS, injection, secrets), testing (bug fix MUST have regression test), code quality, docs, perf. Flag auto-reject triggers. Step 4: Run project test suite, report pass/fail. Step 5: Decide APPROVE/REQUEST_CHANGES/COMMENT. Step 6 MANDATORY: Post review to GitHub with gh pr review {pr_number} --comment --body '<formatted review>'. If REQUEST_CHANGES use --request-changes. Save to pr/feedback/ if dir exists. Step 7: Output verdict. Step FINAL (MANDATORY, #36): you are read-only \u2014 restore the executor's working tree before returning. Capture your starting branch first (START=$(git rev-parse --abbrev-ref HEAD)); on exit run `git checkout \"$START\"` and verify `git status --porcelain` is clean (`git restore --staged --worktree .` + `git clean -fd` (remove untracked files you created) if you dirtied it). NEVER leave the tree on {pr_target_branch} or with reverted/staged files \u2014 a build/scp the executor runs next would ship stale content.",
+      "subagent_prompt": "You are reviewing PR #{pr_number} for a bug fix. Project: {project_path}. PR targets {pr_target_branch}. Step 0: Read .pipeline-state/*-diagnosis.md for the original diagnosis. Step 1: Run git diff {pr_target_branch}...HEAD, read changed files. Check docs/PULL_REQUEST_CHECKLIST.md if exists. Step 2: Cross-ref diagnosis vs fix — verify root cause was addressed, not just symptom. Step 3: Review for correctness, security (XSS, injection, secrets), testing (bug fix MUST have regression test), code quality, docs, perf. Flag auto-reject triggers. Step 4: Run project test suite, report pass/fail. Step 5: Decide APPROVE/REQUEST_CHANGES/COMMENT. Step 6 MANDATORY: Post review to GitHub with gh pr review {pr_number} --comment --body '<formatted review>'. If REQUEST_CHANGES use --request-changes. Save to pr/feedback/ if dir exists. Step 7: Output verdict. Step FINAL (MANDATORY, #36): you are read-only — restore the executor's working tree before returning. Capture your starting branch first (START=$(git rev-parse --abbrev-ref HEAD)); on exit run `git checkout \"$START\"` and verify `git status --porcelain` is clean (`git restore --staged --worktree .` + `git clean -fd` (remove untracked files you created) if you dirtied it). NEVER leave the tree on {pr_target_branch} or with reverted/staged files — a build/scp the executor runs next would ship stale content.",
       "checklist": [
         {
           "action": "read .pipeline-state/<branch>-diagnosis.md for diagnosis compliance check",
@@ -304,7 +320,7 @@
           "done": false
         },
         {
-          "action": "cross-ref diagnosis vs fix \u2014 root cause addressed",
+          "action": "cross-ref diagnosis vs fix — root cause addressed",
           "done": false,
           "mandatory": true
         },
@@ -364,10 +380,10 @@
       "status": "pending",
       "verdict": null,
       "run_as": "subagent",
-      "subagent_prompt": "Merge PR #{pr_number} in {project_path}. Step 0: Run 'gh pr checks {pr_number}' \u2014 verify CI green. If pre-existing failure, document with gh pr comment before merging. Step 1: Run gh pr merge {pr_number} --squash --delete-branch. Do NOT run gh pr review --approve (GitHub blocks self-approval). Output PR_MERGED or MERGE_FAILED.",
+      "subagent_prompt": "Merge PR #{pr_number} in {project_path}. Step 0: Run 'gh pr checks {pr_number}' — verify CI green. If pre-existing failure, document with gh pr comment before merging. Step 1: Run gh pr merge {pr_number} --squash --delete-branch. Do NOT run gh pr review --approve (GitHub blocks self-approval). Output PR_MERGED or MERGE_FAILED.",
       "checklist": [
         {
-          "action": "verify CI green: gh pr checks \u2014 if failing for pre-existing reasons, document in PR comment before merging",
+          "action": "verify CI green: gh pr checks — if failing for pre-existing reasons, document in PR comment before merging",
           "done": false,
           "mandatory": true
         },
@@ -380,6 +396,10 @@
           "action": "output PR_MERGED or MERGE_FAILED",
           "done": false,
           "mandatory": true
+        },
+        {
+          "action": "if the plan defers verification to post-merge observation, perform the observation and post it as a PR comment with the run URL",
+          "done": false
         }
       ]
     },
@@ -388,7 +408,7 @@
       "status": "pending",
       "verdict": null,
       "run_as": "subagent",
-      "subagent_prompt": "Write retrospective for bug fix: {task_description}. Project: {project_path}. PR #{pr_number}. Run 'gh pr view {pr_number} --json commits,title,body' to get PR details (branch deleted after merge). Rate quality 1-5, what went well, lessons learned, improvements. MANDATORY: Post retro as gh pr comment {pr_number} --body '<formatted retro with quality, lessons, improvements>'. MANDATORY: Append to .pipeline-log.md (create if needed, ensure in .gitignore). Your FINAL output line MUST be exactly 'RETRO_COMPLETE'.",
+      "subagent_prompt": "Write retrospective for bug fix: {task_description}. Project: {project_path}. PR #{pr_number}. Run 'gh pr view {pr_number} --json commits,title,body' to get PR details (branch deleted after merge). Rate quality 1-5, what went well, lessons learned, improvements. MANDATORY: Post retro as gh pr comment {pr_number} --body '<formatted retro with quality, lessons, improvements>'. MANDATORY: Append to .pipeline-log.md (create if needed, ensure in .gitignore). Your FINAL output line MUST be exactly 'RETRO_COMPLETE'. If this PR closes a milestone, end the retro with a consolidated carry-forward section listing every open item from all the milestone's PR retros, so /pipeline-retro starts from one list.",
       "checklist": [
         {
           "action": "rate quality 1-5",

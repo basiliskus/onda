@@ -22,15 +22,11 @@
           "done": false
         },
         {
-          "action": "verify python/venv",
+          "action": "verify JDK + Gradle wrapper (./gradlew --version)",
           "done": false
         },
         {
-          "action": "install dependencies",
-          "done": false
-        },
-        {
-          "action": "smoke test imports",
+          "action": "warm the build (./gradlew help -q)",
           "done": false
         },
         {
@@ -50,7 +46,7 @@
           "done": false
         },
         {
-          "action": "classify as CODE_CHANGES or DOCS_ONLY",
+          "action": "classify as CODE_CHANGES, CONFIG_ONLY, or DOCS_ONLY",
           "done": false,
           "mandatory": true
         }
@@ -102,6 +98,22 @@
           "done": false
         },
         {
+          "action": "any suspend/timeout/flow logic placed in :app? propose the :core testable seam or justify why not",
+          "done": false
+        },
+        {
+          "action": "new platform API surface: check stability annotations / lint suppressions required (@UnstableApi, @RequiresApi)",
+          "done": false
+        },
+        {
+          "action": "composition-time side effects (LaunchedEffect that navigates, mutates shared state, or fires callbacks) are a smell: justify or move to an event handler",
+          "done": false
+        },
+        {
+          "action": "if manual verification is planned, write the test matrix into the plan; the Test Execution stage records pass/skip(reason) per row",
+          "done": false
+        },
+        {
           "action": "write plan to .pipeline-state/<branch>-plan.md so later stages can read it",
           "done": false,
           "mandatory": true
@@ -121,7 +133,8 @@
         {
           "action": "write tests first (TDD)",
           "done": false,
-          "mandatory": true
+          "mandatory": true,
+          "_note": "CONFIG_ONLY changes: instead of TDD, enumerate failure modes, shell-test embedded logic both ways locally, and name the deferred live verification and where it will occur"
         },
         {
           "action": "implement to pass tests",
@@ -175,6 +188,10 @@
           "done": false
         },
         {
+          "action": "execute the plan's manual test matrix where feasible; record pass/skip(reason) per row and post evidence for executed rows as a PR comment",
+          "done": false
+        },
+        {
           "action": "output TESTS_PASSED or TESTS_FAILED",
           "done": false,
           "mandatory": true
@@ -192,7 +209,7 @@
           "done": false
         },
         {
-          "action": "cross-ref plan vs implementation \u2014 mark each deliverable DONE/MISSING",
+          "action": "cross-ref plan vs implementation — mark each deliverable DONE/MISSING",
           "done": false
         },
         {
@@ -206,26 +223,26 @@
           "mandatory": true
         },
         {
-          "action": "scrutinize every code example in new/changed docs with the same security rigor as production code \u2014 doc examples are copy-pasted by users and inherit the production trust boundary",
+          "action": "scrutinize every code example in new/changed docs with the same security rigor as production code — doc examples are copy-pasted by users and inherit the production trust boundary",
           "done": false,
           "mandatory": true
         },
         {
-          "action": "trace every contract boundary where server/backend data reaches the client \u2014 does ANY exception message, error string, or internal path leak identifying info (ARNs, bucket names, endpoints, file paths)? Raw exceptions surfaced via response bodies, WebSocket error frames, or template context are the main leak vectors",
+          "action": "trace every boundary where errors surface to UI, notifications, or logs — no stream URLs, file paths, or tree URIs leaked in user-visible messages",
           "done": false,
           "mandatory": true
         },
         {
-          "action": "WIRING_CHECK \u2014 for every new public method/attribute/hook added on a framework base class (LiveView, LiveComponent, etc.), grep framework hot paths (consumer.py / websocket.py / dispatch.py / renderer) for a real call site. A test-only caller means the feature is not integrated \u2014 flag it as a WIRING_GAP finding, not a pass. Stage 7-vs-Stage 11 delta PRs #814/#837/#840 all failed here.",
+          "action": "WIRING_CHECK — every new public :core API needs a real call site in :app or the Media3 service layer (framework dispatch counts); every new :app public method/property needs a real caller or framework path. A test-only caller is a WIRING_GAP finding, not a pass.",
           "done": false,
           "mandatory": true
         },
         {
-          "action": "test coverage gaps \u2014 if code generates output, do tests assert on content correctness (not just 'no error')?",
+          "action": "test coverage gaps — if code generates output, do tests assert on content correctness (not just 'no error')?",
           "done": false
         },
         {
-          "action": "type hints on public APIs",
+          "action": "visibility review: new public symbols actually need to be public; internal otherwise",
           "done": false
         },
         {
@@ -234,6 +251,11 @@
         },
         {
           "action": "output REVIEW_PASSED or REVIEW_FAILED",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "for every fetch/load gated on observed state (== null, isEmpty, boolean flag), enumerate the in-flight window: what happens if the trigger fires again before completion?",
           "done": false,
           "mandatory": true
         }
@@ -254,7 +276,7 @@
           "done": false
         },
         {
-          "action": "broad codebase scan \u2014 pre-existing issues as IMPROVEMENT: lines only",
+          "action": "broad codebase scan — pre-existing issues as IMPROVEMENT: lines only",
           "done": false
         },
         {
@@ -303,7 +325,7 @@
           "done": false
         },
         {
-          "action": "if this change adds/renames/removes an enumerated unit (skill, CLI/slash command, plugin, make target, item in a 'supported X' list), update EVERY inventory/index doc that lists its siblings \u2014 grep a sibling's name across non-source files to find them; DOCS_ONLY does not exempt this",
+          "action": "if this change adds/renames/removes an enumerated unit (skill, CLI/slash command, plugin, make target, item in a 'supported X' list), update EVERY inventory/index doc that lists its siblings — grep a sibling's name across non-source files to find them; DOCS_ONLY does not exempt this",
           "done": false
         },
         {
@@ -323,7 +345,7 @@
           "done": false
         },
         {
-          "action": "git remote -v \u2014 verify github remote exists",
+          "action": "git remote -v — verify github remote exists",
           "done": false
         },
         {
@@ -339,7 +361,7 @@
           "done": false
         },
         {
-          "action": "git diff --check \u2014 no conflict markers",
+          "action": "git diff --check — no conflict markers",
           "done": false
         },
         {
@@ -355,7 +377,7 @@
           "done": false
         },
         {
-          "action": "verify PR body against actual diff \u2014 no phantom features, wrong counts, or incorrect terminology; fix with gh pr edit if needed",
+          "action": "verify PR body against actual diff — no phantom features, wrong counts, or incorrect terminology; fix with gh pr edit if needed",
           "done": false,
           "mandatory": true
         },
@@ -371,7 +393,7 @@
       "status": "pending",
       "verdict": null,
       "run_as": "subagent",
-      "subagent_prompt": "You are reviewing PR #{pr_number}. Project: {project_path}. PR targets {pr_target_branch}. Step 0: Read .pipeline-state/*-plan.md for the original plan. Step 1: Run git diff {pr_target_branch}...HEAD, read changed files. Check docs/PULL_REQUEST_CHECKLIST.md if exists \u2014 use as review framework. Step 2: Cross-ref plan vs implementation \u2014 verify every planned deliverable was implemented. Step 2b: Cross-ref the plan's test list against actual test files \u2014 every test the plan specified must exist. Step 3: Review for correctness, security (XSS, injection, secrets exposure), testing gaps, code quality (print vs logging, except:pass), docs, perf, architecture. Flag auto-reject triggers. Step 4: Run project test suite, report pass/fail. Step 5: Decide APPROVE/REQUEST_CHANGES/COMMENT. Step 6 MANDATORY: Post review to GitHub with gh pr review {pr_number} --comment --body '<formatted review with checklist>'. If REQUEST_CHANGES use --request-changes. Save to pr/feedback/ if dir exists. Step 7: Output verdict. Step FINAL (MANDATORY, #36): you are read-only \u2014 restore the executor's working tree before returning. Capture your starting branch first (START=$(git rev-parse --abbrev-ref HEAD)); on exit run `git checkout \"$START\"` and verify `git status --porcelain` is clean (`git restore --staged --worktree .` + `git clean -fd` (remove untracked files you created) if you dirtied it). NEVER leave the tree on {pr_target_branch} or with reverted/staged files \u2014 a build/scp the executor runs next would ship stale content.",
+      "subagent_prompt": "You are reviewing PR #{pr_number}. Project: {project_path}. PR targets {pr_target_branch}. Step 0: Read .pipeline-state/*-plan.md for the original plan. Step 1: Run git diff {pr_target_branch}...HEAD, read changed files. Check docs/PULL_REQUEST_CHECKLIST.md if exists — use as review framework. Step 2: Cross-ref plan vs implementation — verify every planned deliverable was implemented. Step 2b: Cross-ref the plan's test list against actual test files — every test the plan specified must exist. Step 3: Review for correctness, security (XSS, injection, secrets exposure), testing gaps, code quality (print vs logging, except:pass), docs, perf, architecture. Flag auto-reject triggers. Step 4: Run project test suite, report pass/fail. Step 5: Decide APPROVE/REQUEST_CHANGES/COMMENT. Step 6 MANDATORY: Post review to GitHub with gh pr review {pr_number} --comment --body '<formatted review with checklist>'. If REQUEST_CHANGES use --request-changes. Save to pr/feedback/ if dir exists. Step 7: Output verdict. Step FINAL (MANDATORY, #36): you are read-only — restore the executor's working tree before returning. Capture your starting branch first (START=$(git rev-parse --abbrev-ref HEAD)); on exit run `git checkout \"$START\"` and verify `git status --porcelain` is clean (`git restore --staged --worktree .` + `git clean -fd` (remove untracked files you created) if you dirtied it). NEVER leave the tree on {pr_target_branch} or with reverted/staged files — a build/scp the executor runs next would ship stale content.",
       "checklist": [
         {
           "action": "read .pipeline-state/<branch>-plan.md for plan compliance check",
@@ -386,12 +408,12 @@
           "done": false
         },
         {
-          "action": "cross-ref plan vs implementation \u2014 every deliverable accounted for",
+          "action": "cross-ref plan vs implementation — every deliverable accounted for",
           "done": false,
           "mandatory": true
         },
         {
-          "action": "cross-ref plan's test list against actual tests \u2014 every test the plan called for must exist",
+          "action": "cross-ref plan's test list against actual tests — every test the plan called for must exist",
           "done": false,
           "mandatory": true
         },
@@ -446,10 +468,10 @@
       "status": "pending",
       "verdict": null,
       "run_as": "subagent",
-      "subagent_prompt": "Merge PR #{pr_number} in {project_path}. Step 0: Run 'gh pr checks {pr_number}' \u2014 verify CI green. If pre-existing failure, document with gh pr comment before merging. Step 1: Run gh pr merge {pr_number} --squash --delete-branch. Do NOT run gh pr review --approve (GitHub blocks self-approval). Output PR_MERGED or MERGE_FAILED.",
+      "subagent_prompt": "Merge PR #{pr_number} in {project_path}. Step 0: Run 'gh pr checks {pr_number}' — verify CI green. If pre-existing failure, document with gh pr comment before merging. Step 1: Run gh pr merge {pr_number} --squash --delete-branch. Do NOT run gh pr review --approve (GitHub blocks self-approval). Output PR_MERGED or MERGE_FAILED.",
       "checklist": [
         {
-          "action": "verify CI green: gh pr checks \u2014 if failing for pre-existing reasons, document in PR comment before merging",
+          "action": "verify CI green: gh pr checks — if failing for pre-existing reasons, document in PR comment before merging",
           "done": false,
           "mandatory": true
         },
@@ -462,6 +484,10 @@
           "action": "output PR_MERGED or MERGE_FAILED",
           "done": false,
           "mandatory": true
+        },
+        {
+          "action": "if the plan defers verification to post-merge observation, perform the observation and post it as a PR comment with the run URL",
+          "done": false
         }
       ]
     },
@@ -470,7 +496,7 @@
       "status": "pending",
       "verdict": null,
       "run_as": "subagent",
-      "subagent_prompt": "Write retrospective for feature: {task_description}. Project: {project_path}. PR #{pr_number}. Run 'gh pr view {pr_number} --json commits,title,body' to get PR details (branch deleted after merge). Rate quality 1-5, what went well, lessons learned, improvements. MANDATORY: Post retro as gh pr comment {pr_number} --body '<formatted retro with quality, lessons, improvements>'. MANDATORY: Append to .pipeline-log.md (create if needed, ensure in .gitignore). Your FINAL output line MUST be exactly 'RETRO_COMPLETE'.",
+      "subagent_prompt": "Write retrospective for feature: {task_description}. Project: {project_path}. PR #{pr_number}. Run 'gh pr view {pr_number} --json commits,title,body' to get PR details (branch deleted after merge). Rate quality 1-5, what went well, lessons learned, improvements. MANDATORY: Post retro as gh pr comment {pr_number} --body '<formatted retro with quality, lessons, improvements>'. MANDATORY: Append to .pipeline-log.md (create if needed, ensure in .gitignore). Your FINAL output line MUST be exactly 'RETRO_COMPLETE'. If this PR closes a milestone, end the retro with a consolidated carry-forward section listing every open item from all the milestone's PR retros, so /pipeline-retro starts from one list.",
       "checklist": [
         {
           "action": "rate quality 1-5",
