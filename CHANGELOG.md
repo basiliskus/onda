@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Playback resumption after process death: media-button and system media-resumption
   starts now replay the last played playlist station (`onPlaybackResumption` +
   persisted last-played id). Discover-only stations deliberately do not resume.
+- Release pipeline guards: the release workflow refuses a tag that does not match
+  `versionName` (before any build work or keystore decode), and CI now builds
+  `main` after every merge.
 
 ## [0.1.0] - 2026-07-23
 
