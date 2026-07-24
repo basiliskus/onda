@@ -59,6 +59,13 @@ conditional-clear semantics.
   head-unit limits. Build when felt.
 - Sleep timer (unscheduled, was v0.2.0): cut from MVP scope 2026-07-23; build when
   actually missed.
+- Song capture (candidate v0.4.0, brainstorm before scheduling): favorite the
+  currently playing track from the ICY `streamTitle` already surfaced in
+  `NowPlaying` — capture raw title + station + timestamp to a synced append-only
+  file the desktop can consume. Open design questions: destination format and
+  desktop consumption, notification/Android Auto capture action, and coverage
+  honesty (no-metadata stations like FIP can't capture). Store raw strings; don't
+  parse "Artist - Title".
 - Snapshot-reorder op and drag-to-adjacent-group gesture: future candidates noted in
   the ops-journal design.
 - Upstream (dotfiles repo, not this repo): fix shell-escaped URL on `stations.m3u`
