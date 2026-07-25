@@ -33,9 +33,16 @@ fun PlaylistDetailScreen(
     onPlayStation: (Station) -> Unit,
     onDeleteStation: (Station) -> Unit,
     onMoveStation: (Station, String) -> Unit,
+    playlistNames: List<String>,
+    groupsOf: (String) -> List<String>,
+    onMoveToPlaylist: (Station, String, String) -> Unit,
 ) {
     var actionsFor by remember { mutableStateOf<Station?>(null) }
     var movingStation by remember { mutableStateOf<Station?>(null) }
+    // Two-step cross-playlist flow: pick the playlist, then a group inside it. Plain
+    // remember like the three sibling flows, so rotation drops it the same way (GitHub #18).
+    var crossMoveStation by remember { mutableStateOf<Station?>(null) }
+    var crossMoveTarget by remember { mutableStateOf<String?>(null) }
     Column {
         TopAppBar(
             title = { Text(playlist.name) },
@@ -63,6 +70,7 @@ fun PlaylistDetailScreen(
         StationActionsSheet(
             stationName = s.name,
             onMove = { actionsFor = null; movingStation = s },
+            onMoveToPlaylist = { actionsFor = null; crossMoveStation = s },
             onRemove = { actionsFor = null; onDeleteStation(s) },
             onDismiss = { actionsFor = null },
         )
@@ -75,6 +83,31 @@ fun PlaylistDetailScreen(
             onDismiss = { movingStation = null },
             newOptionLabel = "New group",
         )
+    }
+    crossMoveStation?.let { s ->
+        val target = crossMoveTarget
+        if (target == null) {
+            GroupPickerSheet(
+                title = "Move to playlist",
+                // No newOptionLabel: playlists are files the app cannot create.
+                options = playlistNames,
+                onPick = { crossMoveTarget = it },
+                onDismiss = { crossMoveStation = null },
+            )
+        } else {
+            GroupPickerSheet(
+                title = "Move to group in $target",
+                options = groupsOf(target),
+                onPick = { group ->
+                    // Clear before the callback: the snackbar draws where the sheet sits.
+                    crossMoveStation = null
+                    crossMoveTarget = null
+                    if (target != s.playlist || group != s.group) onMoveToPlaylist(s, target, group)
+                },
+                onDismiss = { crossMoveStation = null; crossMoveTarget = null },
+                newOptionLabel = "New group",
+            )
+        }
     }
 }
 

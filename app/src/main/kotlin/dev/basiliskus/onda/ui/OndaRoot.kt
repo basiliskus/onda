@@ -78,6 +78,18 @@ fun OndaRoot(graph: AppGraph) {
             if (result == SnackbarResult.ActionPerformed) graph.opsRepository.undo(undoToken)
         }
     }
+    // Same shape as onDeleteStation: one token covers the Delete+Add pair, so a single
+    // Undo takes the station back to where it was.
+    val onMoveToPlaylist: (Station, String, String) -> Unit = { s, toPlaylist, toGroup ->
+        val undoToken = graph.opsRepository.moveToPlaylist(s, toPlaylist, toGroup)
+        uiScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                "Moved ${s.name} to $toGroup in $toPlaylist",
+                actionLabel = "Undo", duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) graph.opsRepository.undo(undoToken)
+        }
+    }
     val tabs = listOf(
         Tab("playlists", "Playlists", Icons.Filled.LibraryMusic),
         Tab("discover", "Discover", Icons.Filled.TravelExplore),
@@ -134,6 +146,11 @@ fun OndaRoot(graph: AppGraph) {
                     PlaylistDetailScreen(
                         playlist, playingUrl, { nav.popBackStack() }, onPlayStation, onDeleteStation,
                         onMoveStation = graph.opsRepository::move,
+                        playlistNames = ready?.playlists?.map { it.name }.orEmpty(),
+                        groupsOf = { name ->
+                            ready?.playlists?.firstOrNull { it.name == name }?.groups?.map { it.title }.orEmpty()
+                        },
+                        onMoveToPlaylist = onMoveToPlaylist,
                     )
                 }
             }
