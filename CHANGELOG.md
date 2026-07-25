@@ -7,6 +7,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Move a station to a different playlist: "Move to playlist…" in the long-press
+  sheet opens a playlist picker, then the existing group picker for the target
+  playlist (existing group or a new one). The move lands as a `Delete` on the
+  source plus a targeted `Add` on the target, emitted from a **single** journal
+  mutation — one compaction pass, one generation bump, one write, one Undo token
+  that undoes both — and a failed write rolls the whole pair back and voids the
+  token. Picking the station's current playlist routes to a single `Move` op
+  instead. No new op type and no journal-contract change: the desktop round-trip
+  is verified against the real `stations-merge-ops.py` (2 applied, 0 rejected, no
+  `ops-rejected.jsonl`). **Known loss:** the desktop rebuilds an added row from
+  name, url and icon, so a cross-playlist move — and an A→B→A round trip, which
+  nets to a delete plus a re-add in A — drops any pyradio column past `icon` and
+  appends the row at the end of its target group instead of a curated position.
+  One live row is affected today: `KALX 90.7FM Berkeley` in `public-radio.csv`,
+  which carries `volume=100`. Contract: `docs/spec.md`.
 - Song capture: a like button in the Now Playing sheet and a Media3 notification
   custom action append the current ICY track title to
   `recordings/onda-titles.log` in the synced folder, one line per like, in

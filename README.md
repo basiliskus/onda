@@ -24,7 +24,8 @@ Onda isn't on the Play Store. Install it via
 Onda doesn't own the playlists it renders — it reads M3U files
 (`stations`, `nts`, `fip`, `bbc`, `public-radio`, `radio-garden`) from a
 folder synced by Synology Drive and hot-reloads on change; there's no
-in-app import. Edits (star, targeted add, delete, move) append ops to
+in-app import. Edits (star, targeted add, delete, move between groups
+or playlists) append ops to
 an `ops.jsonl` journal in that folder for the desktop side to merge,
 rather than mutating the M3Us directly. Liking a track appends one
 line to `recordings/onda-titles.log` there, in the same format
