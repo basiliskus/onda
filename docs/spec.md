@@ -41,8 +41,70 @@ Tried and rejected:
    unconsumed entries; undo removes the op); the desktop's only verbs
    are consume-everything-and-clear or don't-touch. Full contract:
    `docs/superpowers/specs/2026-07-23-ops-journal-design.md`.
-4. **Android Auto** via Media3 `MediaLibraryService` — near-free.
-5. Catppuccin Frappé, dark/light.
+4. **Song capture.** A like button (Now Playing sheet + media notification)
+   appends the current ICY track title to a titles log in the same
+   synced folder, for the desktop music harvester to ingest. Format
+   contract below.
+5. **Android Auto** via Media3 `MediaLibraryService` — near-free.
+6. Catppuccin Frappé, dark/light.
+
+## Synced-folder contract
+
+The app touches three kinds of file in the SAF-granted synced folder,
+and nothing else:
+
+| Path | Access | Owner |
+|------|--------|-------|
+| `*.m3u` (six playlists) | read | desktop (`stations-to-m3u.py`) |
+| `ops.jsonl` | read/write | phone (desktop consumes-and-clears) |
+| `recordings/onda-titles.log` | append-only | phone |
+
+`recordings/` also holds pyradio's own `pyradio-titles.log`. **Onda
+never writes it.** One writer per file is what keeps Synology Drive
+from producing conflict copies (`recordings/` already carries one for
+pyradio's log, from two desktops writing it). The seam enforces this
+structurally: `PlaylistsSource.appendTitlesLogLine(line)` takes no
+filename, so no code path in the app can name another file to append
+to. The subdirectory and the log file are created on first like.
+
+### Titles-log line format
+
+```
+Jul 23 (Thu) 21:08 |     Artist - Title (LIKED)
+```
+
+Pinned byte-for-byte by the desktop consumer,
+`music/scripts/pyradio-to-json.py`, which globs the whole log
+directory, splits each line on `" | "`, and keeps messages ending in
+`" (LIKED)"`:
+
+- Timestamp `MMM dd (EEE) HH:mm`, **English locale forced** for the
+  month and weekday names (`MMM`, `EEE`) — the desktop parses with `%b
+  %d (%a) %H:%M` regardless of the phone's locale. The locale does
+  *not* affect the digits: `DateTimeFormatter.ofPattern` always uses
+  `DecimalStyle.STANDARD`, so `HH:mm` is ASCII with or without it, and
+  only an explicit `withDecimalStyle` could change that. Zero-padded
+  day, to match pyradio's own lines byte-for-byte.
+- **No year.** The consumer infers it from the file's mtime, so a log
+  that is never rotated will mis-year entries older than a year;
+  rotation belongs to the desktop side.
+- Separator `" | "`, then **four more spaces** of liked-line indent —
+  five spaces between the pipe and the title.
+- The title passes through **raw** (the consumer strips it), and the
+  line ends at `" (LIKED)"` with nothing after it.
+- Local wall-clock time, as pyradio writes it.
+- Onda emits no `Station: <name>` lines, so Onda-liked tracks land
+  without a `station` field. The consumer already tolerates that.
+
+**Line-boundary neutralization.** An ICY `StreamTitle` is untrusted
+remote input landing in a file a desktop parser reads, so before
+formatting, every character Python's `str.splitlines()` treats as a
+line boundary (LF, VT, FF, CR, FS, GS, RS, NEL, U+2028, U+2029 — all
+reachable through Media3's DOTALL `IcyDecoder`) is replaced with a
+space. Without it a crafted title splits into several records, each
+still able to satisfy `endswith(" (LIKED)")` or `startswith("Station:
+")`, forging entries and dropping the genuine one. Framing only:
+nothing is trimmed, decoded, or parsed.
 
 ## Stream-quirk knowledge (hard-won, bake into tests)
 

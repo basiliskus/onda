@@ -26,7 +26,11 @@ Onda doesn't own the playlists it renders — it reads M3U files
 folder synced by Synology Drive and hot-reloads on change; there's no
 in-app import. Edits (star, targeted add, delete, move) append ops to
 an `ops.jsonl` journal in that folder for the desktop side to merge,
-rather than mutating the M3Us directly. Full contract and
+rather than mutating the M3Us directly. Liking a track appends one
+line to `recordings/onda-titles.log` there, in the same format
+pyradio writes, for the desktop music harvester to pick up. Those
+three — playlists in, ops journal out, titles log appended — are
+everything the app touches in that folder. Full contract and
 stream-quirk knowledge:
 `CLAUDE.md` and `docs/spec.md`.
 
