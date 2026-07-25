@@ -17,7 +17,7 @@ data class StationListState(
     val error: String? = null,
 )
 
-class DiscoverViewModel(private val client: RadioBrowserClient) : ViewModel() {
+class DiscoverViewModel(private val client: RadioBrowserApi) : ViewModel() {
     val tags = MutableStateFlow<List<RbTag>?>(null)
     val countries = MutableStateFlow<List<RbCountry>?>(null)
     val browseError = MutableStateFlow<String?>(null)

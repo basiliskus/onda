@@ -10,7 +10,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import dev.basiliskus.onda.core.m3u.M3uParser
-import dev.basiliskus.onda.core.model.Playlist
+import dev.basiliskus.onda.core.model.PlaylistsState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,22 +22,29 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 
-sealed interface PlaylistsState {
-    data object NeedsFolder : PlaylistsState
-    data object Loading : PlaylistsState
-    data class Ready(val playlists: List<Playlist>) : PlaylistsState
+/** What OpsRepository consumes of PlaylistRepository — the seam that keeps SAF/DocumentFile
+ *  behind a fakeable boundary for JVM tests. */
+interface PlaylistsSource {
+    val state: StateFlow<PlaylistsState>
+    val folderTicks: SharedFlow<Unit>
+    /** Blocking I/O — call from an IO dispatcher. */
+    fun readSyncedText(name: String): Result<String?>
+    /** Blocking I/O — call from an IO dispatcher. */
+    fun writeSyncedText(name: String, text: String): Boolean
+    /** Blocking I/O — call from an IO dispatcher. */
+    fun deleteSyncedFile(name: String): Boolean
 }
 
 class PlaylistRepository(
     private val context: Context,
     private val prefs: FolderPrefs,
     private val scope: CoroutineScope,
-) {
+) : PlaylistsSource {
     private val knownOrder = listOf("stations", "nts", "fip", "bbc", "public-radio", "radio-garden")
     private val _state = MutableStateFlow<PlaylistsState>(
         if (prefs.treeUri == null) PlaylistsState.NeedsFolder else PlaylistsState.Loading
     )
-    val state: StateFlow<PlaylistsState> = _state
+    override val state: StateFlow<PlaylistsState> = _state
     private var lastHash = 0
     private val scanMutex = Mutex()
     private val _scanning = MutableStateFlow(false)
@@ -48,7 +55,7 @@ class PlaylistRepository(
     // reload is instead: a rescan on every foreground resume, plus pull-to-refresh. Every
     // completed rescan emits a tick so journal readers re-read the folder too.
     private val _folderTicks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val folderTicks: SharedFlow<Unit> = _folderTicks
+    override val folderTicks: SharedFlow<Unit> = _folderTicks
 
     init {
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -147,7 +154,7 @@ class PlaylistRepository(
      * needed); success(null) when it legitimately doesn't exist yet; failure(e) when the
      * synced folder tree is unreachable or the read otherwise failed.
      */
-    fun readSyncedText(name: String): Result<String?> {
+    override fun readSyncedText(name: String): Result<String?> {
         val tree = prefs.treeUri ?: return Result.failure(IOException("no folder configured"))
         return try {
             val dir = DocumentFile.fromTreeUri(context, tree)
@@ -190,7 +197,7 @@ class PlaylistRepository(
      * Returns false (leaving any existing [name] untouched) on any failure; true once the
      * new content is durably in place as [name].
      */
-    fun writeSyncedText(name: String, text: String): Boolean {
+    override fun writeSyncedText(name: String, text: String): Boolean {
         val tree = prefs.treeUri ?: return false
         return try {
             val dir = DocumentFile.fromTreeUri(context, tree) ?: return false
@@ -269,7 +276,7 @@ class PlaylistRepository(
      * the write choreography may have left for it. Returns true once [name] no longer
      * exists in the folder.
      */
-    fun deleteSyncedFile(name: String): Boolean {
+    override fun deleteSyncedFile(name: String): Boolean {
         val tree = prefs.treeUri ?: return false
         return try {
             val dir = DocumentFile.fromTreeUri(context, tree) ?: return false

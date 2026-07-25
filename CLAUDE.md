@@ -66,7 +66,7 @@ Replaced `pending.csv` in v0.3.0 (first launch migrates). Contract:
 
 - default_branch: main
 - pr_target_branch: main
-- test_command: ./gradlew :core:test
+- test_command: ./gradlew :core:test :app:testDebugUnitTest
 - lint_command: ./gradlew :app:lintDebug
 - build_command: ./gradlew :app:assembleDebug
 - venv_path:

@@ -1,5 +1,6 @@
 package dev.basiliskus.onda.sync
 
+import dev.basiliskus.onda.core.model.PlaylistsState
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.ops.LegacyPendingMigration
 import dev.basiliskus.onda.core.ops.Op
@@ -7,6 +8,7 @@ import dev.basiliskus.onda.core.ops.OpStation
 import dev.basiliskus.onda.core.ops.OpsJournal
 import dev.basiliskus.onda.core.ops.applyOps
 import dev.basiliskus.onda.core.radiobrowser.RbStation
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,8 +31,9 @@ import java.util.UUID
  * crash-safe tmp/bak choreography in PlaylistRepository) after every mutation.
  */
 class OpsRepository(
-    private val playlists: PlaylistRepository,
+    private val playlists: PlaylistsSource,
     private val scope: CoroutineScope,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val _ops = MutableStateFlow<List<Op>>(emptyList())
     /** Urls with an unconsumed quick-star add (playlist == null) — drives the Discover
@@ -77,7 +80,7 @@ class OpsRepository(
     }
 
     fun refresh() {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             mutex.withLock {
                 migrateLegacyPending()
                 val text = playlists.readSyncedText(JOURNAL).getOrElse {
@@ -123,7 +126,7 @@ class OpsRepository(
     /** Restores the pre-delete snapshot iff no journal change intervened since [delete]
      *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops. */
     fun undo(token: UndoToken) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             mutex.withLock {
                 val snapshot = token.snapshot ?: return@withLock
                 if (token.generation != generation) return@withLock
@@ -141,7 +144,7 @@ class OpsRepository(
         armUndo: UndoToken? = null,
         transform: (List<Op>) -> List<Op>,
     ) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             mutex.withLock {
                 val before = _ops.value
                 val updated = OpsJournal.compact(transform(before))
