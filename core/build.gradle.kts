@@ -9,5 +9,6 @@ dependencies {
     implementation(libs.okhttp)
     testImplementation(kotlin("test"))
     testImplementation(libs.mockwebserver)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 tasks.test { useJUnitPlatform() }

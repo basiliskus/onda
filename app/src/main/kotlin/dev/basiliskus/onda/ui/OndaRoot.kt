@@ -32,9 +32,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import dev.basiliskus.onda.AppGraph
 import dev.basiliskus.onda.BuildConfig
+import dev.basiliskus.onda.core.model.PlaylistsState
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.radiobrowser.RbStation
-import dev.basiliskus.onda.sync.PlaylistsState
 import dev.basiliskus.onda.ui.discover.DiscoverScreen
 import dev.basiliskus.onda.ui.discover.DiscoverViewModel
 import dev.basiliskus.onda.ui.discover.StationListScreen

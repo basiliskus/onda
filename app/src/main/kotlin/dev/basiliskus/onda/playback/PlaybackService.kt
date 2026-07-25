@@ -28,17 +28,16 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.basiliskus.onda.OndaApp
 import dev.basiliskus.onda.core.model.MediaIds
+import dev.basiliskus.onda.core.model.PlaylistsState
 import dev.basiliskus.onda.core.model.Station
+import dev.basiliskus.onda.core.model.resolveResumptionStation
 import dev.basiliskus.onda.core.radiobrowser.RadioBrowserClient
-import dev.basiliskus.onda.sync.PlaylistsState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
@@ -205,18 +204,10 @@ class PlaybackService : MediaLibraryService() {
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> =
             serviceScope.future {
                 val graph = (application as OndaApp).graph
-                val lastId = graph.folderPrefs.lastPlayedMediaId
-                    ?: throw IllegalStateException("no last played station")
-                // Cold start: wait for the first playlist scan, bounded so a missing
-                // folder or stuck scan fails the future well inside the ~5s
-                // foreground-service/ANR budget.
-                val playlists = withTimeout(3_000) {
-                    graph.opsRepository.effectivePlaylists
-                        .first { it !is PlaylistsState.Loading }
-                        .let { it as? PlaylistsState.Ready }
-                }?.playlists ?: throw IllegalStateException("playlists unavailable")
-                val station = MediaIds.resolveStation(lastId, playlists)
-                    ?: throw IllegalStateException("last played station no longer in playlists")
+                val station = resolveResumptionStation(
+                    graph.folderPrefs.lastPlayedMediaId,
+                    graph.opsRepository.effectivePlaylists,
+                )
                 MediaSession.MediaItemsWithStartPosition(
                     ImmutableList.of(playableItem(MediaIds.station(station), station.name, station.url, station.logo)),
                     /* startIndex = */ 0,

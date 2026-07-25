@@ -1,5 +1,6 @@
 package dev.basiliskus.onda.sync
 
+import dev.basiliskus.onda.core.model.PlaylistsState
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.ops.LegacyPendingMigration
 import dev.basiliskus.onda.core.ops.Op
@@ -7,6 +8,7 @@ import dev.basiliskus.onda.core.ops.OpStation
 import dev.basiliskus.onda.core.ops.OpsJournal
 import dev.basiliskus.onda.core.ops.applyOps
 import dev.basiliskus.onda.core.radiobrowser.RbStation
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,8 +31,9 @@ import java.util.UUID
  * crash-safe tmp/bak choreography in PlaylistRepository) after every mutation.
  */
 class OpsRepository(
-    private val playlists: PlaylistRepository,
+    private val playlists: PlaylistsSource,
     private val scope: CoroutineScope,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val _ops = MutableStateFlow<List<Op>>(emptyList())
     /** Urls with an unconsumed quick-star add (playlist == null) — drives the Discover
@@ -77,7 +80,7 @@ class OpsRepository(
     }
 
     fun refresh() {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             mutex.withLock {
                 migrateLegacyPending()
                 val text = playlists.readSyncedText(JOURNAL).getOrElse {
@@ -123,7 +126,7 @@ class OpsRepository(
     /** Restores the pre-delete snapshot iff no journal change intervened since [delete]
      *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops. */
     fun undo(token: UndoToken) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             mutex.withLock {
                 val snapshot = token.snapshot ?: return@withLock
                 if (token.generation != generation) return@withLock
@@ -141,7 +144,7 @@ class OpsRepository(
         armUndo: UndoToken? = null,
         transform: (List<Op>) -> List<Op>,
     ) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(ioDispatcher) {
             mutex.withLock {
                 val before = _ops.value
                 val updated = OpsJournal.compact(transform(before))
@@ -149,11 +152,15 @@ class OpsRepository(
                 // write lands; rolled back on write failure so the UI never sticks in a
                 // state the journal doesn't back.
                 setOps(updated)
-                // Arm undo now, at optimistic-update time (snapshot = pre-mutation ops,
-                // generation = the post-bump value), not after the write: this closes the
-                // window where a fast Undo tap landed before the write finished and found
-                // an unarmed token. Safe because a failed write's rollback setOps bumps
-                // the generation again, auto-voiding the token.
+                // Arm undo at optimistic-update time: snapshot = pre-mutation ops,
+                // generation = the post-bump value. A failed write's rollback setOps bumps
+                // the generation again, voiding the token.
+                //
+                // delete() hands the token back synchronously, before this coroutine runs,
+                // so on the multi-threaded production Dispatchers.IO an Undo tap can reach
+                // the mutex first and find snapshot == null — a silent no-op, leaving the
+                // delete standing. Fail-safe and sub-millisecond, but real: the tests run on
+                // a FIFO StandardTestDispatcher and structurally cannot exercise it.
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)

@@ -33,10 +33,18 @@ data class StationFilter(
     val countrycode: String? = null,
 )
 
+/** What the Discover UI consumes of the radio-browser client — the seam that keeps OkHttp
+ *  behind a fakeable boundary for JVM tests. */
+interface RadioBrowserApi {
+    suspend fun searchStations(filter: StationFilter, offset: Int = 0, limit: Int = 30): List<RbStation>
+    suspend fun topTags(limit: Int = 100): List<RbTag>
+    suspend fun countries(): List<RbCountry>
+}
+
 class RadioBrowserClient(
     private val http: OkHttpClient,
     private val mirrors: List<String> = DEFAULT_MIRRORS,
-) {
+) : RadioBrowserApi {
     companion object {
         val DEFAULT_MIRRORS = listOf(
             "https://de1.api.radio-browser.info",
@@ -49,7 +57,7 @@ class RadioBrowserClient(
     private val json = Json { ignoreUnknownKeys = true }
     @Volatile private var preferredMirror = 0
 
-    suspend fun searchStations(filter: StationFilter, offset: Int = 0, limit: Int = 30): List<RbStation> =
+    override suspend fun searchStations(filter: StationFilter, offset: Int, limit: Int): List<RbStation> =
         get("/json/stations/search", buildMap {
             filter.name?.let { put("name", it) }
             filter.tag?.let { put("tag", it); put("tagExact", "true") }
@@ -58,10 +66,10 @@ class RadioBrowserClient(
             put("offset", offset.toString()); put("limit", limit.toString())
         })
 
-    suspend fun topTags(limit: Int = 100): List<RbTag> =
+    override suspend fun topTags(limit: Int): List<RbTag> =
         get("/json/tags", mapOf("order" to "stationcount", "reverse" to "true", "limit" to limit.toString(), "hidebroken" to "true"))
 
-    suspend fun countries(): List<RbCountry> =
+    override suspend fun countries(): List<RbCountry> =
         get("/json/countries", mapOf("order" to "name", "hidebroken" to "true"))
 
     private suspend inline fun <reified T> get(path: String, params: Map<String, String>): T =

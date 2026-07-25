@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- `:app` JVM unit-test harness (JUnit 4 + kotlinx-coroutines-test, no Robolectric):
+  29 tests over the state machines that shipped untested — undo/compaction
+  composition, optimistic overlay, SAF write-failure rollback, `pending.csv`
+  migration, and the Discover browse-banner in-flight guards. Retires the standing
+  "SAF fault injection is manual-only" gap.
+
+### Changed
+
+- Playback resumption wait-and-resolve moved out of `PlaybackService` into `:core`
+  (`resolveResumptionStation`, 6 tests); `PlaylistsState` moved to `:core` with it.
+  Same semantics, including the 3s timeout and the three failure exits.
+- Test seams for the harness: `PlaylistsSource` (keeps SAF/DocumentFile behind a
+  fakeable boundary), `RadioBrowserApi` (same for OkHttp), and an injectable IO
+  dispatcher on `OpsRepository`. Production wiring unchanged.
+- CI and `test_command` run `:app:testDebugUnitTest` alongside `:core:test`.
+
 ## [0.3.0] - 2026-07-24
 
 ### Added
