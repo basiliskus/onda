@@ -300,8 +300,11 @@ class OpsRepositoryMoveTest {
         assertTrue(r.effectiveStations().none { it.url == "http://u" }) // already deleted
 
         // Same-playlist target, so a single Move op — onto a key whose residue is a Delete.
-        // Compaction appends it rather than replacing the delete: a Move must never
-        // resurrect a deleted row, and the desktop's apply_move would reject it if it did.
+        // Compaction appends it rather than replacing the delete, which is what keeps a Move
+        // from resurrecting a deleted row. The desktop does NOT backstop this: if the delete
+        // were replaced, apply_move would find the url still in the CSV and silently restore
+        // the row. It is the shipped [Delete, Move] order that leaves apply_move nothing to
+        // find, so the move lands in ops-rejected.jsonl instead. The ordering is the defence.
         val token = r.moveToPlaylist(s, "stations", "B")
         advanceUntilIdle()
 
