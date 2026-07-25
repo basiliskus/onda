@@ -152,11 +152,11 @@ class OpsRepository(
                 // write lands; rolled back on write failure so the UI never sticks in a
                 // state the journal doesn't back.
                 setOps(updated)
-                // Arm undo now, at optimistic-update time (snapshot = pre-mutation ops,
-                // generation = the post-bump value), not after the write: this closes the
-                // window where a fast Undo tap landed before the write finished and found
-                // an unarmed token. Safe because a failed write's rollback setOps bumps
-                // the generation again, auto-voiding the token.
+                // Arm undo at optimistic-update time: snapshot = pre-mutation ops,
+                // generation = the post-bump value. The mutex is what orders undo against
+                // this mutation — an undo() launched by the caller queues behind the whole
+                // block — so the token is always armed by the time it can be redeemed. A
+                // failed write's rollback setOps bumps the generation again, voiding it.
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)

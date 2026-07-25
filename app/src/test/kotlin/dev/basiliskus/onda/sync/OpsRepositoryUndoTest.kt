@@ -149,6 +149,10 @@ class OpsRepositoryUndoTest {
         advanceUntilIdle()
         assertEquals(listOf<Op>(d), fake.journalOps()) // second delete swallowed, id and all
 
+        // Undo-tautological by construction: delete-after-delete is idempotent, so the
+        // residue and the rendered rows are identical with or without the undo. The row's
+        // real subject is the compaction assertion above; keep it for that, not as undo
+        // coverage.
         r.undo(token)
         advanceUntilIdle()
         assertEquals(listOf<Op>(d), fake.journalOps())
@@ -229,8 +233,14 @@ class OpsRepositoryUndoTest {
         advanceUntilIdle()
         r.undo(token)
         advanceUntilIdle()
+        val writesAfterFirstUndo = fake.writes
+
         r.undo(token)
         advanceUntilIdle()
+        // The two post-undo states are identical, so only the absence of a write
+        // distinguishes a no-op from a repeated restore — this is the row that pins the
+        // generation CAS against undo's own setOps bump.
+        assertEquals(writesAfterFirstUndo, fake.writes)
         assertEquals(emptyList(), fake.journalOps())
         assertTrue(r.effectiveStations().any { it.url == "http://u" })
         assertTrue(errors.isEmpty())
@@ -251,9 +261,11 @@ class OpsRepositoryUndoTest {
         assertNull(fake.files[JOURNAL]) // write never landed
 
         fake.failWrites = false
+        val writesAfterRollback = fake.writes
         r.undo(token)
         advanceUntilIdle()
-        assertNull(fake.files[JOURNAL]) // token was voided: no write
+        assertEquals(writesAfterRollback, fake.writes) // token voided: undo never reached the write
+        assertNull(fake.files[JOURNAL])
         assertTrue(r.effectiveStations().any { it.url == "http://u" })
         assertEquals(1, errors.size)
     }

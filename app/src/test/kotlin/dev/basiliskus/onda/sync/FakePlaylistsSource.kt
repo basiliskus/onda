@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import java.io.IOException
+import java.util.UUID
 
 /** Pure-JVM stand-in for PlaylistRepository behind the [PlaylistsSource] seam: playlist
  *  state and the synced folder collapse to a StateFlow plus an in-memory file map, with
@@ -30,12 +31,17 @@ internal class FakePlaylistsSource(
     val files = mutableMapOf<String, String>()
     var failReads = false
     var failWrites = false
+    /** Write attempts, failed ones included — lets a row assert that a path which leaves
+     *  the journal unchanged did so by not writing, rather than by rewriting the same
+     *  bytes (the only way to observe a no-op restore). */
+    var writes = 0
 
     override fun readSyncedText(name: String): Result<String?> =
         if (failReads) Result.failure(IOException("synced folder unreachable"))
         else Result.success(files[name])
 
     override fun writeSyncedText(name: String, text: String): Boolean {
+        writes++
         if (failWrites) return false
         files[name] = text
         return true
@@ -95,8 +101,7 @@ internal fun ready(vararg stations: Station): PlaylistsState.Ready = PlaylistsSt
 internal fun OpsRepository.effectiveStations(): List<Station> =
     (effectivePlaylists.value as PlaylistsState.Ready).playlists.flatMap { it.stations }
 
-private var opSeq = 0
-private fun nextId() = "id-${opSeq++}"
+private fun nextId() = "id-${UUID.randomUUID()}"
 private const val TS = "2026-07-25T00:00:00Z"
 
 internal fun addOp(url: String, playlist: String? = null, group: String? = null) =
