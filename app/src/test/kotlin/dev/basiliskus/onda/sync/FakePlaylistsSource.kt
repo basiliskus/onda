@@ -54,6 +54,8 @@ internal class FakePlaylistsSource(
     fun journalOps(): List<Op> = OpsJournal.parse(files[JOURNAL] ?: "").ops
 }
 
+/** Deliberate golden copies of OpsRepository's private constants — changing a filename or a
+ *  user-visible string there must fail these tests rather than silently follow along. */
 internal const val JOURNAL = "ops.jsonl"
 internal const val LEGACY_CSV = "pending.csv"
 internal const val UNAVAILABLE_MESSAGE = "Playlist edits unavailable — synced folder unreachable"

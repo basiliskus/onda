@@ -1,5 +1,6 @@
 package dev.basiliskus.onda.core.model
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -9,6 +10,7 @@ import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import kotlin.test.*
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ResumptionTest {
     private val station = Station(name = "S", url = "http://u", group = "A", playlist = "stations")
     private val ready: PlaylistsState =

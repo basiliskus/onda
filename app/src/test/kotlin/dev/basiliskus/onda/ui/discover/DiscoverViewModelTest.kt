@@ -7,6 +7,7 @@ import dev.basiliskus.onda.core.radiobrowser.RbTag
 import dev.basiliskus.onda.core.radiobrowser.StationFilter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -19,6 +20,7 @@ import kotlin.test.*
 
 /** The browse-banner state machine: partial failures keep the banner, a clear needs both
  *  lists, retries refetch only what is missing, and the in-flight guard blocks duplicates. */
+@OptIn(ExperimentalCoroutinesApi::class)
 class DiscoverViewModelTest {
     private class FakeRadioBrowser : RadioBrowserApi {
         val tagResults = ArrayDeque<Result<List<RbTag>>>()
@@ -27,6 +29,8 @@ class DiscoverViewModelTest {
         var countriesCalls = 0
         /** When set, topTags suspends on it — holds a fetch in flight. */
         var tagsGate: CompletableDeferred<Unit>? = null
+        /** Same, for the mirrored countries branch. */
+        var countriesGate: CompletableDeferred<Unit>? = null
 
         override suspend fun searchStations(filter: StationFilter, offset: Int, limit: Int): List<RbStation> =
             fail("searchStations not under test")
@@ -39,6 +43,7 @@ class DiscoverViewModelTest {
 
         override suspend fun countries(): List<RbCountry> {
             countriesCalls++
+            countriesGate?.await()
             return countryResults.removeFirst().getOrThrow()
         }
     }
@@ -124,6 +129,24 @@ class DiscoverViewModelTest {
         advanceUntilIdle()
         assertEquals(1, client.topTagsCalls)
         assertEquals(someTags, vm.tags.value)
+        assertNull(vm.browseError.value)
+    }
+
+    @Test fun `re-entry during in-flight countries fetch does not duplicate it`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        client.countriesGate = gate
+        client.tagResults += Result.success(someTags)
+        client.countryResults += Result.success(someCountries)
+        vm.loadBrowseLists()
+        advanceUntilIdle() // countries fetch now suspended on the gate
+        assertNull(vm.countries.value)
+
+        vm.loadBrowseLists() // re-entry: guard must block a second fetch
+        advanceUntilIdle()
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(1, client.countriesCalls)
+        assertEquals(someCountries, vm.countries.value)
         assertNull(vm.browseError.value)
     }
 

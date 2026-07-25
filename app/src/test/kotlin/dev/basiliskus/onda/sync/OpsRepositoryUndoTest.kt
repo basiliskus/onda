@@ -1,6 +1,7 @@
 package dev.basiliskus.onda.sync
 
 import dev.basiliskus.onda.core.ops.Op
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.*
@@ -11,6 +12,7 @@ import kotlin.test.*
  * here seeds a journal, deletes (capturing the token), asserts the compacted journal, then
  * undoes and asserts the restored ops round-tripped through the production serializer.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class OpsRepositoryUndoTest {
 
     @Test fun `undo after delete of synced station restores empty journal`() = runTest {
@@ -130,6 +132,51 @@ class OpsRepositoryUndoTest {
         r.undo(token)
         advanceUntilIdle()
         assertEquals(listOf<Op>(rewritten), fake.journalOps())
+    }
+
+    @Test fun `undo after redundant delete restores the sole delete residue`() = runTest {
+        val d = deleteOp("http://u", "stations")
+        val s = station("http://u")
+        val fake = FakePlaylistsSource(ready(s))
+        fake.seedJournal(d)
+        val r = repo(fake)
+        advanceUntilIdle()
+        assertTrue(r.effectiveStations().none { it.url == "http://u" }) // already deleted
+
+        // Unreachable by swipe (applyOps removed the row, so it can't be deleted twice);
+        // driven at the seam with the same station value the seeded delete targeted.
+        val token = r.delete(s)
+        advanceUntilIdle()
+        assertEquals(listOf<Op>(d), fake.journalOps()) // second delete swallowed, id and all
+
+        r.undo(token)
+        advanceUntilIdle()
+        assertEquals(listOf<Op>(d), fake.journalOps())
+        assertTrue(r.effectiveStations().none { it.url == "http://u" })
+    }
+
+    @Test fun `undo after delete of twice-moved station restores the last move`() = runTest {
+        val fake = FakePlaylistsSource(ready(station("http://u")))
+        val r = repo(fake)
+        advanceUntilIdle()
+
+        r.move(r.effectiveStations().single(), "B")
+        advanceUntilIdle()
+        r.move(r.effectiveStations().single(), "C")
+        advanceUntilIdle()
+        val move = fake.journalOps().single() as Op.Move
+        assertEquals("C", move.toGroup) // last move wins, single residue
+
+        val token = r.delete(r.effectiveStations().single())
+        advanceUntilIdle()
+        assertIs<Op.Delete>(fake.journalOps().single())
+
+        r.undo(token)
+        advanceUntilIdle()
+        assertEquals(listOf<Op>(move), fake.journalOps()) // move→C, not →B and not absent
+        val restored = r.effectiveStations().single()
+        assertEquals("C", restored.group)
+        assertTrue(restored.pending)
     }
 
     @Test fun `intervening mutation voids the undo token`() = runTest {

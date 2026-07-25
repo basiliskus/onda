@@ -2,12 +2,14 @@ package dev.basiliskus.onda.sync
 
 import dev.basiliskus.onda.core.ops.Op
 import dev.basiliskus.onda.core.ops.OpsJournal
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.*
 
 /** Overlay, refresh, SAF write-failure injection, and pending.csv migration choreography —
  *  the orchestration around :core's ops algebra (compaction/apply are canon there). */
+@OptIn(ExperimentalCoroutinesApi::class)
 class OpsRepositoryTest {
     private val pendingCsvHeader =
         "# name,url,encoding,icon,profile,buffering,force-http,volume,referer,player,stationuuid,tags,country,votes"
