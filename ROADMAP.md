@@ -4,7 +4,7 @@
 
 | Priority | Feature | Why | Milestone |
 |----------|---------|-----|-----------|
-| **P2** | app-module test harness | :app state machines (async bridge, banner VM, undo/compaction) shipped untested three milestones running; the v0.3.0 🔴 was a five-line test away. Action Tracker #1, GitHub #9 | v0.4.0 |
+| **P2** | ✅ ~~app-module test harness~~ | :app state machines (async bridge, banner VM, undo/compaction) shipped untested three milestones running; the v0.3.0 🔴 was a five-line test away. Action Tracker #1, GitHub #9 | v0.4.0 |
 | **P2** | song capture | Like the playing track from the Now Playing sheet or the media notification; feeds the existing desktop titles-log → catalog pipeline. Contract pinned 2026-07-23 | v0.4.0 |
 | **P3** | cross-playlist move | "Move to playlist…" in the long-press sheet via the existing delete + targeted-add op pair; closes the only phone-side gap for stations not on radio-browser | v0.4.0 |
 
@@ -24,6 +24,9 @@ SAF write-failure rollback becomes testable here (fake repository failure
 injection), retiring the standing matrix skip. (Action Tracker #1, GitHub #9;
 third-occurrence escalation from the v0.3.0 retro.) Runs FIRST in the milestone
 so the two features below get harness coverage from day one.
+✅ Shipped 2026-07-25: 29 :app tests + 6 :core, every compaction-algebra rule
+covered under undo; resumption extracted to :core (closes GitHub #10); SAF
+fault injection retires the manual-matrix skip; CI runs `:app:testDebugUnitTest`.
 
 **song capture**
 Like the currently playing track from the ICY `streamTitle` already surfaced in
