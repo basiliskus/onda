@@ -388,8 +388,11 @@ class PlaylistRepository(
         return null
     }
 
-    // Mime only influences how the provider names the tmp file (whose handle is kept, so
-    // mangling is harmless); text/csv preserved for csv files as the E2E-proven choice.
+    // Mime influences how the provider names a created file. For the writeSyncedText tmp file
+    // that is harmless — its handle is kept, so the name never has to be re-resolved. For the
+    // titles log it is not: titlesLogFile deletes and refuses a mangled name rather than shard
+    // the log, so this must stay single-sourced with the extension it is called for.
+    // text/csv preserved for csv files as the E2E-proven choice.
     private fun mimeFor(name: String) =
         if (name.endsWith(".csv")) "text/csv" else "application/octet-stream"
 

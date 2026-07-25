@@ -19,12 +19,13 @@ object TitlesLog {
     fun likedLine(streamTitle: String, at: LocalDateTime): String =
         "${timestamp().format(at)} |     ${oneLine(streamTitle)} (LIKED)"
 
-    // Built per call rather than held in a val: a formatter cached in a val is constructed at
-    // class-init, before any test can setDefault — so if the explicit Locale.ENGLISH below were
-    // ever dropped, it would have captured an English machine's default and the foreign-locale
-    // rows would pass by accident. Constructing it here keeps them honest, and a like is a user
-    // tap, not a hot path. The locale governs MMM/EEE only; ofPattern always uses
-    // DecimalStyle.STANDARD, so HH:mm and dd are ASCII regardless.
+    // Built per call rather than held in a val. This is an `object`, so <clinit> is lazy: a
+    // cached formatter would be built inside whichever test first touches TitlesLog, after that
+    // test's setDefault — baking in that locale for the whole run. If the explicit Locale.ENGLISH
+    // below were ever dropped, the foreign-locale rows would then pass or fail purely on JUnit's
+    // ordering (observed both ways across two commits of this branch). Per call removes the order
+    // dependence, and a like is a user tap, not a hot path. The locale governs MMM/EEE only;
+    // ofPattern always uses DecimalStyle.STANDARD, so HH:mm and dd are ASCII regardless.
     private fun timestamp() = DateTimeFormatter.ofPattern(PATTERN, Locale.ENGLISH)
 
     // Every character Python's str.splitlines() treats as a line boundary — the consumer splits
