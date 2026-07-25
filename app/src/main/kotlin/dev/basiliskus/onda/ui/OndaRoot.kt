@@ -79,7 +79,8 @@ fun OndaRoot(graph: AppGraph) {
         }
     }
     // Same shape as onDeleteStation: one token covers the Delete+Add pair, so a single
-    // Undo takes the station back to where it was.
+    // Undo takes the station back to where it was — and no-ops if a later journal change
+    // already voided it.
     val onMoveToPlaylist: (Station, String, String) -> Unit = { s, toPlaylist, toGroup ->
         val undoToken = graph.opsRepository.moveToPlaylist(s, toPlaylist, toGroup)
         uiScope.launch {
@@ -147,8 +148,8 @@ fun OndaRoot(graph: AppGraph) {
                         playlist, playingUrl, { nav.popBackStack() }, onPlayStation, onDeleteStation,
                         onMoveStation = graph.opsRepository::move,
                         playlistNames = ready?.playlists?.map { it.name }.orEmpty(),
-                        groupsOf = { name ->
-                            ready?.playlists?.firstOrNull { it.name == name }?.groups?.map { it.title }.orEmpty()
+                        groupsOf = { playlistName ->
+                            ready?.playlists?.firstOrNull { it.name == playlistName }?.groups?.map { it.title }.orEmpty()
                         },
                         onMoveToPlaylist = onMoveToPlaylist,
                     )

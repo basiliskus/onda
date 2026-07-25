@@ -259,6 +259,65 @@ class OpsRepositoryMoveTest {
         assertEquals("stations", (ops[2] as Op.Delete).playlist)
     }
 
+    @Test fun `move into a playlist holding a pending move of the same url appends the add after that move`() = runTest {
+        val seeded = moveOp("http://u", "nts", "X")
+        val s = station("http://u")
+        val fake = FakePlaylistsSource(sourceAndTarget(s))
+        fake.seedJournal(seeded)
+        val r = repo(fake)
+        advanceUntilIdle()
+
+        val token = r.moveToPlaylist(s, "nts", "G")
+        advanceUntilIdle()
+
+        // The target key's residue is a Move, so the add takes compaction's append branch:
+        // an Add never rewrites a Move the way a Move rewrites an Add. All three ops stand,
+        // and the pair is again non-adjacent with the add ahead of its partner delete.
+        val ops = fake.journalOps()
+        assertEquals(3, ops.size)
+        assertEquals(seeded, ops[0])
+        val a = ops[1] as Op.Add
+        assertEquals("nts", a.playlist)
+        assertEquals("G", a.group)
+        assertEquals("stations", (ops[2] as Op.Delete).playlist)
+        val row = r.effectiveStations().single { it.url == "http://u" }
+        assertEquals("nts", row.playlist)
+        assertEquals("G", row.group)
+        assertTrue(row.pending)
+
+        r.undo(token)
+        advanceUntilIdle()
+        assertEquals(listOf<Op>(seeded), fake.journalOps())
+    }
+
+    @Test fun `same-playlist move after a pending delete keeps the delete and appends the move`() = runTest {
+        val seeded = deleteOp("http://u", "stations")
+        val s = station("http://u")
+        val fake = FakePlaylistsSource(sourceAndTarget(s))
+        fake.seedJournal(seeded)
+        val r = repo(fake)
+        advanceUntilIdle()
+        assertTrue(r.effectiveStations().none { it.url == "http://u" }) // already deleted
+
+        // Same-playlist target, so a single Move op — onto a key whose residue is a Delete.
+        // Compaction appends it rather than replacing the delete: a Move must never
+        // resurrect a deleted row, and the desktop's apply_move would reject it if it did.
+        val token = r.moveToPlaylist(s, "stations", "B")
+        advanceUntilIdle()
+
+        val ops = fake.journalOps()
+        assertEquals(2, ops.size)
+        assertEquals(seeded, ops[0])
+        val move = ops[1] as Op.Move
+        assertEquals("stations", move.playlist)
+        assertEquals("B", move.toGroup)
+        assertTrue(r.effectiveStations().none { it.url == "http://u" }) // still gone from the overlay
+
+        r.undo(token)
+        advanceUntilIdle()
+        assertEquals(listOf<Op>(seeded), fake.journalOps())
+    }
+
     @Test fun `chained cross-playlist moves keep one delete and one add`() = runTest {
         val s = station("http://u")
         val fake = FakePlaylistsSource(

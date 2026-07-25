@@ -123,7 +123,7 @@ class OpsRepository(
     /**
      * Moves [station] into [toGroup] of [toPlaylist], returning an [UndoToken] that undoes
      * the whole move. A cross-playlist target emits Delete(source) + Add(target) from a
-     * SINGLE [mutate]: one compaction, one generation bump, one journal write, one token.
+     * SINGLE [mutate]: one generation bump, one journal write, one token.
      * Two mutates would leave the desktop merge a window in which the station is deleted
      * but not yet added, and the second bump would void the first's token.
      * enforced by: OpsRepositoryMoveTest."cross-playlist move writes the pair in one journal write"
@@ -191,10 +191,11 @@ class OpsRepository(
                 // the generation again, voiding the token.
                 //
                 // delete()/moveToPlaylist() hand the token back synchronously, before this
-                // coroutine runs, so on the multi-threaded production Dispatchers.IO an Undo tap can reach
-                // the mutex first and find snapshot == null — a silent no-op, leaving the
-                // delete standing. Fail-safe and sub-millisecond, but real: the tests run on
-                // a FIFO StandardTestDispatcher and structurally cannot exercise it.
+                // coroutine runs, so on the multi-threaded production Dispatchers.IO an
+                // Undo tap can reach the mutex first and find snapshot == null — a silent
+                // no-op, leaving the delete standing. Fail-safe and sub-millisecond, but
+                // real: the tests run on a FIFO StandardTestDispatcher and structurally
+                // cannot exercise it.
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)
