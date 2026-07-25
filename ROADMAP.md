@@ -5,7 +5,7 @@
 | Priority | Feature | Why | Milestone |
 |----------|---------|-----|-----------|
 | **P2** | ✅ ~~app-module test harness~~ | :app state machines (async bridge, banner VM, undo/compaction) shipped untested three milestones running; the v0.3.0 🔴 was a five-line test away. Action Tracker #1, GitHub #9 | v0.4.0 |
-| **P2** | song capture | Like the playing track from the Now Playing sheet or the media notification; feeds the existing desktop titles-log → catalog pipeline. Contract pinned 2026-07-23 | v0.4.0 |
+| **P2** | ✅ ~~song capture~~ | Like the playing track from the Now Playing sheet or the media notification; feeds the existing desktop titles-log → catalog pipeline. Contract pinned 2026-07-23 | v0.4.0 |
 | **P3** | cross-playlist move | "Move to playlist…" in the long-press sheet via the existing delete + targeted-add op pair; closes the only phone-side gap for stations not on radio-browser | v0.4.0 |
 
 ## Milestones
@@ -42,6 +42,13 @@ timestamp, four spaces after the pipe, raw title never parsed (contract pinned
 (formatter is :core-able; writer uses the synced-file choreography). Cross-repo:
 the data-repo harvester needs its one-line `*-titles.log` glob change — hand off
 when this lands.
+✅ Shipped 2026-07-25 (PR #29): 13 formatter + 16 capture rows. Two corrections
+from reading the real consumer — the day is zero-padded (`MMM dd`, matching
+pyradio's `%b %d`), and the pipe separator is `" | "` plus a 4-space liked
+indent. The title is untrusted ICY input, so all ten characters Python's
+`splitlines()` splits on are neutralized; the 4-space indent is what makes a
+forged `Station:` line unreachable. **Still owed: the harvester glob change —
+until it widens, nothing Onda writes is ingested.**
 
 **cross-playlist move**
 "Move to playlist…" entry in the existing long-press station sheet: playlist

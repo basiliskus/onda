@@ -35,7 +35,6 @@ import dev.basiliskus.onda.BuildConfig
 import dev.basiliskus.onda.core.model.PlaylistsState
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.radiobrowser.RbStation
-import dev.basiliskus.onda.sync.captureMessage
 import dev.basiliskus.onda.ui.discover.DiscoverScreen
 import dev.basiliskus.onda.ui.discover.DiscoverViewModel
 import dev.basiliskus.onda.ui.discover.StationListScreen

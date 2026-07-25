@@ -56,8 +56,15 @@ internal class SongCaptureRepository(
      *
      * Runs on the app-wide [scope], not the caller's: a like tapped in the Now Playing sheet
      * must still land if the sheet closes or the activity is recreated before the append
-     * completes. A capture that reports nothing and writes nothing is the one failure this
-     * feature must not have.
+     * completes. A capture that writes nothing is the failure this feature must not have.
+     *
+     * The write is guaranteed; the message is best-effort. [messages] is replay-less with a
+     * one-slot buffer (matching OpsRepository.errors — diverging for this one caller would be
+     * worse than the gap), so a message is dropped if nothing is collecting (activity
+     * recreating, app backgrounded) or if a second like arrives while the first snackbar is
+     * still showing. Reaching the latter from the sheet needs a reopen between taps. A dropped
+     * WriteFailed is the case that would matter; Channel(BUFFERED).receiveAsFlow() is the
+     * primitive that would close it, for both repositories at once.
      */
     fun like(streamTitle: String?) {
         scope.launch { _messages.tryEmit(captureMessage(capture(streamTitle))) }
