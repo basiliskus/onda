@@ -63,6 +63,9 @@ fun OndaRoot(graph: AppGraph) {
     LaunchedEffect(Unit) {
         graph.opsRepository.errors.collect { message -> snackbarHostState.showSnackbar(message) }
     }
+    LaunchedEffect(Unit) {
+        graph.songCapture.messages.collect { message -> snackbarHostState.showSnackbar(message) }
+    }
     val uiScope = rememberCoroutineScope()
     val onDeleteStation: (Station) -> Unit = { s ->
         // delete() hands back an undo token synchronously, so the snackbar can show
@@ -211,13 +214,12 @@ fun OndaRoot(graph: AppGraph) {
             NowPlayingSheet(
                 nowPlaying,
                 onToggle = graph.playerConnection::toggle,
-                onLike = {
-                    uiScope.launch {
-                        snackbarHostState.showSnackbar(
-                            captureMessage(graph.songCapture.capture(nowPlaying.streamTitle))
-                        )
-                    }
-                },
+                // Dismiss first: the snackbar draws where the sheet sits, so it would be hidden
+                // behind it (same reason PlaylistDetailScreen closes its action sheet before
+                // the Removed snackbar). like() runs on the app scope and reports through
+                // songCapture.messages, so neither the write nor the message depends on this
+                // composable still being around.
+                onLike = { showSheet = false; graph.songCapture.like(nowPlaying.streamTitle) },
                 onDismiss = { showSheet = false },
             )
         }

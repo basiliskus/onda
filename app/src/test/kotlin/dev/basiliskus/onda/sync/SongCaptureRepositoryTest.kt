@@ -1,6 +1,9 @@
 package dev.basiliskus.onda.sync
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
@@ -18,9 +21,12 @@ class SongCaptureRepositoryTest {
     private val expectedLine = "Jul 23 (Thu) 21:08 |     Artist - Title (LIKED)"
     private val pyradioLine = "Jul 23 (Thu) 20:55 |     Someone - Else (LIKED)"
 
-    private fun capture(fake: FakePlaylistsSource, scheduler: TestCoroutineScheduler) =
-        SongCaptureRepository(fake, clock = { LocalDateTime.of(2026, 7, 23, 21, 8) },
-            ioDispatcher = StandardTestDispatcher(scheduler))
+    private fun capture(
+        fake: FakePlaylistsSource,
+        scheduler: TestCoroutineScheduler,
+        scope: CoroutineScope = CoroutineScope(StandardTestDispatcher(scheduler)),
+    ) = SongCaptureRepository(fake, scope, clock = { LocalDateTime.of(2026, 7, 23, 21, 8) },
+        ioDispatcher = StandardTestDispatcher(scheduler))
 
     @Test fun `capture appends one liked line to the titles log`() = runTest {
         val fake = FakePlaylistsSource()
@@ -158,6 +164,74 @@ class SongCaptureRepositoryTest {
 
         r.capture("Artist - Title")
         assertEquals(expectedLine, fake.titlesLogLines().single())
+    }
+
+    /** like() is the sheet's entry point and reports only through [SongCaptureRepository.messages].
+     *  Collected UNDISPATCHED because the flow has no replay — a collector started later would
+     *  miss the emission and the row would pass vacuously. */
+    @Test fun `like reports the outcome that actually occurred`() = runTest {
+        suspend fun messageFor(title: String?, failAppends: Boolean): String {
+            val fake = FakePlaylistsSource().apply { this.failAppends = failAppends }
+            val r = capture(fake, testScheduler)
+            val seen = mutableListOf<String>()
+            val job = launch(start = CoroutineStart.UNDISPATCHED) { r.messages.collect { seen += it } }
+            r.like(title)
+            advanceUntilIdle()
+            job.cancel()
+            return seen.single()
+        }
+
+        assertEquals(captureMessage(SongCaptureRepository.Outcome.Saved), messageFor("Artist - Title", false))
+        assertEquals(captureMessage(SongCaptureRepository.Outcome.NoTitle), messageFor("   ", false))
+        assertEquals(captureMessage(SongCaptureRepository.Outcome.WriteFailed), messageFor("Artist - Title", true))
+    }
+
+    /**
+     * The sheet closes the moment Like is tapped, so the capture must not live on the caller's
+     * scope. What this row can prove is ownership: cancelling the injected scope before the
+     * work runs must cancel the capture, which holds only if like() launched there. A stray
+     * GlobalScope/caller-scope implementation would write anyway and fail here.
+     *
+     * It deliberately does NOT claim the real-world property — "the write still lands when the
+     * sheet closes mid-append". Every row here runs on one FIFO StandardTestDispatcher, so the
+     * caller cannot be cancelled between like() and the append; asserting that would pass
+     * whatever the scope. Ownership is the proxy the harness can actually observe; the live
+     * behaviour is smoke-checklist territory.
+     */
+    @Test fun `like launches on the injected scope, not the caller's`() = runTest {
+        // Positive half first, and it is load-bearing: the negative half alone asserts absence,
+        // which also holds if like() ran somewhere the test scheduler never drives (GlobalScope) —
+        // it would pass for the wrong reason. Together they pin the scope from both sides.
+        val live = FakePlaylistsSource()
+        val liveScope = CoroutineScope(StandardTestDispatcher(testScheduler))
+        capture(live, testScheduler, scope = liveScope).like("Artist - Title")
+        advanceUntilIdle()
+        assertEquals(listOf(expectedLine), live.titlesLogLines(), "like() did not run on the injected scope")
+        liveScope.cancel()
+
+        val cancelled = FakePlaylistsSource()
+        val deadScope = CoroutineScope(StandardTestDispatcher(testScheduler))
+        capture(cancelled, testScheduler, scope = deadScope).like("Artist - Title")
+        deadScope.cancel()
+        advanceUntilIdle()
+        assertEquals(emptyList(), cancelled.titlesLogLines(), "capture outlived the scope it was launched on")
+    }
+
+    /** Guards the disjoint feedback channels: the notification path calls capture() and toasts
+     *  the returned Outcome itself, so an emission here would double-report one tap.
+     *  Mutation: making capture() emit fails this row. */
+    @Test fun `capture does not emit — only like reports through messages`() = runTest {
+        val fake = FakePlaylistsSource()
+        val r = capture(fake, testScheduler)
+        val seen = mutableListOf<String>()
+        val job = launch(start = CoroutineStart.UNDISPATCHED) { r.messages.collect { seen += it } }
+
+        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("Artist - Title"))
+        advanceUntilIdle()
+        job.cancel()
+
+        assertEquals(listOf(expectedLine), fake.titlesLogLines(), "the write must still land")
+        assertTrue(seen.isEmpty(), "capture() reported through messages: $seen")
     }
 
     @Test fun `each outcome maps to its own user-visible message`() {

@@ -27,7 +27,7 @@ class AppGraph(val app: Application) {
     val playlistRepository: PlaylistRepository by lazy { PlaylistRepository(app, folderPrefs, appScope) }
     val playerConnection: PlayerConnection by lazy { PlayerConnection(app, appScope) }
     val opsRepository: OpsRepository by lazy { OpsRepository(playlistRepository, appScope) }
-    internal val songCapture: SongCaptureRepository by lazy { SongCaptureRepository(playlistRepository) }
+    internal val songCapture: SongCaptureRepository by lazy { SongCaptureRepository(playlistRepository, appScope) }
 }
 
 class OndaApp : Application() {

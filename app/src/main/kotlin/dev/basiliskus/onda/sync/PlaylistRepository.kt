@@ -351,9 +351,12 @@ class PlaylistRepository(
     }
 
     /**
-     * The titles log, created on first use. ".log" is not in MimeTypeMap, so a naive
-     * createFile can land as "onda-titles.log.txt" — and the desktop harvester globs on the
-     * name — hence the same rename de-mangling writeSyncedText relies on.
+     * The titles log, created on first use. AOSP keeps the name for the mime we pass:
+     * ".log" is not in MimeTypeMap, so buildUniqueFile infers application/octet-stream, which
+     * matches the requested mime and appends nothing. (The "onda-titles.log.txt" outcome is
+     * what text/plain would have produced — the mime an earlier draft used.) The rename
+     * de-mangling below stays as defence against third-party providers, Synology's included,
+     * since the desktop harvester globs on the name.
      *
      * Resolution is by exact name only. A prefix scan would also match the desktop's rotation
      * backups ("onda-titles.log.1", ".bak"), and every later like would append invisibly into
@@ -370,7 +373,7 @@ class PlaylistRepository(
      * line and report "Liked" while the log shards. Returning null surfaces WriteFailed.
      */
     private fun titlesLogFile(dir: DocumentFile): DocumentFile? {
-        dir.listFiles().firstOrNull { it.isFile && it.name == TITLES_LOG }?.let { return it }
+        dir.findFile(TITLES_LOG)?.takeIf { it.isFile }?.let { return it }
         val created = dir.createFile(mimeFor(TITLES_LOG), TITLES_LOG) ?: run {
             Log.w("Onda", "titlesLogFile: createFile returned null"); return null
         }

@@ -70,7 +70,7 @@ to. The subdirectory and the log file are created on first like.
 ### Titles-log line format
 
 ```
-Jul 23 (Wed) 21:08 |     Artist - Title (LIKED)
+Jul 23 (Thu) 21:08 |     Artist - Title (LIKED)
 ```
 
 Pinned byte-for-byte by the desktop consumer,

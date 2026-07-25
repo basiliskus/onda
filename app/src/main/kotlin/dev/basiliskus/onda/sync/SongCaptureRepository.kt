@@ -2,7 +2,11 @@ package dev.basiliskus.onda.sync
 
 import dev.basiliskus.onda.core.capture.TitlesLog
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -15,6 +19,7 @@ import java.time.LocalDateTime
  */
 internal class SongCaptureRepository(
     private val playlists: PlaylistsSource,
+    private val scope: CoroutineScope,
     private val clock: () -> LocalDateTime = LocalDateTime::now,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
@@ -23,6 +28,12 @@ internal class SongCaptureRepository(
     enum class Outcome { Saved, NoTitle, WriteFailed }
 
     private val mutex = Mutex()
+
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
+
+    /** Outcomes of [like] only. [capture] stays silent here so the sheet's snackbar and the
+     *  notification's toast never both fire for one tap — see [captureMessage]. */
+    val messages: SharedFlow<String> = _messages
 
     /**
      * Appends one liked line for [streamTitle], or reports why it could not. Serialisation is
@@ -38,6 +49,18 @@ internal class SongCaptureRepository(
             if (playlists.appendTitlesLogLine(TitlesLog.likedLine(title, clock()))) Outcome.Saved
             else Outcome.WriteFailed
         }
+    }
+
+    /**
+     * Fire-and-forget capture for UI callers, reporting through [messages].
+     *
+     * Runs on the app-wide [scope], not the caller's: a like tapped in the Now Playing sheet
+     * must still land if the sheet closes or the activity is recreated before the append
+     * completes. A capture that reports nothing and writes nothing is the one failure this
+     * feature must not have.
+     */
+    fun like(streamTitle: String?) {
+        scope.launch { _messages.tryEmit(captureMessage(capture(streamTitle))) }
     }
 }
 
