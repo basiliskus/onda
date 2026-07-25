@@ -119,7 +119,7 @@ class OpsRepositoryUndoTest {
         val r = repo(fake)
         advanceUntilIdle()
 
-        r.move(r.effectiveStations().single(), "B")
+        r.effectiveStations().single().let { r.moveToPlaylist(it, it.playlist, "B") }
         advanceUntilIdle()
         val rewritten = fake.journalOps().single() as Op.Add
         assertEquals(a.id, rewritten.id) // move rewrote the add in place
@@ -164,9 +164,9 @@ class OpsRepositoryUndoTest {
         val r = repo(fake)
         advanceUntilIdle()
 
-        r.move(r.effectiveStations().single(), "B")
+        r.effectiveStations().single().let { r.moveToPlaylist(it, it.playlist, "B") }
         advanceUntilIdle()
-        r.move(r.effectiveStations().single(), "C")
+        r.effectiveStations().single().let { r.moveToPlaylist(it, it.playlist, "C") }
         advanceUntilIdle()
         val move = fake.journalOps().single() as Op.Move
         assertEquals("C", move.toGroup) // last move wins, single residue

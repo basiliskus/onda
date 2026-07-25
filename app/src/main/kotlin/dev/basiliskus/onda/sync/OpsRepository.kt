@@ -62,12 +62,13 @@ class OpsRepository(
     private var generation = 0L
 
     /**
-     * Opaque handle returned by [delete] for [undo]. Compaction can consume the delete op
-     * itself (deleting a pending add, or a just-moved row), so undo is snapshot-based: the
-     * token captures the pre-delete ops list plus the generation of the delete's optimistic
-     * update, and any later journal change (mutation, refresh, migration) voids it — a
-     * failed write's rollback bumps the generation too, so a rolled-back delete auto-voids
-     * its token.
+     * Opaque handle returned by [delete] and [moveToPlaylist] for [undo]. Compaction can
+     * consume the emitted ops themselves (deleting a pending add, or moving a just-added
+     * row), so undo is snapshot-based rather than op-based: the token captures the
+     * pre-mutation ops list plus the generation of that mutation's optimistic update, and
+     * any later journal change (mutation, refresh, migration) voids it — a failed write's
+     * rollback bumps the generation too, so a rolled-back mutation auto-voids its token.
+     * One token covers a whole mutation regardless of how many ops it emitted.
      */
     class UndoToken internal constructor() {
         internal var snapshot: List<Op>? = null
@@ -119,8 +120,35 @@ class OpsRepository(
         return token
     }
 
-    fun move(station: Station, toGroup: String) {
-        mutate { it + Op.Move(newId(), now(), url = station.url, playlist = station.playlist, toGroup = toGroup) }
+    /**
+     * Moves [station] into [toGroup] of [toPlaylist], returning an [UndoToken] that undoes
+     * the whole move. A cross-playlist target emits Delete(source) + Add(target) from a
+     * SINGLE [mutate]: one generation bump, one journal write, one token.
+     * Two mutates would leave the desktop merge a window in which the station is deleted
+     * but not yet added, and the second bump would void the first's token.
+     * enforced by: OpsRepositoryMoveTest."cross-playlist move writes the pair in one journal write"
+     *              OpsRepositoryMoveTest."cross-playlist move arms one token that undoes both ops"
+     *
+     * A same-playlist target degrades to a single Move instead: the desktop applies a Move
+     * by re-inserting the CSV line verbatim, while an add re-creates it from name/url/icon
+     * and drops any further pyradio column.
+     * enforced by: OpsRepositoryMoveTest."same-playlist target emits a single move op and no add"
+     *
+     * The atomicity claimed is over the journal file and the ops StateFlow, under [mutate]'s
+     * mutex on [ioDispatcher] — nothing more. The token is handed back synchronously, before
+     * that coroutine runs, so this inherits [delete]'s Undo-versus-mutate race unchanged
+     * (see [mutate]); the FIFO test dispatcher cannot exercise it and no row claims it does.
+     */
+    fun moveToPlaylist(station: Station, toPlaylist: String, toGroup: String): UndoToken {
+        val token = UndoToken()
+        mutate(armUndo = token) { ops ->
+            if (toPlaylist == station.playlist)
+                ops + Op.Move(newId(), now(), url = station.url, playlist = station.playlist, toGroup = toGroup)
+            else ops +
+                Op.Delete(newId(), now(), url = station.url, playlist = station.playlist) +
+                Op.Add(newId(), now(), opStation(station), playlist = toPlaylist, group = toGroup)
+        }
+        return token
     }
 
     /** Restores the pre-delete snapshot iff no journal change intervened since [delete]
@@ -156,11 +184,12 @@ class OpsRepository(
                 // generation = the post-bump value. A failed write's rollback setOps bumps
                 // the generation again, voiding the token.
                 //
-                // delete() hands the token back synchronously, before this coroutine runs,
-                // so on the multi-threaded production Dispatchers.IO an Undo tap can reach
-                // the mutex first and find snapshot == null — a silent no-op, leaving the
-                // delete standing. Fail-safe and sub-millisecond, but real: the tests run on
-                // a FIFO StandardTestDispatcher and structurally cannot exercise it.
+                // delete()/moveToPlaylist() hand the token back synchronously, before this
+                // coroutine runs, so on the multi-threaded production Dispatchers.IO an
+                // Undo tap can reach the mutex first and find snapshot == null — a silent
+                // no-op, leaving the delete standing. Fail-safe and sub-millisecond, but
+                // real: the tests run on a FIFO StandardTestDispatcher and structurally
+                // cannot exercise it.
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)
@@ -199,6 +228,12 @@ class OpsRepository(
         name = s.name, url = s.url, icon = s.favicon,
         stationuuid = s.stationuuid, tags = s.tags, country = s.country, votes = s.votes,
     )
+
+    /** Playlist-origin stations carry no radio-browser identity, so stationuuid/tags/
+     *  country/votes stay at their OpStation defaults; the desktop merge reads only url,
+     *  name and icon from an add. The icon is carried so the M3U tvg-logo survives the move.
+     *  enforced by: OpsRepositoryMoveTest."add op carries the playlist station's icon and empty radio-browser extras" */
+    private fun opStation(s: Station) = OpStation(name = s.name, url = s.url, icon = s.logo.orEmpty())
 
     private fun newId() = UUID.randomUUID().toString()
     private fun now() = Instant.now().toString()

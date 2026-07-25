@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 fun StationActionsSheet(
     stationName: String,
     onMove: () -> Unit,
+    onMoveToPlaylist: () -> Unit,
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -34,6 +36,11 @@ fun StationActionsSheet(
             modifier = Modifier.clickable(onClick = onMove),
             leadingContent = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = null) },
             headlineContent = { Text("Move to group…") },
+        )
+        ListItem(
+            modifier = Modifier.clickable(onClick = onMoveToPlaylist),
+            leadingContent = { Icon(Icons.Filled.LibraryMusic, contentDescription = null) },
+            headlineContent = { Text("Move to playlist…") },
         )
         ListItem(
             modifier = Modifier.clickable(onClick = onRemove),

@@ -32,7 +32,8 @@ Tried and rejected:
    used extensively during research; also `order=votes&reverse=true` is
    the quality filter that works).
 3. **Playlist editing round-trip.** Phone-side edits (star/targeted
-   add, swipe-delete, move-between-groups) append identity-anchored ops
+   add, swipe-delete, move between groups, move between playlists)
+   append identity-anchored ops
    to `ops.jsonl` in the synced folder; playlists render with the
    pending ops applied as an optimistic overlay (pending rows italic)
    until the desktop merge script consumes the journal into
@@ -66,6 +67,36 @@ pyradio's log, from two desktops writing it). The seam enforces this
 structurally: `PlaylistsSource.appendTitlesLogLine(line)` takes no
 filename, so no code path in the app can name another file to append
 to. The subdirectory and the log file are created on first like.
+
+### Cross-playlist moves
+
+Moving a station into another playlist emits a `Delete` for the source
+playlist and a targeted `Add` for the target one, from a **single**
+journal write: one compaction pass, one generation bump, one undo
+token, and a failed write rolls the whole pair back. Undo restores the
+pre-move journal snapshot, so it removes both ops regardless of what
+compaction did to them. The two ops address different CSVs, so their
+order carries no meaning — compaction may separate or reorder them, and
+no code may assume they stay adjacent. A target *inside* the station's
+current playlist routes to a single `Move` op instead.
+
+No new op type and no journal-contract change; the desktop
+`stations-merge-ops.py` applies the pair unmodified. Verified live
+against the real script and a copy of the six CSVs: 2 applied, 0
+rejected, no `ops-rejected.jsonl`.
+
+**Known loss.** The desktop applies a `Move` by re-inserting the
+station's CSV line verbatim, but applies an `Add` by rebuilding the row
+from name, url and icon. So a cross-playlist move blanks the `encoding`
+column (which `format_row` always emits empty) and drops any pyradio
+column past `icon`, and appends the row at the end of its target group
+rather than a curated position — as does an A→B→A round trip, which
+nets to a delete plus a re-add in A. One live row is affected today:
+`KALX 90.7FM Berkeley` in `public-radio.csv`, which carries
+`volume=100`. This is also why a same-playlist target routes to a
+`Move` and never to the pair. Fixing it means teaching the desktop to
+carry the old line when a delete and an add for one url arrive in the
+same run; deliberately not attempted on the phone side.
 
 ### Titles-log line format
 

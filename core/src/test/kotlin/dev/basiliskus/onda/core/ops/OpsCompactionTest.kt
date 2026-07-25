@@ -88,6 +88,28 @@ class OpsCompactionTest {
         assertEquals(listOf(a1.copy(group = "H", ts = m1.ts), d2), residue)
     }
 
+    @Test fun `cross-playlist delete and add are distinct residues`() {
+        val d = delete("http://u", "stations")
+        val a = add("http://u", "nts", "G")
+        // Emission order: the pair leaves OpsRepository as delete-then-add.
+        assertEquals(listOf(d, a), OpsJournal.compact(listOf(d, a)))
+        // Serialized order when the target key already had a residue (the add is keyed
+        // ahead of its partner delete) — re-compacting that journal must not net the pair
+        // away. This is the ordering that bites if the residue key drops the playlist:
+        // on one key, add-then-delete collapses to nothing.
+        assertEquals(listOf(a, d), OpsJournal.compact(listOf(a, d)))
+    }
+
+    @Test fun `move between playlists and back nets to a delete and re-add in the source`() {
+        val d1 = delete("http://u", "stations")
+        val a1 = add("http://u", "nts", "G")
+        val d2 = delete("http://u", "nts")
+        val a2 = add("http://u", "stations", "H")
+        // A→B→A is not identity: the source row is dropped and re-created at the end of
+        // group H, not restored where it sat.
+        assertEquals(listOf(d1, a2), OpsJournal.compact(listOf(d1, a1, d2, a2)))
+    }
+
     @Test fun `compact is idempotent`() {
         val ops = listOf(
             add("http://one", "stations", "A"),
