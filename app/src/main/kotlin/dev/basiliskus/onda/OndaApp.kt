@@ -7,6 +7,7 @@ import dev.basiliskus.onda.playback.PlayerConnection
 import dev.basiliskus.onda.sync.FolderPrefs
 import dev.basiliskus.onda.sync.OpsRepository
 import dev.basiliskus.onda.sync.PlaylistRepository
+import dev.basiliskus.onda.sync.SongCaptureRepository
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,7 @@ class AppGraph(val app: Application) {
     val playlistRepository: PlaylistRepository by lazy { PlaylistRepository(app, folderPrefs, appScope) }
     val playerConnection: PlayerConnection by lazy { PlayerConnection(app, appScope) }
     val opsRepository: OpsRepository by lazy { OpsRepository(playlistRepository, appScope) }
+    internal val songCapture: SongCaptureRepository by lazy { SongCaptureRepository(playlistRepository) }
 }
 
 class OndaApp : Application() {

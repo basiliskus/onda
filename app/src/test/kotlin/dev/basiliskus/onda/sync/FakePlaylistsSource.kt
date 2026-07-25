@@ -31,10 +31,14 @@ internal class FakePlaylistsSource(
     val files = mutableMapOf<String, String>()
     var failReads = false
     var failWrites = false
+    var failAppends = false
     /** Write attempts, failed ones included — lets a row assert that a path which leaves
      *  the journal unchanged did so by not writing, rather than by rewriting the same
      *  bytes (the only way to observe a no-op restore). */
     var writes = 0
+    /** Append attempts, failed ones included — same reason as [writes]: it lets a row assert
+     *  a path wrote nothing by not attempting, rather than by writing identical bytes. */
+    var appends = 0
 
     override fun readSyncedText(name: String): Result<String?> =
         if (failReads) Result.failure(IOException("synced folder unreachable"))
@@ -52,19 +56,33 @@ internal class FakePlaylistsSource(
         return true
     }
 
+    /** The real seam creates recordings/onda-titles.log itself; keying the flat file map by
+     *  that path is what makes "capture touched nothing else" observable here. */
+    override fun appendTitlesLogLine(line: String): Boolean {
+        appends++
+        if (failAppends) return false
+        files[TITLES_LOG_PATH] = (files[TITLES_LOG_PATH] ?: "") + line + "\n"
+        return true
+    }
+
     fun seedJournal(vararg ops: Op) {
         files[JOURNAL] = OpsJournal.serialize(ops.toList())
     }
 
     /** The persisted journal, round-tripped through the production parser. */
     fun journalOps(): List<Op> = OpsJournal.parse(files[JOURNAL] ?: "").ops
+
+    /** The titles log's records, without the empty tail the trailing newline produces. */
+    fun titlesLogLines(): List<String> = files[TITLES_LOG_PATH]?.lines().orEmpty().dropLast(1)
 }
 
-/** Deliberate golden copies of OpsRepository's private constants — changing a filename or a
- *  user-visible string there must fail these tests rather than silently follow along. */
+/** Deliberate golden copies of OpsRepository's and PlaylistRepository's private constants —
+ *  changing a filename or a user-visible string there must fail these tests rather than
+ *  silently follow along. */
 internal const val JOURNAL = "ops.jsonl"
 internal const val LEGACY_CSV = "pending.csv"
 internal const val UNAVAILABLE_MESSAGE = "Playlist edits unavailable — synced folder unreachable"
+internal const val TITLES_LOG_PATH = "recordings/onda-titles.log"
 
 /** Scope for the repo's never-completing flows, auto-cancelled at test end via the
  *  background job — but dispatched as FOREGROUND tasks: advanceUntilIdle stops once only

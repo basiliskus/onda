@@ -35,6 +35,7 @@ import dev.basiliskus.onda.BuildConfig
 import dev.basiliskus.onda.core.model.PlaylistsState
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.radiobrowser.RbStation
+import dev.basiliskus.onda.sync.captureMessage
 import dev.basiliskus.onda.ui.discover.DiscoverScreen
 import dev.basiliskus.onda.ui.discover.DiscoverViewModel
 import dev.basiliskus.onda.ui.discover.StationListScreen
@@ -206,7 +207,20 @@ fun OndaRoot(graph: AppGraph) {
         }
     }
     if (showSheet) {
-        np?.let { NowPlayingSheet(it, graph.playerConnection::toggle, { showSheet = false }) }
+        np?.let { nowPlaying ->
+            NowPlayingSheet(
+                nowPlaying,
+                onToggle = graph.playerConnection::toggle,
+                onLike = {
+                    uiScope.launch {
+                        snackbarHostState.showSnackbar(
+                            captureMessage(graph.songCapture.capture(nowPlaying.streamTitle))
+                        )
+                    }
+                },
+                onDismiss = { showSheet = false },
+            )
+        }
     }
 }
 

@@ -22,8 +22,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 
-/** What OpsRepository consumes of PlaylistRepository — the seam that keeps SAF/DocumentFile
- *  behind a fakeable boundary for JVM tests. */
+/** What the synced-folder writers consume of PlaylistRepository — the seam that keeps
+ *  SAF/DocumentFile behind a fakeable boundary for JVM tests. */
 interface PlaylistsSource {
     val state: StateFlow<PlaylistsState>
     val folderTicks: SharedFlow<Unit>
@@ -33,6 +33,14 @@ interface PlaylistsSource {
     fun writeSyncedText(name: String, text: String): Boolean
     /** Blocking I/O — call from an IO dispatcher. */
     fun deleteSyncedFile(name: String): Boolean
+    /**
+     * Blocking I/O — call from an IO dispatcher. Appends [line] plus a newline to
+     * recordings/onda-titles.log inside the synced folder, creating the subdirectory and the
+     * file if needed. Takes no filename: onda-titles.log is the only file Onda may append to
+     * (pyradio owns its own log; one writer per file), so appending anywhere else is not a
+     * convention to respect but unrepresentable in this API.
+     */
+    fun appendTitlesLogLine(line: String): Boolean
 }
 
 class PlaylistRepository(
@@ -293,8 +301,72 @@ class PlaylistRepository(
         }
     }
 
+    /**
+     * Blocking I/O — call from Dispatchers.IO. Appends one record in a single write, in SAF
+     * append mode ("wa" -> O_APPEND), rather than through the tmp/bak rewrite above: a
+     * whole-file rewrite would race the desktop harvester (which reads and rotates this file
+     * concurrently) and would rewrite an ever-growing log on every like, while a single
+     * append of a short record only ever leaves whole lines visible to a concurrent reader.
+     *
+     * There is deliberately no read-modify-write fallback: a provider that ignored append
+     * mode would silently truncate the log, which is strictly worse than returning false and
+     * telling the user. If the harvester rotates the file between the lookup below and the
+     * open, one line can follow the renamed inode and be lost; the next like re-resolves via
+     * listFiles() and self-heals, so this is documented rather than defended.
+     */
+    override fun appendTitlesLogLine(line: String): Boolean {
+        val tree = prefs.treeUri ?: return false
+        return try {
+            val root = DocumentFile.fromTreeUri(context, tree) ?: return false
+            // Directory names are not mime-mangled, so this needs no rename dance.
+            val dir = root.findFile(RECORDINGS_DIR)?.takeIf { it.isDirectory }
+                ?: root.createDirectory(RECORDINGS_DIR) ?: return false
+            val file = titlesLogFile(dir) ?: return false
+            val out = context.contentResolver.openOutputStream(file.uri, "wa") ?: run {
+                Log.w("Onda", "appendTitlesLogLine: openOutputStream returned null"); return false
+            }
+            out.use { it.write((line + "\n").toByteArray()) }
+            true
+        } catch (e: Exception) {
+            Log.w("Onda", "appendTitlesLogLine: failed", e)
+            false
+        }
+    }
+
+    /**
+     * The titles log, created on first use. ".log" is not in MimeTypeMap, so a naive
+     * createFile can land as "onda-titles.log.txt" — and the desktop harvester globs on the
+     * name — hence the same rename de-mangling writeSyncedText relies on.
+     *
+     * The prefix match cannot pick up a Synology conflict copy: those insert their marker
+     * before the extension ("onda-titles_<host>_<date>_Conflict.log"), so they never start
+     * with the full filename. They should not exist for this file anyway — it is written only
+     * by the phone and only read/rotated by the desktop, which is exactly why the ROADMAP
+     * mandates a file separate from pyradio's.
+     */
+    private fun titlesLogFile(dir: DocumentFile): DocumentFile? {
+        dir.listFiles().firstOrNull { it.isFile && it.name?.startsWith(TITLES_LOG) == true }
+            ?.let { return it }
+        val created = dir.createFile("application/octet-stream", TITLES_LOG) ?: run {
+            Log.w("Onda", "titlesLogFile: createFile returned null"); return null
+        }
+        if (created.name == TITLES_LOG) return created
+        return try {
+            DocumentsContract.renameDocument(context.contentResolver, created.uri, TITLES_LOG)
+                ?.let { DocumentFile.fromSingleUri(context, it) } ?: created
+        } catch (e: Exception) {
+            Log.w("Onda", "titlesLogFile: rename to $TITLES_LOG failed", e)
+            created
+        }
+    }
+
     // Mime only influences how the provider names the tmp file (whose handle is kept, so
     // mangling is harmless); text/csv preserved for csv files as the E2E-proven choice.
     private fun mimeFor(name: String) =
         if (name.endsWith(".csv")) "text/csv" else "application/octet-stream"
+
+    private companion object {
+        const val RECORDINGS_DIR = "recordings"
+        const val TITLES_LOG = "onda-titles.log"
+    }
 }

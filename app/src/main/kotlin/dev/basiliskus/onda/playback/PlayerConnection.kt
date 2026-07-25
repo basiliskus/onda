@@ -9,6 +9,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import dev.basiliskus.onda.core.capture.streamTitleOf
 import dev.basiliskus.onda.core.model.MediaIds
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.radiobrowser.RbStation
@@ -63,7 +64,7 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
         _nowPlaying.value = NowPlaying(
             mediaId = item.mediaId,
             stationName = (meta.station ?: meta.title ?: "Unknown station").toString(),
-            streamTitle = meta.title?.toString()?.takeIf { it != (meta.station ?: "").toString() },
+            streamTitle = streamTitleOf(meta.title?.toString(), meta.station?.toString()),
             artworkUrl = meta.artworkUri?.toString(),
             playingUrl = requested,
             isPlaying = c.isPlaying,

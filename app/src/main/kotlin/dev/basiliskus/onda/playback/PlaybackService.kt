@@ -3,8 +3,10 @@ package dev.basiliskus.onda.playback
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -19,19 +21,26 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.metadata.icy.IcyInfo
+import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaLibraryService.LibraryParams
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
+import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.basiliskus.onda.OndaApp
+import dev.basiliskus.onda.core.capture.streamTitleOf
 import dev.basiliskus.onda.core.model.MediaIds
 import dev.basiliskus.onda.core.model.PlaylistsState
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.model.resolveResumptionStation
 import dev.basiliskus.onda.core.radiobrowser.RadioBrowserClient
+import dev.basiliskus.onda.sync.SongCaptureRepository
+import dev.basiliskus.onda.sync.captureMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -67,6 +76,22 @@ class PlaybackService : MediaLibraryService() {
         get() = ((application as OndaApp).graph.opsRepository.effectivePlaylists.value as? PlaylistsState.Ready)
             ?.let { MediaIds.stationIndex(it.playlists) } ?: emptyMap()
 
+    private val likeCommand = SessionCommand(ACTION_LIKE, Bundle.EMPTY)
+    /** Last enabled-ness pushed to the session; null until the first push. */
+    private var likeEnabled: Boolean? = null
+
+    // A disabled CommandButton is dropped from the notification entirely — the platform has no
+    // greyed-out NotificationCompat.Action — so on a station without ICY metadata the Like
+    // action is simply absent. Absence is the honest analogue of disabled here: an always-shown
+    // action that quietly did nothing would be worse. The Now Playing sheet, which can render a
+    // real Material disabled state, keeps the affordance visible instead.
+    private fun likeButton(enabled: Boolean) =
+        CommandButton.Builder(CommandButton.ICON_HEART_UNFILLED)
+            .setSessionCommand(likeCommand)
+            .setDisplayName("Like")
+            .setEnabled(enabled)
+            .build()
+
     @UnstableApi
     override fun onCreate() {
         super.onCreate()
@@ -94,6 +119,17 @@ class PlaybackService : MediaLibraryService() {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 lastRetriedMediaId = null
                 if (item != null) (application as OndaApp).graph.folderPrefs.lastPlayedMediaId = item.mediaId
+            }
+            // onMetadata below calls replaceMediaItem on every ICY title tick, so this fires
+            // several times a song; re-pushing an identical layout would rebuild the
+            // notification just as often, hence the likeEnabled guard.
+            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+                val enabled = streamTitleOf(
+                    mediaMetadata.title?.toString(), mediaMetadata.station?.toString(),
+                ) != null
+                if (likeEnabled == enabled) return
+                likeEnabled = enabled
+                session?.setCustomLayout(listOf(likeButton(enabled)))
             }
             override fun onPlayerError(error: PlaybackException) {
                 val id = player.currentMediaItem?.mediaId ?: return
@@ -157,6 +193,57 @@ class PlaybackService : MediaLibraryService() {
     }
 
     inner class LibraryCallback : MediaLibrarySession.Callback {
+        // The default callback grants no custom commands, and an unavailable command's button
+        // is force-disabled — so without this the Like action would never render at all.
+        // DEFAULT_SESSION_AND_LIBRARY_COMMANDS (not ..._SESSION_COMMANDS) keeps the Android
+        // Auto browse tree working.
+        @UnstableApi
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): MediaSession.ConnectionResult =
+            MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(
+                    MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
+                        .buildUpon().add(likeCommand).build()
+                )
+                .setCustomLayout(listOf(likeButton(likeEnabled == true)))
+                .build()
+
+        /** The notification's Like action, and nothing else — the Now Playing sheet talks to
+         *  SongCaptureRepository directly (same process), so one capture yields exactly one
+         *  message: a toast from here, a snackbar from there, never both. */
+        @UnstableApi
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: Bundle,
+        ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction != ACTION_LIKE) {
+                return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
+            }
+            // Read metadata on the calling (main) thread; the repository hops to IO itself.
+            val meta = session.player.mediaMetadata
+            val title = streamTitleOf(meta.title?.toString(), meta.station?.toString())
+            return serviceScope.future {
+                val outcome = (application as OndaApp).graph.songCapture.capture(title)
+                // The notification has no Activity to host a snackbar, and a capture started
+                // here never reaches the sheet — so one outcome still yields one message.
+                Toast.makeText(this@PlaybackService, captureMessage(outcome), Toast.LENGTH_SHORT).show()
+                SessionResult(outcome.toResultCode())
+            }
+        }
+
+        /** A title that cleared between notification render and tap resolves to NoTitle, so
+         *  the tap reports itself rather than silently doing nothing. */
+        @UnstableApi
+        private fun SongCaptureRepository.Outcome.toResultCode() = when (this) {
+            SongCaptureRepository.Outcome.Saved -> SessionResult.RESULT_SUCCESS
+            SongCaptureRepository.Outcome.NoTitle -> SessionError.ERROR_INVALID_STATE
+            SongCaptureRepository.Outcome.WriteFailed -> SessionError.ERROR_IO
+        }
+
         override fun onAddMediaItems(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
@@ -224,6 +311,8 @@ class PlaybackService : MediaLibraryService() {
     }
 
     companion object {
+        private const val ACTION_LIKE = "dev.basiliskus.onda.LIKE_TRACK"
+
         fun playableItem(mediaId: String, title: String, url: String, artworkUrl: String?): MediaItem =
             MediaItem.Builder()
                 .setMediaId(mediaId)
