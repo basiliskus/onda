@@ -153,10 +153,14 @@ class OpsRepository(
                 // state the journal doesn't back.
                 setOps(updated)
                 // Arm undo at optimistic-update time: snapshot = pre-mutation ops,
-                // generation = the post-bump value. The mutex is what orders undo against
-                // this mutation — an undo() launched by the caller queues behind the whole
-                // block — so the token is always armed by the time it can be redeemed. A
-                // failed write's rollback setOps bumps the generation again, voiding it.
+                // generation = the post-bump value. A failed write's rollback setOps bumps
+                // the generation again, voiding the token.
+                //
+                // delete() hands the token back synchronously, before this coroutine runs,
+                // so on the multi-threaded production Dispatchers.IO an Undo tap can reach
+                // the mutex first and find snapshot == null — a silent no-op, leaving the
+                // delete standing. Fail-safe and sub-millisecond, but real: the tests run on
+                // a FIFO StandardTestDispatcher and structurally cannot exercise it.
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)
