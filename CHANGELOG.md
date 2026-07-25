@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Song capture: a like button in the Now Playing sheet and a Media3 notification
+  custom action append the current ICY track title to
+  `recordings/onda-titles.log` in the synced folder, one line per like, in
+  pyradio's own liked-line format (`MMM dd (EEE) HH:mm |     <raw title>
+  (LIKED)`, English locale, no year) so the desktop harvester reads both logs
+  with one parser. Onda appends to its own log only, never pyradio's. Stations
+  without ICY metadata cannot be captured: the sheet button is disabled and the
+  notification action is absent (the platform drops disabled custom actions).
+  Android Auto shows neither — still deferred. Contract: `docs/spec.md`.
 - `:app` JVM unit-test harness (JUnit 4 + kotlinx-coroutines-test, no Robolectric):
   29 tests over the state machines that shipped untested — undo/compaction
   composition, optimistic overlay, SAF write-failure rollback, `pending.csv`
@@ -18,6 +27,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Playback resumption wait-and-resolve moved out of `PlaybackService` into `:core`
   (`resolveResumptionStation`, 6 tests); `PlaylistsState` moved to `:core` with it.
   Same semantics, including the 3s timeout and the three failure exits.
+- `PlaylistsSource` gained one append seam, `appendTitlesLogLine(line)` (SAF `"wa"`
+  append, no read-modify-write). It takes no filename, so appending to any file
+  but Onda's own titles log is unrepresentable rather than merely discouraged.
 - Test seams for the harness: `PlaylistsSource` (keeps SAF/DocumentFile behind a
   fakeable boundary), `RadioBrowserApi` (same for OkHttp), and an injectable IO
   dispatcher on `OpsRepository`. Production wiring unchanged.
