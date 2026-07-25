@@ -32,9 +32,11 @@ class TitlesLogTest {
 
     @Test fun `digits stay ASCII under a Devanagari-numeral default locale`() {
         Locale.setDefault(Locale.forLanguageTag("hi-IN-u-nu-deva"))
-        val rendered = TitlesLog.likedLine("Artist - Title", at)
-        assertEquals(line, rendered)
-        assertTrue(rendered.none { it.isDigit() && it !in '0'..'9' }, "non-ASCII digit in: $rendered")
+        // The equality below IS the digit assertion: a Devanagari-numeral rendering would give
+        // "२१:०८", not "21:08". (A `none { it.isDigit() && it !in '0'..'9' }` check would be
+        // vacuous — ofPattern always uses DecimalStyle.STANDARD unless withDecimalStyle is
+        // called, and this row is what would fail if it ever were.)
+        assertEquals(line, TitlesLog.likedLine("Artist - Title", at))
     }
 
     @Test fun `timestamp carries no year`() {
@@ -85,12 +87,21 @@ class TitlesLogTest {
         assertTrue(rendered.endsWith(" (LIKED)"))
     }
 
-    @Test fun `newline and carriage return collapse to spaces`() {
-        val rendered = TitlesLog.likedLine("A\nB\r\nC", at)
-        assertEquals(1, rendered.lines().size, "line split in two: $rendered")
-        assertFalse(rendered.any { it == '\n' || it == '\r' })
+    @Test fun `every character python splits lines on collapses to a space`() {
+        // The invariant the consumer actually cares about: it splits records with Python's
+        // str.splitlines(), which treats these ten characters as line boundaries — not just
+        // CR/LF. Spelled out here independently of TitlesLog's own set; sharing the constant
+        // would make the row a tautology. All ten reach us through ICY StreamTitle, and any
+        // survivor lets a crafted title forge extra "Station:"/"(LIKED)" records.
+        val boundaries = listOf(
+            '\u000A', '\u000B', '\u000C', '\u000D', '\u001C',
+            '\u001D', '\u001E', '\u0085', '\u2028', '\u2029',
+        )
+        val rendered = TitlesLog.likedLine(boundaries.joinToString("") { "A$it" } + "B", at)
+        assertTrue(rendered.none { it in boundaries }, "line boundary survived into: $rendered")
+        assertEquals("    " + "A ".repeat(boundaries.size) + "B (LIKED)", afterSeparator(rendered))
         // Per-character replacement, so CRLF becomes two spaces — nothing is collapsed or parsed.
-        assertEquals("    A B  C (LIKED)", afterSeparator(rendered))
+        assertEquals("    A B  C (LIKED)", afterSeparator(TitlesLog.likedLine("A\nB\r\nC", at)))
     }
 
     @Test fun `streamTitleOf rejects absent blank and station-equal titles`() {

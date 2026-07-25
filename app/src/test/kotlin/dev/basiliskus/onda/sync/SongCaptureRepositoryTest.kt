@@ -3,6 +3,7 @@ package dev.basiliskus.onda.sync
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import java.time.LocalDateTime
@@ -17,7 +18,7 @@ class SongCaptureRepositoryTest {
     private val expectedLine = "Jul 23 (Thu) 21:08 |     Artist - Title (LIKED)"
     private val pyradioLine = "Jul 23 (Thu) 20:55 |     Someone - Else (LIKED)"
 
-    private fun capture(fake: FakePlaylistsSource, scheduler: kotlinx.coroutines.test.TestCoroutineScheduler) =
+    private fun capture(fake: FakePlaylistsSource, scheduler: TestCoroutineScheduler) =
         SongCaptureRepository(fake, clock = { LocalDateTime.of(2026, 7, 23, 21, 8) },
             ioDispatcher = StandardTestDispatcher(scheduler))
 
@@ -92,7 +93,10 @@ class SongCaptureRepositoryTest {
         assertTrue(fake.files.isEmpty())
     }
 
-    @Test fun `append failure reports WriteFailed without half-writing`() = runTest {
+    /** The fake's append is atomic, so an unchanged file here proves the repository issued no
+     *  further write — NOT that a real SAF append is all-or-nothing. It is not (plan R6); a
+     *  truncated last line is covered by appendTitlesLogLine's partial-write note instead. */
+    @Test fun `append failure reports WriteFailed and the repository writes nothing more`() = runTest {
         val fake = FakePlaylistsSource()
         fake.files[TITLES_LOG_PATH] = pyradioLine + "\n"
         val r = capture(fake, testScheduler)

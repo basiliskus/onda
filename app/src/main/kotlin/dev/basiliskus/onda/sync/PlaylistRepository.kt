@@ -310,9 +310,22 @@ class PlaylistRepository(
      *
      * There is deliberately no read-modify-write fallback: a provider that ignored append
      * mode would silently truncate the log, which is strictly worse than returning false and
-     * telling the user. If the harvester rotates the file between the lookup below and the
-     * open, one line can follow the renamed inode and be lost; the next like re-resolves via
-     * listFiles() and self-heals, so this is documented rather than defended.
+     * telling the user.
+     *
+     * Three accepted, documented-not-defended holes:
+     * - **Rotation race.** If the harvester rotates the file between [titlesLogFile]'s lookup
+     *   and the open below, this line follows the renamed inode into the archive. The next
+     *   like re-resolves and lands in the fresh log — but the lost line is lost; nothing
+     *   goes back to fetch it.
+     * - **Partial write joined.** If a previous append left the last line unterminated (a
+     *   crash mid-write), this append concatenates onto it. The joined line still contains
+     *   `" | "` and still ends `" (LIKED)"`, so the desktop ingests it as one corrupted title
+     *   rather than skipping it. Only a whole-record write could avoid this, and that is the
+     *   rewrite race we chose append to escape.
+     * - **Close-time failure.** `use` propagates an exception from `close()`, so a write that
+     *   reached the file but failed to flush/close reports false. The direction is the safe
+     *   one (never claim a like that did not land), but a user who re-taps then writes the
+     *   line twice; the desktop collapses duplicate titles, so this is cosmetic.
      */
     override fun appendTitlesLogLine(line: String): Boolean {
         val tree = prefs.treeUri ?: return false
@@ -338,15 +351,20 @@ class PlaylistRepository(
      * createFile can land as "onda-titles.log.txt" — and the desktop harvester globs on the
      * name — hence the same rename de-mangling writeSyncedText relies on.
      *
-     * The prefix match cannot pick up a Synology conflict copy: those insert their marker
-     * before the extension ("onda-titles_<host>_<date>_Conflict.log"), so they never start
-     * with the full filename. They should not exist for this file anyway — it is written only
-     * by the phone and only read/rotated by the desktop, which is exactly why the ROADMAP
-     * mandates a file separate from pyradio's.
+     * Resolution is by exact name, with exactly one fallback: the mangled "onda-titles.log.txt"
+     * left behind when the de-mangling rename failed. A prefix scan would also match the
+     * desktop's rotation backups ("onda-titles.log.1", ".bak"), and every later like would
+     * append invisibly into an archive the harvester has already consumed.
+     *
+     * Neither match can pick up a Synology conflict copy: those insert their marker before the
+     * extension ("onda-titles_<host>_<date>_Conflict.log"). They should not exist for this file
+     * anyway — it is written only by the phone and only read/rotated by the desktop, which is
+     * exactly why the ROADMAP mandates a file separate from pyradio's.
      */
     private fun titlesLogFile(dir: DocumentFile): DocumentFile? {
-        dir.listFiles().firstOrNull { it.isFile && it.name?.startsWith(TITLES_LOG) == true }
-            ?.let { return it }
+        val files = dir.listFiles().filter { it.isFile }
+        files.firstOrNull { it.name == TITLES_LOG }?.let { return it }
+        files.firstOrNull { it.name == "$TITLES_LOG.txt" }?.let { return it }
         val created = dir.createFile("application/octet-stream", TITLES_LOG) ?: run {
             Log.w("Onda", "titlesLogFile: createFile returned null"); return null
         }

@@ -25,10 +25,29 @@ object TitlesLog {
     // rows honest, and a like is a user tap, not a hot path.
     private fun timestamp() = DateTimeFormatter.ofPattern(PATTERN, Locale.ENGLISH)
 
-    // The sole transformation applied to an ICY StreamTitle: a raw CR/LF would split one record
-    // into two, and the trailing fragment would still satisfy the consumer's `endswith(" (LIKED)")`
-    // and ingest as a truncated title. Framing only — nothing is trimmed, decoded or parsed.
-    private fun oneLine(streamTitle: String) = streamTitle.replace('\n', ' ').replace('\r', ' ')
+    // Every character Python's str.splitlines() treats as a line boundary — the consumer splits
+    // records with exactly that call, so this set, not CR/LF, is what "one line" means here.
+    private val LINE_BREAKS = setOf(
+        '\n',     // LF
+        '\u000B', // VT
+        '\u000C', // FF
+        '\r',     // CR
+        '\u001C', // FS
+        '\u001D', // GS
+        '\u001E', // RS
+        '\u0085', // NEL
+        '\u2028', // LINE SEPARATOR
+        '\u2029', // PARAGRAPH SEPARATOR
+    )
+
+    // The sole transformation applied to an ICY StreamTitle, and the only defence the consumer
+    // has: a raw boundary character would split one record into several, each fragment still
+    // able to satisfy `endswith(" (LIKED)")` or `startswith("Station: ")` — so a crafted title
+    // could forge entries and drop the genuine one. Media3's IcyDecoder matches StreamTitle
+    // with DOTALL, so all ten are reachable from the wire. Framing only: replacing a boundary
+    // with a space neither trims, decodes nor parses the title.
+    private fun oneLine(streamTitle: String) =
+        streamTitle.map { if (it in LINE_BREAKS) ' ' else it }.joinToString("")
 }
 
 /**

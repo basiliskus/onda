@@ -77,7 +77,13 @@ class PlaybackService : MediaLibraryService() {
             ?.let { MediaIds.stationIndex(it.playlists) } ?: emptyMap()
 
     private val likeCommand = SessionCommand(ACTION_LIKE, Bundle.EMPTY)
-    /** Last enabled-ness pushed to the session; null until the first push. */
+    /**
+     * Last enabled-ness pushed to the media-notification controller; null until the first push.
+     *
+     * Confined to the session's application looper (the main thread): written only from
+     * Player.Listener.onMediaMetadataChanged and read only from LibraryCallback.onConnect,
+     * both of which Media3 dispatches on that looper. Not safe to touch from anywhere else.
+     */
     private var likeEnabled: Boolean? = null
 
     // A disabled CommandButton is dropped from the notification entirely — the platform has no
@@ -123,13 +129,23 @@ class PlaybackService : MediaLibraryService() {
             // onMetadata below calls replaceMediaItem on every ICY title tick, so this fires
             // several times a song; re-pushing an identical layout would rebuild the
             // notification just as often, hence the likeEnabled guard.
+            @UnstableApi
             override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
                 val enabled = streamTitleOf(
                     mediaMetadata.title?.toString(), mediaMetadata.station?.toString(),
                 ) != null
                 if (likeEnabled == enabled) return
                 likeEnabled = enabled
-                session?.setCustomLayout(listOf(likeButton(enabled)))
+                // Per-controller, not the session-wide overload: the session-wide push reaches
+                // Android Auto too, and Auto's only feedback channel for this action would be
+                // a Toast it does not display — a failed write in the car would be a silent
+                // no-op. The Auto custom action is deferred to Future by the ROADMAP; until it
+                // has real feedback, the button must not render there.
+                val s = session ?: return
+                s.mediaNotificationControllerInfo
+                    ?.let { s.setCustomLayout(it, listOf(likeButton(enabled))) }
+                // A null controller means the notification isn't up yet; its onConnect reads
+                // likeEnabled below, so the state still reaches it.
             }
             override fun onPlayerError(error: PlaybackException) {
                 val id = player.currentMediaItem?.mediaId ?: return
@@ -197,18 +213,30 @@ class PlaybackService : MediaLibraryService() {
         // is force-disabled — so without this the Like action would never render at all.
         // DEFAULT_SESSION_AND_LIBRARY_COMMANDS (not ..._SESSION_COMMANDS) keeps the Android
         // Auto browse tree working.
+        //
+        // Both the grant and the layout are scoped to the media-notification controller: the
+        // notification is the only surface where a Toast is actually shown, so it is the only
+        // one that can report a failed write instead of silently swallowing it. Android Auto
+        // and the app's own MediaController get the browse tree and nothing else (the Now
+        // Playing sheet calls SongCaptureRepository directly, never this command).
+        // isMediaNotificationController is a pure predicate over ControllerInfo's package,
+        // version and connection hints in media3 1.6.0, so it is valid this early.
         @UnstableApi
         override fun onConnect(
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
-        ): MediaSession.ConnectionResult =
-            MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+        ): MediaSession.ConnectionResult {
+            val forNotification = session.isMediaNotificationController(controller)
+            val builder = MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(
                     MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
-                        .buildUpon().add(likeCommand).build()
+                        .buildUpon()
+                        .apply { if (forNotification) add(likeCommand) }
+                        .build()
                 )
-                .setCustomLayout(listOf(likeButton(likeEnabled == true)))
-                .build()
+            if (forNotification) builder.setCustomLayout(listOf(likeButton(likeEnabled == true)))
+            return builder.build()
+        }
 
         /** The notification's Like action, and nothing else — the Now Playing sheet talks to
          *  SongCaptureRepository directly (same process), so one capture yields exactly one
