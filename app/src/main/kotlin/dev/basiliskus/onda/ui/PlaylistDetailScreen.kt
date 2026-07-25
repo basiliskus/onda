@@ -32,7 +32,6 @@ fun PlaylistDetailScreen(
     onBack: () -> Unit,
     onPlayStation: (Station) -> Unit,
     onDeleteStation: (Station) -> Unit,
-    onMoveStation: (Station, String) -> Unit,
     playlistNames: List<String>,
     groupsOf: (String) -> List<String>,
     onMoveToPlaylist: (Station, String, String) -> Unit,
@@ -79,7 +78,12 @@ fun PlaylistDetailScreen(
         GroupPickerSheet(
             title = "Move to group",
             options = playlist.groups.map { it.title },
-            onPick = { group -> movingStation = null; if (group != s.group) onMoveStation(s, group) },
+            // Same callback as the cross-playlist flow, with the station's own playlist as the
+            // target: one entry point, so a group move gets the same Undo affordance.
+            onPick = { group ->
+                movingStation = null
+                if (group != s.group) onMoveToPlaylist(s, s.playlist, group)
+            },
             onDismiss = { movingStation = null },
             newOptionLabel = "New group",
         )

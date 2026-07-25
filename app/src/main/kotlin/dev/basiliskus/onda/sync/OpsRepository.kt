@@ -151,12 +151,6 @@ class OpsRepository(
         return token
     }
 
-    /** Group move within one playlist. The long-press flow offers no Undo affordance for
-     *  it today, so the token is deliberately dropped (GitHub #18). */
-    fun move(station: Station, toGroup: String) {
-        moveToPlaylist(station, station.playlist, toGroup)
-    }
-
     /** Restores the pre-delete snapshot iff no journal change intervened since [delete]
      *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops. */
     fun undo(token: UndoToken) {

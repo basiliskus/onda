@@ -412,7 +412,8 @@ class OpsRepositoryMoveTest {
         advanceUntilIdle()
         val addId = (fake.journalOps()[1] as Op.Add).id
 
-        r.move(r.effectiveStations().single { it.url == "http://u" }, "H")
+        val moved = r.effectiveStations().single { it.url == "http://u" }
+        r.moveToPlaylist(moved, moved.playlist, "H")
         advanceUntilIdle()
 
         val ops = fake.journalOps()
@@ -505,14 +506,14 @@ class OpsRepositoryMoveTest {
         assertFalse(row.pending)
     }
 
-    @Test fun `group move still emits a single move op after the delegation`() = runTest {
+    @Test fun `group move emits a single move op and offers undo`() = runTest {
         val s = station("http://u")
         val fake = FakePlaylistsSource(sourceAndTarget(s))
         val r = repo(fake)
         advanceUntilIdle()
         val writesBefore = fake.writes
 
-        r.move(s, "B")
+        r.moveToPlaylist(s, s.playlist, "B")
         advanceUntilIdle()
 
         val move = fake.journalOps().single() as Op.Move

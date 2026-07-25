@@ -6,7 +6,7 @@
 |----------|---------|-----|-----------|
 | **P2** | ✅ ~~app-module test harness~~ | :app state machines (async bridge, banner VM, undo/compaction) shipped untested three milestones running; the v0.3.0 🔴 was a five-line test away. Action Tracker #1, GitHub #9 | v0.4.0 |
 | **P2** | ✅ ~~song capture~~ | Like the playing track from the Now Playing sheet or the media notification; feeds the existing desktop titles-log → catalog pipeline. Contract pinned 2026-07-23 | v0.4.0 |
-| **P3** | cross-playlist move | "Move to playlist…" in the long-press sheet via the existing delete + targeted-add op pair; closes the only phone-side gap for stations not on radio-browser | v0.4.0 |
+| **P3** | ✅ ~~cross-playlist move~~ | "Move to playlist…" in the long-press sheet via the existing delete + targeted-add op pair; closes the only phone-side gap for stations not on radio-browser | v0.4.0 |
 
 ## Milestones
 
@@ -60,6 +60,13 @@ multi-op restoration — verify with a harness test). Playlist-origin stations
 carry empty extras (stationuuid/tags/country/votes) in the add op; the desktop
 drops them anyway. Closes the gap for stations not on radio-browser, which
 currently have no phone-side path between playlists.
+✅ Shipped 2026-07-25 (PR #34): the pair emits from one `mutate` — one compaction,
+one generation bump, one journal write, one undo token; splitting it reddens 8 of
+68 rows. A same-playlist target routes to a single `Op.Move`, and the group-move
+sheet now shares that one entry point, so `OpsRepository.move()` is gone and a
+group move gained Undo. Desktop round-trip verified live against the real
+`stations-merge-ops.py`. Known loss: an add rebuilds the row from name/url/icon,
+blanking `encoding` and dropping later columns (one live row: KALX, `volume=100`).
 
 ## Completed
 

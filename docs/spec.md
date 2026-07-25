@@ -87,8 +87,9 @@ rejected, no `ops-rejected.jsonl`.
 
 **Known loss.** The desktop applies a `Move` by re-inserting the
 station's CSV line verbatim, but applies an `Add` by rebuilding the row
-from name, url and icon. So a cross-playlist move drops any pyradio
-column past `icon` and appends the row at the end of its target group
+from name, url and icon. So a cross-playlist move blanks the `encoding`
+column (which `format_row` always emits empty) and drops any pyradio
+column past `icon`, and appends the row at the end of its target group
 rather than a curated position — as does an A→B→A round trip, which
 nets to a delete plus a re-add in A. One live row is affected today:
 `KALX 90.7FM Berkeley` in `public-radio.csv`, which carries

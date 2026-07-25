@@ -71,7 +71,7 @@ class OpsRepositoryTest {
         advanceUntilIdle()
 
         fake.failWrites = true
-        r.move(s, "B")
+        r.moveToPlaylist(s, s.playlist, "B")
         advanceUntilIdle()
         val row = r.effectiveStations().single { it.url == "http://u" }
         assertEquals("A", row.group) // back in the original group

@@ -18,8 +18,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   is verified against the real `stations-merge-ops.py` (2 applied, 0 rejected, no
   `ops-rejected.jsonl`). **Known loss:** the desktop rebuilds an added row from
   name, url and icon, so a cross-playlist move — and an A→B→A round trip, which
-  nets to a delete plus a re-add in A — drops any pyradio column past `icon` and
-  appends the row at the end of its target group instead of a curated position.
+  nets to a delete plus a re-add in A — blanks the `encoding` column and drops any
+  pyradio column past `icon`, appending the row at the end of its target group
+  instead of a curated position.
   One live row is affected today: `KALX 90.7FM Berkeley` in `public-radio.csv`,
   which carries `volume=100`. Contract: `docs/spec.md`.
 - Song capture: a like button in the Now Playing sheet and a Media3 notification

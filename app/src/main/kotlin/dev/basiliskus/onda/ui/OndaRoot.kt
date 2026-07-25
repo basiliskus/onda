@@ -146,7 +146,6 @@ fun OndaRoot(graph: AppGraph) {
                 if (playlist != null) {
                     PlaylistDetailScreen(
                         playlist, playingUrl, { nav.popBackStack() }, onPlayStation, onDeleteStation,
-                        onMoveStation = graph.opsRepository::move,
                         playlistNames = ready?.playlists?.map { it.name }.orEmpty(),
                         groupsOf = { playlistName ->
                             ready?.playlists?.firstOrNull { it.name == playlistName }?.groups?.map { it.title }.orEmpty()
