@@ -30,6 +30,18 @@ class SongCaptureRepositoryTest {
         assertEquals(expectedLine + "\n", fake.files[TITLES_LOG_PATH])
     }
 
+    /** The seam takes no filename and the fake keys its log on a literal, so this equality is
+     *  the only thing coupling the harness to the name production actually uses — renaming
+     *  either constant fails here instead of silently moving the file the desktop harvester
+     *  globs. It pins the name only; that a SAF append really lands at that path in the synced
+     *  folder is observable on a device alone (smoke checklist row 17). */
+    @Test fun `production writes the titles log at the path the fake mirrors`() {
+        assertEquals(
+            TITLES_LOG_PATH,
+            "${PlaylistRepository.RECORDINGS_DIR}/${PlaylistRepository.TITLES_LOG}",
+        )
+    }
+
     @Test fun `capture touches no file other than the titles log`() = runTest {
         val fake = FakePlaylistsSource()
         fake.files[JOURNAL] = "{\"op\":\"add\"}\n"
@@ -104,6 +116,21 @@ class SongCaptureRepositoryTest {
         fake.failAppends = true
         assertEquals(SongCaptureRepository.Outcome.WriteFailed, r.capture("Artist - Title"))
         assertEquals(pyradioLine + "\n", fake.files[TITLES_LOG_PATH])
+        assertEquals(1, fake.appends, "the failure must be an observed attempt, not a skipped one")
+    }
+
+    /** PlaylistRepository.titlesLogFile refuses a provider-mangled name instead of appending
+     *  under it, because the exact-name lookup would keep missing and every later like would
+     *  create a fresh uniquely-named file — one line each, all reported as "Liked". This row
+     *  holds the caller's half of that contract: a resolve failure surfaces WriteFailed and
+     *  leaves nothing behind. The SAF ladder that produces the fault is device-only. */
+    @Test fun `an unresolvable titles log fails the like instead of sharding silently`() = runTest {
+        val fake = FakePlaylistsSource()
+        val r = capture(fake, testScheduler)
+
+        fake.unresolvableTitlesLog = true
+        assertEquals(SongCaptureRepository.Outcome.WriteFailed, r.capture("Artist - Title"))
+        assertTrue(fake.files.isEmpty(), "a refused resolve left a shard: ${fake.files.keys}")
         assertEquals(1, fake.appends, "the failure must be an observed attempt, not a skipped one")
     }
 

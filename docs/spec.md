@@ -78,10 +78,13 @@ Pinned byte-for-byte by the desktop consumer,
 directory, splits each line on `" | "`, and keeps messages ending in
 `" (LIKED)"`:
 
-- Timestamp `MMM dd (EEE) HH:mm`, **English locale forced** (month and
-  weekday names, and ASCII digits) — the desktop parses with `%b %d
-  (%a) %H:%M` regardless of the phone's locale. Zero-padded day, to
-  match pyradio's own lines byte-for-byte.
+- Timestamp `MMM dd (EEE) HH:mm`, **English locale forced** for the
+  month and weekday names (`MMM`, `EEE`) — the desktop parses with `%b
+  %d (%a) %H:%M` regardless of the phone's locale. The locale does
+  *not* affect the digits: `DateTimeFormatter.ofPattern` always uses
+  `DecimalStyle.STANDARD`, so `HH:mm` is ASCII with or without it, and
+  only an explicit `withDecimalStyle` could change that. Zero-padded
+  day, to match pyradio's own lines byte-for-byte.
 - **No year.** The consumer infers it from the file's mtime, so a log
   that is never rotated will mis-year entries older than a year;
   rotation belongs to the desktop side.

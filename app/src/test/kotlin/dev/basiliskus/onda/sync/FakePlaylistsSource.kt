@@ -32,6 +32,13 @@ internal class FakePlaylistsSource(
     var failReads = false
     var failWrites = false
     var failAppends = false
+    /** The seam could not reach recordings/onda-titles.log under exactly that name — in
+     *  production, a provider that mangled the created filename with a rename that would not
+     *  undo it. The seam's contract is that this reports false and writes nothing at all
+     *  (PlaylistsSource.appendTitlesLogLine); modelled separately from [failAppends] because
+     *  the two are different faults, even though the contract makes them indistinguishable
+     *  from here. */
+    var unresolvableTitlesLog = false
     /** Write attempts, failed ones included — lets a row assert that a path which leaves
      *  the journal unchanged did so by not writing, rather than by rewriting the same
      *  bytes (the only way to observe a no-op restore). */
@@ -60,7 +67,7 @@ internal class FakePlaylistsSource(
      *  that path is what makes "capture touched nothing else" observable here. */
     override fun appendTitlesLogLine(line: String): Boolean {
         appends++
-        if (failAppends) return false
+        if (failAppends || unresolvableTitlesLog) return false
         files[TITLES_LOG_PATH] = (files[TITLES_LOG_PATH] ?: "") + line + "\n"
         return true
     }
@@ -76,9 +83,20 @@ internal class FakePlaylistsSource(
     fun titlesLogLines(): List<String> = files[TITLES_LOG_PATH]?.lines().orEmpty().dropLast(1)
 }
 
-/** Deliberate golden copies of OpsRepository's and PlaylistRepository's private constants —
- *  changing a filename or a user-visible string there must fail these tests rather than
- *  silently follow along. */
+/**
+ * Deliberate golden copies of OpsRepository's and PlaylistRepository's constants — changing a
+ * filename or a user-visible string there must fail these tests rather than silently follow
+ * along. How each one bites differs, so neither claim is broader than its mechanism:
+ *
+ * - [JOURNAL] and [LEGACY_CSV] are enforced by construction: OpsRepository passes its own
+ *   constant to `writeSyncedText(name, …)`/`readSyncedText(name)`, which is the very key this
+ *   fake stores under, so renaming there misses every row that asserts on these.
+ * - [TITLES_LOG_PATH] cannot bite that way — `appendTitlesLogLine` deliberately takes no
+ *   filename, so this is only the fake's own storage key. It is pinned instead by the explicit
+ *   equality row in SongCaptureRepositoryTest, which reads PlaylistRepository's constants
+ *   directly. That row covers the *name*; that the SAF write really lands at that path in the
+ *   synced folder is observable only on a device (smoke checklist row 17).
+ */
 internal const val JOURNAL = "ops.jsonl"
 internal const val LEGACY_CSV = "pending.csv"
 internal const val UNAVAILABLE_MESSAGE = "Playlist edits unavailable — synced folder unreachable"

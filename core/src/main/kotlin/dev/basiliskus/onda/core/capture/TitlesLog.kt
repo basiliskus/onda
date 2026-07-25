@@ -19,10 +19,12 @@ object TitlesLog {
     fun likedLine(streamTitle: String, at: LocalDateTime): String =
         "${timestamp().format(at)} |     ${oneLine(streamTitle)} (LIKED)"
 
-    // Built per call rather than held in a val: a cached formatter would capture the JVM's
-    // default locale at class-init time, which would let the pinned English rendering pass by
-    // accident on an English machine. Constructing it here keeps TitlesLogTest's foreign-locale
-    // rows honest, and a like is a user tap, not a hot path.
+    // Built per call rather than held in a val: a formatter cached in a val is constructed at
+    // class-init, before any test can setDefault — so if the explicit Locale.ENGLISH below were
+    // ever dropped, it would have captured an English machine's default and the foreign-locale
+    // rows would pass by accident. Constructing it here keeps them honest, and a like is a user
+    // tap, not a hot path. The locale governs MMM/EEE only; ofPattern always uses
+    // DecimalStyle.STANDARD, so HH:mm and dd are ASCII regardless.
     private fun timestamp() = DateTimeFormatter.ofPattern(PATTERN, Locale.ENGLISH)
 
     // Every character Python's str.splitlines() treats as a line boundary — the consumer splits

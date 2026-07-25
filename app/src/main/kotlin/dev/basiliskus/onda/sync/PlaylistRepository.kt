@@ -39,6 +39,10 @@ interface PlaylistsSource {
      * file if needed. Takes no filename: onda-titles.log is the only file Onda may append to
      * (pyradio owns its own log; one writer per file), so appending anywhere else is not a
      * convention to respect but unrepresentable in this API.
+     *
+     * Returns false — never true — when the log cannot be reached under exactly that name, so
+     * the caller reports a failed like instead of the log quietly sharding across
+     * provider-mangled filenames the desktop harvester never globs.
      */
     fun appendTitlesLogLine(line: String): Boolean
 }
@@ -351,31 +355,37 @@ class PlaylistRepository(
      * createFile can land as "onda-titles.log.txt" — and the desktop harvester globs on the
      * name — hence the same rename de-mangling writeSyncedText relies on.
      *
-     * Resolution is by exact name, with exactly one fallback: the mangled "onda-titles.log.txt"
-     * left behind when the de-mangling rename failed. A prefix scan would also match the
-     * desktop's rotation backups ("onda-titles.log.1", ".bak"), and every later like would
-     * append invisibly into an archive the harvester has already consumed.
+     * Resolution is by exact name only. A prefix scan would also match the desktop's rotation
+     * backups ("onda-titles.log.1", ".bak"), and every later like would append invisibly into
+     * an archive the harvester has already consumed. It also cannot pick up a Synology conflict
+     * copy: those insert their marker before the extension
+     * ("onda-titles_<host>_<date>_Conflict.log"). They should not exist for this file anyway —
+     * it is written only by the phone and only read/rotated by the desktop, which is exactly
+     * why the ROADMAP mandates a file separate from pyradio's.
      *
-     * Neither match can pick up a Synology conflict copy: those insert their marker before the
-     * extension ("onda-titles_<host>_<date>_Conflict.log"). They should not exist for this file
-     * anyway — it is written only by the phone and only read/rotated by the desktop, which is
-     * exactly why the ROADMAP mandates a file separate from pyradio's.
+     * If the provider mangles the name and the rename cannot undo it, this deletes the stray
+     * and returns null rather than handing back a mangled document. Appending to it would be
+     * worse than failing: the harvester never reads it, and because the exact-name lookup would
+     * keep missing, every later like would createFile a fresh uniquely-named file, write one
+     * line and report "Liked" while the log shards. Returning null surfaces WriteFailed.
      */
     private fun titlesLogFile(dir: DocumentFile): DocumentFile? {
-        val files = dir.listFiles().filter { it.isFile }
-        files.firstOrNull { it.name == TITLES_LOG }?.let { return it }
-        files.firstOrNull { it.name == "$TITLES_LOG.txt" }?.let { return it }
-        val created = dir.createFile("application/octet-stream", TITLES_LOG) ?: run {
+        dir.listFiles().firstOrNull { it.isFile && it.name == TITLES_LOG }?.let { return it }
+        val created = dir.createFile(mimeFor(TITLES_LOG), TITLES_LOG) ?: run {
             Log.w("Onda", "titlesLogFile: createFile returned null"); return null
         }
         if (created.name == TITLES_LOG) return created
-        return try {
+        val renamed = try {
             DocumentsContract.renameDocument(context.contentResolver, created.uri, TITLES_LOG)
-                ?.let { DocumentFile.fromSingleUri(context, it) } ?: created
+                ?.let { DocumentFile.fromSingleUri(context, it) }
         } catch (e: Exception) {
             Log.w("Onda", "titlesLogFile: rename to $TITLES_LOG failed", e)
-            created
+            null
         }
+        if (renamed?.name == TITLES_LOG) return renamed
+        Log.w("Onda", "titlesLogFile: provider kept ${created.name}; refusing to shard the log")
+        (renamed ?: created).delete()
+        return null
     }
 
     // Mime only influences how the provider names the tmp file (whose handle is kept, so
@@ -383,7 +393,11 @@ class PlaylistRepository(
     private fun mimeFor(name: String) =
         if (name.endsWith(".csv")) "text/csv" else "application/octet-stream"
 
-    private companion object {
+    /** Internal, not private, so the JVM tests can pin the two names the desktop harvester
+     *  globs on (SongCaptureRepositoryTest's golden-path row) — renaming either here must fail
+     *  a test rather than silently move the file. Nothing outside this module reads them; the
+     *  seam below still takes no filename. */
+    internal companion object {
         const val RECORDINGS_DIR = "recordings"
         const val TITLES_LOG = "onda-titles.log"
     }

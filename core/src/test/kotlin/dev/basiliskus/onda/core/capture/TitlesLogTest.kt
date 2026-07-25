@@ -30,12 +30,19 @@ class TitlesLogTest {
         assertEquals(line, TitlesLog.likedLine("Artist - Title", at))
     }
 
-    @Test fun `digits stay ASCII under a Devanagari-numeral default locale`() {
+    /**
+     * A second-locale copy of the Turkish row above: it fails on the same mechanism (the month
+     * and weekday names, which would render "जुल॰" / "गुरु" here), so a red here is not
+     * independent evidence from a red there.
+     *
+     * `Locale.ENGLISH` does **not** force ASCII digits — `ofPattern` always uses
+     * `DecimalStyle.STANDARD` whatever locale it is handed, so the digits are ASCII with or
+     * without it. The row is kept for the one digit regression that is real: adding
+     * `withDecimalStyle(DecimalStyle.ofDefaultLocale())` renders "२१:०८" under this locale and
+     * nothing else in the suite would notice.
+     */
+    @Test fun `a Devanagari-numeral default locale changes neither names nor digits`() {
         Locale.setDefault(Locale.forLanguageTag("hi-IN-u-nu-deva"))
-        // The equality below IS the digit assertion: a Devanagari-numeral rendering would give
-        // "२१:०८", not "21:08". (A `none { it.isDigit() && it !in '0'..'9' }` check would be
-        // vacuous — ofPattern always uses DecimalStyle.STANDARD unless withDecimalStyle is
-        // called, and this row is what would fail if it ever were.)
         assertEquals(line, TitlesLog.likedLine("Artist - Title", at))
     }
 

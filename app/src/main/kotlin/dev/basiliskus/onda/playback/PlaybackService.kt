@@ -47,6 +47,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
+import java.util.concurrent.Executor
 
 class PlaybackService : MediaLibraryService() {
     private var session: MediaLibrarySession? = null
@@ -78,11 +79,13 @@ class PlaybackService : MediaLibraryService() {
 
     private val likeCommand = SessionCommand(ACTION_LIKE, Bundle.EMPTY)
     /**
-     * Last enabled-ness pushed to the media-notification controller; null until the first push.
+     * Last enabled-ness pushed to the media-notification controller; null when none is known to
+     * have landed — before the first push, and again after one is rejected.
      *
-     * Confined to the session's application looper (the main thread): written only from
-     * Player.Listener.onMediaMetadataChanged and read only from LibraryCallback.onConnect,
-     * both of which Media3 dispatches on that looper. Not safe to touch from anywhere else.
+     * Confined to the session's application looper (the main thread): written from
+     * Player.Listener.onMediaMetadataChanged and from the setCustomLayout listener it posts
+     * back to that same looper, read from LibraryCallback.onConnect, all of which Media3
+     * dispatches there. Not safe to touch from anywhere else.
      */
     private var likeEnabled: Boolean? = null
 
@@ -121,6 +124,10 @@ class PlaybackService : MediaLibraryService() {
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+        // Every likeEnabled write happens here, so the setCustomLayout callback below is posted
+        // back to the same looper Media3 dispatches Player.Listener and Callback.onConnect on,
+        // rather than running on whichever binder thread completes the future.
+        val appLooperExecutor = Handler(player.applicationLooper).let { h -> Executor { h.post(it) } }
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 lastRetriedMediaId = null
@@ -142,10 +149,21 @@ class PlaybackService : MediaLibraryService() {
                 // no-op. The Auto custom action is deferred to Future by the ROADMAP; until it
                 // has real feedback, the button must not render there.
                 val s = session ?: return
-                s.mediaNotificationControllerInfo
-                    ?.let { s.setCustomLayout(it, listOf(likeButton(enabled))) }
                 // A null controller means the notification isn't up yet; its onConnect reads
                 // likeEnabled below, so the state still reaches it.
+                val controller = s.mediaNotificationControllerInfo ?: return
+                val push = s.setCustomLayout(controller, listOf(likeButton(enabled)))
+                // The latch above is optimistic, so it would suppress every later identical
+                // push and leave a rejected one stale on the notification until the
+                // enabled-ness flips twice. Clear it instead and let the next metadata change
+                // re-push. A notification that connects in between renders the button absent —
+                // the same unknown-state default onConnect already starts from. The check
+                // keeps a newer latch: only roll back what this push itself set.
+                push.addListener({
+                    val landed = runCatching { push.get().resultCode == SessionResult.RESULT_SUCCESS }
+                        .getOrDefault(false)
+                    if (!landed && likeEnabled == enabled) likeEnabled = null
+                }, appLooperExecutor)
             }
             override fun onPlayerError(error: PlaybackException) {
                 val id = player.currentMediaItem?.mediaId ?: return
