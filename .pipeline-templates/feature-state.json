@@ -179,7 +179,7 @@
       "skip_if": "DOCS_ONLY",
       "checklist": [
         {
-          "action": "./gradlew :core:test",
+          "action": "./gradlew :core:test :app:testDebugUnitTest",
           "done": false,
           "_note": "operator-supplied test command (pipeline-init)"
         },
