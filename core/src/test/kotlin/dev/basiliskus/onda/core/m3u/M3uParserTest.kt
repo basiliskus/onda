@@ -88,6 +88,90 @@ class M3uParserTest {
         assertEquals("Ungrouped", p.stations.single().group)
     }
 
+    // --- EXTINF quote handling (GitHub #39) -------------------------------------------------
+    // Third-party names (radio-browser Discover) reach this parser via the desktop CSV -> M3U
+    // export. A name may legitimately contain a `word="value"` substring — scraped HTML
+    // fragments are the common real-world source. Such a name must stay a name.
+
+    @Test fun `a name containing an attribute-shaped substring is not dropped`() {
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="Discover",Rock FM <img src="logo.png"> Live
+            http://rock
+        """.trimIndent())
+        val s = p.stations.single()
+        assertEquals("""Rock FM <img src="logo.png"> Live""", s.name)
+        assertEquals("Discover", s.group)
+        assertNull(s.logo)
+    }
+
+    @Test fun `a name cannot forge tvg-logo`() {
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="Discover",Rock FM <img tvg-logo="http://attacker.example/beacon.png">, Live
+            http://rock
+        """.trimIndent())
+        val s = p.stations.single()
+        assertNull(s.logo, "attacker-chosen logo URL leaked out of the display name")
+        assertEquals("""Rock FM <img tvg-logo="http://attacker.example/beacon.png">, Live""", s.name)
+        assertEquals("Discover", s.group)
+    }
+
+    @Test fun `a name cannot forge group-title`() {
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="Discover",Rock group-title="Hijacked" FM, Live
+            http://rock
+        """.trimIndent())
+        val s = p.stations.single()
+        assertEquals("Discover", s.group)
+        assertEquals("""Rock group-title="Hijacked" FM, Live""", s.name)
+    }
+
+    @Test fun `a name that is entirely an attribute-shaped token stays a name`() {
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="G",tvg-logo="http://attacker.example/x.png"
+            http://u
+        """.trimIndent())
+        val s = p.stations.single()
+        assertEquals("""tvg-logo="http://attacker.example/x.png"""", s.name)
+        assertEquals("G", s.group)
+        assertNull(s.logo)
+    }
+
+    @Test fun `a name containing bare quotes with no equals sign is preserved`() {
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="G",Radio "Free" FM
+            http://free
+        """.trimIndent())
+        val s = p.stations.single()
+        assertEquals("""Radio "Free" FM""", s.name)
+        assertEquals("G", s.group)
+    }
+
+    @Test fun `a name containing an equals sign but no quotes is preserved`() {
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="G",Rock = Life FM
+            http://eq
+        """.trimIndent())
+        assertEquals("Rock = Life FM", p.stations.single().name)
+    }
+
+    @Test fun `attribute-shaped substring in a name survives alongside a comma-bearing group-title`() {
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 tvg-logo="https://cdn.example/real.png" group-title="News, Talk",Rock FM <img src="logo.png"> Live
+            http://both
+        """.trimIndent())
+        val s = p.stations.single()
+        assertEquals("News, Talk", s.group)
+        assertEquals("https://cdn.example/real.png", s.logo)
+        assertEquals("""Rock FM <img src="logo.png"> Live""", s.name)
+    }
+
     @Test fun `all six real playlists parse with groups and plausible station count`() {
         val names = listOf("stations", "nts", "fip", "bbc", "public-radio", "radio-garden")
         val playlists = names.map { M3uParser.parsePlaylist(it, fixture(it)) }
