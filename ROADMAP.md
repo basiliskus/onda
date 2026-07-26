@@ -2,6 +2,11 @@
 
 ## Priority Matrix
 
+The release row is always the **last** row of its milestone, so "every row
+above it is struck" and "ready to tag" are the same fact. `scripts/release-ready.sh`
+reads that, plus the `release-blocker` label, and answers whether it is time.
+Policy: `docs/adr/0001-release-at-milestone-end.md`.
+
 | Priority | Feature | Why | Milestone |
 |----------|---------|-----|-----------|
 | **P2** | ✅ ~~app-module test harness~~ | :app state machines (async bridge, banner VM, undo/compaction) shipped untested three milestones running; the v0.3.0 🔴 was a five-line test away. Action Tracker #1, GitHub #9 | v0.4.0 |
@@ -11,8 +16,8 @@
 | **P1** | ✅ ~~browse fetch catches only IOException~~ | Premise stale — `RadioBrowserClient` already converts decode failures to `IOException` (469aaf3) and two rows pin it. Closed on evidence, no code needed. GitHub #13 | v0.5.0 |
 | **P1** | ✅ ~~harden M3uParser against quotes in EXTINF names~~ | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
 | **P2** | resumption survives move and regroup | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
-| **P0** | release v0.5.0 | v0.4.0 merged but never shipped — versionName is still 0.3.0. Blocks the owed hardware rows, the first real `library/onda.json`, and any live test of basiliskus/data#5 | v0.5.0 |
 | **P2** | ops journal: shared batch id + strictly-increasing ts | basiliskus/data is blocked on a field only this repo can emit; contract agreed from both ends. GitHub #38 | v0.5.0 |
+| **P0** | release v0.5.0 | v0.4.0 merged but never shipped — versionName is still 0.3.0. Blocks the owed hardware rows, the first real `library/onda.json`, and any live test of basiliskus/data#5. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
 
 ## Milestones
 
@@ -81,7 +86,12 @@ recommendation was to release first; the chosen path fixes first so the
 release carries the fixes. Session record:
 `docs/strategy-sessions/2026-07-26-v0.5.0.md`.
 
-The release sits in the middle of this milestone, not at the end.
+~~The release sits in the middle of this milestone, not at the end.~~
+Overridden 2026-07-26 by ADR-0001: the release is now the **last** row, after
+#38. The strategy session's reasoning — that the tag should carry the
+correctness fixes — survives intact; putting the release last satisfies it
+strictly harder, and makes "milestone complete" and "ready to tag" the same
+condition instead of two the reader has to keep apart.
 
 **browse fetch catches only IOException** — ✅ already fixed, no work needed
 Struck 2026-07-26 by `/pipeline-next`'s staleness check before any code was
@@ -114,12 +124,6 @@ persisted for `onPlaybackResumption`. Moving a station — now a two-tap gesture
 changes both components, so it stops resuming. Testable in the `:core` harness
 via `resolveResumptionStation`. GitHub #35.
 
-**release v0.5.0**
-One tag carrying the unreleased v0.4.0 milestone AND these fixes. Nothing from
-v0.4.0 has ever been installed, so a v0.4.0 tag would be superseded within
-minutes. Unblocks smoke rows 13 and 16-24 (GitHub #33), the first real
-`library/onda.json`, and the live exercise of basiliskus/data#5.
-
 **ops journal: shared batch id + strictly-increasing ts**
 `UndoToken` gains an id at construction; every op written under an armed token
 carries a `batch` field — uniform, including single-op mutations, so an absent
@@ -127,6 +131,17 @@ field has exactly one meaning. Plus strictly-increasing `ts` within a batch,
 since the pair currently shares a millisecond and same-key ordering is
 load-bearing on the desktop. Contract agreed on GitHub #38; basiliskus/data is
 waiting on it.
+
+**release v0.5.0** — the last row, per ADR-0001
+One tag carrying the unreleased v0.4.0 milestone AND these fixes. Nothing from
+v0.4.0 has ever been installed, so a v0.4.0 tag would be superseded within
+minutes. Unblocks smoke rows 13 and 16-24 (GitHub #33), the first real
+`library/onda.json`, and the live exercise of basiliskus/data#5.
+
+Runs as its own pipeline: copy `.pipeline-templates/release-state.json` to
+`.pipeline-state/release-v0.5.0.json`, set `target_version`, then
+`/pipeline-run`. Stage 1 refuses to start unless `scripts/release-ready.sh`
+exits READY.
 
 ## Completed
 
