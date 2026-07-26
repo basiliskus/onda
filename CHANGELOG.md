@@ -67,9 +67,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   comma inside a quoted value (`group-title="News, Talk"`) still does not truncate
   the attribute region. A line whose quotes do not balance has no usable quote
   depth, so it falls back to the pre-fix rule — the first comma after the last
-  well-formed `key="value"` match — and therefore parses exactly as it always has;
-  the balanced case never takes that fallback, so an attribute-only line is still
-  dropped rather than scavenged for a name. `:core` 89 → 106 tests.
+  well-formed `key="value"` match — and every line reaching that fallback parses
+  exactly as it always has. (A quote that opens *after* the separator never
+  reaches it, and those lines do change — that change is the fix.) The balanced
+  case never takes the fallback, so an attribute-only line is still dropped
+  rather than scavenged for a name. `:core` 89 → 107 tests.
 
 ## [0.3.0] - 2026-07-24
 

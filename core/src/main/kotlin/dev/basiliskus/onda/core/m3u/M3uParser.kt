@@ -60,11 +60,18 @@ object M3uParser {
     /**
      * Index of the first comma at quote-depth zero.
      *
-     * An unbalanced quote leaves the scan permanently inside quotes, so quote depth stops
-     * meaning anything and no such comma can be found. That case falls back to the pre-fix
-     * rule — the first comma after the last well-formed `key="value"` match — which anchors on
-     * something the broken quoting cannot invalidate, and which by construction makes every
-     * unbalanced line parse exactly as it did before this parser tracked quotes at all.
+     * An unbalanced quote before the separator leaves the scan permanently inside quotes, so
+     * quote depth stops meaning anything and no such comma can be found. That case falls back
+     * to the pre-fix rule — the first comma after the LAST well-formed `key="value"` match —
+     * which anchors on something the broken quoting cannot invalidate. Every line that reaches
+     * this fallback therefore parses exactly as it did before this parser tracked quotes.
+     *
+     * Scoped deliberately: a quote that opens AFTER the separator never reaches here, because
+     * the depth-zero comma was already returned. Such lines are not covered by the equivalence
+     * above and do differ from the pre-fix parser — that difference is the fix.
+     *
+     * `lastOrNull` is load-bearing: anchoring on the first match instead would let an earlier
+     * attribute's quoted comma become the split point.
      *
      * With quotes balanced the fallback must NOT fire: a line whose only comma sits inside a
      * quoted value has no display name, and scavenging one out of the middle of an attribute

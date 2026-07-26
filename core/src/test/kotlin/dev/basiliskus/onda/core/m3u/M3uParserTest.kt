@@ -62,8 +62,10 @@ class M3uParserTest {
     }
 
     @Test fun `a non-http line directly after a valid EXTINF is not adopted as a stream`() {
-        // The exporter has emitted ftp:// rows. The scheme guard — not a mere null check on the
-        // pending entry — is what drops them instead of handing the player an unplayable URL.
+        // The scheme guard — not a mere null check on the pending entry — is what drops these
+        // instead of handing the player an unplayable URL. (No live playlist contains a non-http
+        // URL: all 373 URLs across the six fixtures are http/https. These are hand-edit and
+        // third-party shapes, which is reason enough — the playlists are user-owned files.)
         val p = M3uParser.parsePlaylist("x", """
             #EXTM3U
             #EXTINF:-1 group-title="G",Legacy FTP
@@ -224,6 +226,20 @@ class M3uParserTest {
         // take the last comma instead and the name collapses to `More`.
         val p = M3uParser.parsePlaylist("x", "#EXTM3U\n#EXTINF:-1 \"weird,Name,More\nhttp://weird")
         assertEquals("Name,More", p.stations.single().name)
+    }
+
+    @Test fun `the fallback anchors on the last attribute, not the first`() {
+        // Two well-formed attributes, the SECOND carrying a quoted comma, then an unbalanced
+        // quote. Anchoring on the first match leaves that comma ahead of the search and the name
+        // collapses to `y" z",Name`. Only anchoring on the last match reproduces the pre-quote-
+        // tracking parser here — which is the whole equivalence claim, so it needs its own row.
+        val p = M3uParser.parsePlaylist(
+            "x", "#EXTM3U\n#EXTINF:-1 group-title=\"A\" tvg-logo=\"x,y\" z\",Name\nhttp://u",
+        )
+        val s = p.stations.single()
+        assertEquals("Name", s.name)
+        assertEquals("A", s.group)
+        assertEquals("x,y", s.logo)
     }
 
     @Test fun `an unbalanced quote after a complete attribute does not split inside its value`() {
