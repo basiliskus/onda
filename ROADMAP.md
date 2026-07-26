@@ -15,7 +15,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 
 | **P1** | ✅ ~~browse fetch catches only IOException~~ | Premise stale — `RadioBrowserClient` already converts decode failures to `IOException` (469aaf3) and two rows pin it. Closed on evidence, no code needed. GitHub #13 | v0.5.0 |
 | **P1** | ✅ ~~harden M3uParser against quotes in EXTINF names~~ | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
-| **P2** | resumption survives move and regroup | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
+| **P2** | ✅ ~~resumption survives move and regroup~~ | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
 | **P2** | ops journal: shared batch id + strictly-increasing ts | basiliskus/data is blocked on a field only this repo can emit; contract agreed from both ends. GitHub #38 | v0.5.0 |
 | **P0** | release v0.5.0 | v0.4.0 merged but never shipped — versionName is still 0.3.0. Gated on #33's owed hardware rows (labeled `release-blocker` 2026-07-26); unblocks the first real `library/onda.json` and the live test of basiliskus/data#5. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
 
