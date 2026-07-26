@@ -181,7 +181,8 @@ ops journal is consumed by `stations-merge-ops.py` in `.dotfiles`.
   cross-playlist move) plus two correctness fixes — `M3uParser` attribute parsing
   (#39, PR #43) and resumption surviving a move or regroup (#35, PR #47). Also
   landed the release machinery itself: `scripts/release-ready.sh`, the release
-  pipeline template, and ADR-0001. `:core` 89 → 117, `:app` 68. The eleven owed
+  pipeline template, and ADR-0001. `:core` 68 → 117; `:app` 0 → 68, the module
+  having had no test source at all at v0.3.0. The eleven owed
   hardware rows (#33) run against this APK, not before it. Retro: `RETRO.md`.
 
 - v0.3.0 — Playlist editing round-trip (2026-07-24, PR #17): ops.jsonl journal with
