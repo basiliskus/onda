@@ -12,4 +12,9 @@ class FolderPrefs(context: Context) {
     var lastPlayedMediaId: String?
         get() = prefs.getString("last_played_media_id", null)
         set(value) = prefs.edit { putString("last_played_media_id", value) }
+
+    /** Written with [lastPlayedMediaId]; resolves resumption when a move has invalidated the id. */
+    var lastPlayedUrl: String?
+        get() = prefs.getString("last_played_url", null)
+        set(value) = prefs.edit { putString("last_played_url", value) }
 }

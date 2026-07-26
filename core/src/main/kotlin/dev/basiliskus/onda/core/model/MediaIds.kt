@@ -20,6 +20,33 @@ object MediaIds {
     fun resolveStation(lastPlayedId: String?, playlists: List<Playlist>): Station? =
         lastPlayedId?.let { stationIndex(playlists)[it] }
 
+    /**
+     * Where a station that [resolveStation] can no longer find has moved to: the first
+     * station carrying [lastPlayedUrl], in playlist order.
+     *
+     * [station] hashes playlist and group alongside url, so moving or regrouping a station
+     * changes its id and the stored one stops resolving. Url is the only component a move
+     * leaves alone, which is why it is persisted next to the id and consulted here.
+     *
+     * Only station ids are followed. A Discover (`rb|`) id must keep failing even when its
+     * url also sits in a playlist — Discover-only stations deliberately do not resume, and
+     * matching on url alone would silently start resuming them.
+     * enforced by: MediaIdsTest."a Discover id is not followed by url even when the url is in a playlist"
+     *
+     * First in playlist order, not last: urls are shared across playlists in the real
+     * station set, so this tie-break decides a live case, not a hypothetical one.
+     * [stationIndex] uses associateBy, which would pick the last.
+     * enforced by: MediaIdsTest."a url in two playlists resolves to the first in playlist order"
+     * enforced by: MediaIdsTest."the committed playlists really do share urls across files"
+     */
+    fun movedStation(lastPlayedId: String?, lastPlayedUrl: String?, playlists: List<Playlist>): Station? {
+        if (parse(lastPlayedId ?: return null) !is Parsed.StationNode) return null
+        // No null guard on lastPlayedUrl: Station.url is non-null, so a null simply matches
+        // nothing. An explicit check read well but no test could tell it apart — it survived
+        // deletion during the mutation pass, which is the definition of dead weight here.
+        return playlists.flatMap { it.stations }.firstOrNull { it.url == lastPlayedUrl }
+    }
+
     sealed interface Parsed {
         data object Root : Parsed
         data class PlaylistNode(val playlist: String) : Parsed
