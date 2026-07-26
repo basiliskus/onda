@@ -17,8 +17,10 @@ class FolderPrefs(context: Context) {
     /**
      * The only writer, because the two values must describe the same station: the url is
      * consulted precisely when the id stops resolving, so a mismatched pair resumes some
-     * other station with no error. Read-only properties plus one setter make that
-     * unskippable rather than conventional, and collapse two commits into one.
+     * other station with no error.
+     *
+     * No JVM row reaches this: transposing the arguments would compile and pass the whole
+     * suite. Smoke row 25 is the only check on it.
      */
     fun setLastPlayed(id: String?, url: String?) = prefs.edit {
         putString("last_played_media_id", id)

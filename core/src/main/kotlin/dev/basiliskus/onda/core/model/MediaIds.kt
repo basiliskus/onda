@@ -34,6 +34,7 @@ object MediaIds {
      * url also sits in a playlist — Discover-only stations deliberately do not resume, and
      * matching on url alone would silently start resuming them.
      * enforced by: MediaIdsTest."a Discover id is not followed by url even when the url is in a playlist"
+     * enforced by: MediaIdsTest."a garbage or absent id is not followed by url"
      *
      * First in playlist order, not last: urls are shared across playlists in the real
      * station set, so this tie-break decides a live case, not a hypothetical one.
@@ -44,6 +45,7 @@ object MediaIds {
     fun stationByUrl(lastPlayedId: String?, lastPlayedUrl: String?, playlists: List<Playlist>): Station? {
         if (parse(lastPlayedId ?: return null) !is Parsed.StationNode) return null
         // Station.url is non-null, so a null url simply matches nothing.
+        // enforced by: MediaIdsTest."a null url matches nothing"
         return playlists.flatMap { it.stations }.firstOrNull { it.url == lastPlayedUrl }
     }
 
