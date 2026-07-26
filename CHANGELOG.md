@@ -51,6 +51,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   dispatcher on `OpsRepository`. Production wiring unchanged.
 - CI and `test_command` run `:app:testDebugUnitTest` alongside `:core:test`.
 
+### Fixed
+
+- M3U parsing: a `word="value"` substring inside a station name is no longer read
+  as an EXTINF attribute. `parseExtinf` splits the line at the first comma at
+  **quote-depth zero** — everything left is duration + attributes, everything right
+  is the display name — so such a name is kept **verbatim**, neither stripped nor
+  escaped. Three failures, each reproduced before the fix: a station whose name
+  carried an attribute-shaped token vanished from the playlist with no log line
+  (radio-browser names carry scraped HTML, and `<img src="logo.png">` is exactly
+  that shape); a name could forge `tvg-logo`, handing Coil an arbitrary URL to
+  fetch; and a name could forge `group-title`, relocating the station and putting a
+  group that exists in no playlist into the UI group list — unreported until now,
+  and reachable without an attacker by any `key="value"` followed by a comma. A
+  comma inside a quoted value (`group-title="News, Talk"`) still does not truncate
+  the attribute region, and an unbalanced quote before the separator falls back to
+  the first comma of any kind, parsing as it always has. `:core` 89 → 100 tests.
+
 ## [0.3.0] - 2026-07-24
 
 ### Added
