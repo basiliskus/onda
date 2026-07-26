@@ -9,7 +9,7 @@
 | **P3** | ✅ ~~cross-playlist move~~ | "Move to playlist…" in the long-press sheet via the existing delete + targeted-add op pair; closes the only phone-side gap for stations not on radio-browser | v0.4.0 |
 
 | **P1** | ✅ ~~browse fetch catches only IOException~~ | Premise stale — `RadioBrowserClient` already converts decode failures to `IOException` (469aaf3) and two rows pin it. Closed on evidence, no code needed. GitHub #13 | v0.5.0 |
-| **P1** | harden M3uParser against quotes in EXTINF names | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
+| **P1** | ✅ ~~harden M3uParser against quotes in EXTINF names~~ | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
 | **P2** | resumption survives move and regroup | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
 | **P0** | release v0.5.0 | v0.4.0 merged but never shipped — versionName is still 0.3.0. Blocks the owed hardware rows, the first real `library/onda.json`, and any live test of basiliskus/data#5 | v0.5.0 |
 | **P2** | ops journal: shared batch id + strictly-increasing ts | basiliskus/data is blocked on a field only this repo can emit; contract agreed from both ends. GitHub #38 | v0.5.0 |
@@ -101,6 +101,12 @@ dropped with no log line. Station names come from radio-browser — third-party
 data. Not exploitable today (the desktop sanitizes at the writer, and
 `IndirectionParser` never reaches this parser), but the safety property lives in
 another repository with nothing enforcing it here. GitHub #39.
+
+✅ Shipped 2026-07-26 (PR #43): three bugs, not the two the issue described —
+diagnosis also found a forged `group-title` producing a phantom group in the UI
+list, reachable without an attacker. Attributes are now matched only left of the
+first comma at quote-depth zero; an unbalanced quote falls back to the pre-fix
+anchor so those lines parse as they always did. `:core` 89 → 107.
 
 **resumption survives move and regroup**
 `MediaIds` hashes playlist + group into the media id, and the last-played id is

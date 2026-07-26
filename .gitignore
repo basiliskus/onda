@@ -8,3 +8,7 @@ local.properties
 *.keystore
 .kotlin/
 .pipeline-log.md
+
+# JVM crash dumps — a Gradle daemon SIGSEGV drops these in the repo root
+hs_err_pid*.log
+replay_pid*.log
