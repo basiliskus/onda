@@ -9,7 +9,21 @@ class FolderPrefs(context: Context) {
     var treeUri: Uri?
         get() = prefs.getString("tree_uri", null)?.let(Uri::parse)
         set(value) = prefs.edit { putString("tree_uri", value?.toString()) }
-    var lastPlayedMediaId: String?
-        get() = prefs.getString("last_played_media_id", null)
-        set(value) = prefs.edit { putString("last_played_media_id", value) }
+    val lastPlayedMediaId: String? get() = prefs.getString("last_played_media_id", null)
+
+    /** Resolves resumption when a move has invalidated [lastPlayedMediaId]. */
+    val lastPlayedUrl: String? get() = prefs.getString("last_played_url", null)
+
+    /**
+     * The only writer, because the two values must describe the same station: the url is
+     * consulted precisely when the id stops resolving, so a mismatched pair resumes some
+     * other station with no error.
+     *
+     * No JVM row reaches this: transposing the arguments would compile and pass the whole
+     * suite. Smoke row 25 is the only check on it.
+     */
+    fun setLastPlayed(id: String?, url: String?) = prefs.edit {
+        putString("last_played_media_id", id)
+        putString("last_played_url", url)
+    }
 }

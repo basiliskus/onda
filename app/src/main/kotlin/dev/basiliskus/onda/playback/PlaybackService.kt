@@ -131,7 +131,12 @@ class PlaybackService : MediaLibraryService() {
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 lastRetriedMediaId = null
-                if (item != null) (application as OndaApp).graph.folderPrefs.lastPlayedMediaId = item.mediaId
+                // The url goes with the id because the id hashes playlist and group, so a
+                // later move or regroup invalidates it (GitHub #35).
+                if (item != null) (application as OndaApp).graph.folderPrefs.setLastPlayed(
+                    id = item.mediaId,
+                    url = item.requestMetadata.mediaUri?.toString(),
+                )
             }
             // onMetadata below calls replaceMediaItem on every ICY title tick, so this fires
             // several times a song; re-pushing an identical layout would rebuild the
@@ -338,8 +343,9 @@ class PlaybackService : MediaLibraryService() {
             serviceScope.future {
                 val graph = (application as OndaApp).graph
                 val station = resolveResumptionStation(
-                    graph.folderPrefs.lastPlayedMediaId,
-                    graph.opsRepository.effectivePlaylists,
+                    lastPlayedId = graph.folderPrefs.lastPlayedMediaId,
+                    lastPlayedUrl = graph.folderPrefs.lastPlayedUrl,
+                    states = graph.opsRepository.effectivePlaylists,
                 )
                 MediaSession.MediaItemsWithStartPosition(
                     ImmutableList.of(playableItem(MediaIds.station(station), station.name, station.url, station.logo)),

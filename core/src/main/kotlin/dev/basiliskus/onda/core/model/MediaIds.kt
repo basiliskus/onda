@@ -20,6 +20,35 @@ object MediaIds {
     fun resolveStation(lastPlayedId: String?, playlists: List<Playlist>): Station? =
         lastPlayedId?.let { stationIndex(playlists)[it] }
 
+    /**
+     * The first station carrying [lastPlayedUrl], in playlist order — the fallback for a
+     * [lastPlayedId] that no longer resolves.
+     *
+     * [station] hashes playlist and group alongside url, so moving or regrouping a station
+     * changes its id and the stored one stops resolving. Url is the only component a move
+     * leaves alone, which is why it is persisted next to the id and consulted here. A move
+     * is not the only way the id can miss, though: a deleted station whose url survives
+     * elsewhere resolves to that copy rather than failing.
+     *
+     * Only station ids are followed. A Discover (`rb|`) id must keep failing even when its
+     * url also sits in a playlist — Discover-only stations deliberately do not resume, and
+     * matching on url alone would silently start resuming them.
+     * enforced by: MediaIdsTest."a Discover id is not followed by url even when the url is in a playlist"
+     * enforced by: MediaIdsTest."a garbage or absent id is not followed by url"
+     *
+     * First in playlist order, not last: urls are shared across playlists in the real
+     * station set, so this tie-break decides a live case, not a hypothetical one.
+     * [stationIndex] uses associateBy, which would pick the last.
+     * enforced by: MediaIdsTest."a url in two playlists resolves to the first in playlist order"
+     * enforced by: MediaIdsTest."the committed playlists really do share urls across files"
+     */
+    fun stationByUrl(lastPlayedId: String?, lastPlayedUrl: String?, playlists: List<Playlist>): Station? {
+        if (parse(lastPlayedId ?: return null) !is Parsed.StationNode) return null
+        // Station.url is non-null, so a null url simply matches nothing.
+        // enforced by: MediaIdsTest."a null url matches nothing"
+        return playlists.flatMap { it.stations }.firstOrNull { it.url == lastPlayedUrl }
+    }
+
     sealed interface Parsed {
         data object Root : Parsed
         data class PlaylistNode(val playlist: String) : Parsed
