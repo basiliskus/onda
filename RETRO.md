@@ -11,7 +11,7 @@ issue or be explicitly closed with a reason.
 | 2 | Extract resumption wait-and-resolve seam into :core | PR #6 | #10 | Closed | Extracted as `resolveResumptionStation` in PR #23 (6 :core rows); semantics preserved incl. raw TimeoutCancellationException |
 | 3 | Persist Discover search text (`query` rememberSaveable) | PR #8 | #11 | Open | Polish pass |
 | 4 | Stations route missing `launchSingleTop` | PR #8 | #12 | Open | Pre-existing 🔵 |
-| 5 | Browse fetches catch only `IOException` | PR #8 | #13 | Open | Pre-existing 🔵; `SerializationException` would crash |
+| 5 | Browse fetches catch only `IOException` | PR #8 | #13 | Closed | Premise stale — `RadioBrowserClient` already converts decode failures to `IOException` (469aaf3), pinned by two `RadioBrowserClientTest` rows. Found by `/pipeline-next`'s staleness check, closed without code |
 | 6 | Confirm tag↔versionName guard ran when v0.2.0 is tagged | PR #7 | — | Closed | Guard ran green on the v0.2.0 tag (run 30107921024, step "Verify tag matches versionName": success) |
 | 7 | Ops-journal UX polish: voided-undo feedback, sheet rotation survival | PR #17 | #18 | Open | One polish pass with #3 (#11) |
 | 8 | Relay desktop contract notes (fresh-UUID/url-dedup backstop; move collapses dup urls) | PR #17 | — | Closed | Relayed to the dotfiles agent during the run; url-dedup kept mandatory in stations-merge-ops.py |
