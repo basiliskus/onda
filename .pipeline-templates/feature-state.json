@@ -123,7 +123,7 @@
           "done": false
         },
         {
-          "action": "do not pre-litigate a simplification: a plan paragraph arguing why something is acceptable to omit removes review pressure from that omission exactly as a false comment does (PR #34 \u2014 four layers ratified 'group move keeps no Undo'; the user's one-line reversal deleted three things). State the omission as an open question for review, not as a settled rationale.",
+          "action": "do not pre-litigate a simplification: a plan paragraph arguing why something is acceptable to omit removes review pressure from that omission exactly as a false comment does (PR #34 — four layers ratified 'group move keeps no Undo'; the user's one-line reversal deleted three things). State the omission as an open question for review, not as a settled rationale.",
           "done": false
         },
         {
@@ -190,7 +190,7 @@
         {
           "action": "./gradlew :core:test :app:testDebugUnitTest --rerun-tasks",
           "done": false,
-          "_note": "MANDATORY --rerun-tasks (or clear the results dirs): Gradle UP-TO-DATE caching silently degraded this stage into a replay in PR #23. Parse the JUnit XML for counts \u2014 a console summary is not evidence."
+          "_note": "MANDATORY --rerun-tasks (or clear the results dirs): Gradle UP-TO-DATE caching silently degraded this stage into a replay in PR #23. Parse the JUnit XML for counts — a console summary is not evidence."
         },
         {
           "action": "run full test suite (read-only, no source modifications)",
@@ -205,7 +205,7 @@
           "done": false
         },
         {
-          "action": "algebra-core features (compaction/netting/merge rules): the manual matrix needs one row per algebra rule that composes with a user-visible operation (undo, retry, refresh) \u2014 not just one row per gesture",
+          "action": "algebra-core features (compaction/netting/merge rules): the manual matrix needs one row per algebra rule that composes with a user-visible operation (undo, retry, refresh) — not just one row per gesture",
           "done": false
         },
         {
@@ -213,7 +213,7 @@
           "done": false
         },
         {
-          "action": "every manual-matrix row carries a Requires: field (device / emulator / desktop script / none). Rows that require nothing but a script MUST be executed here, not deferred \u2014 PR #34's desktop round-trip was discharged this way after two milestones of deferral. A row that a plan names as the SOLE mitigation for a risk becomes a named blocking carry, never a silent skip.",
+          "action": "every manual-matrix row carries a Requires: field (device / emulator / desktop script / none). Rows that require nothing but a script MUST be executed here, not deferred — PR #34's desktop round-trip was discharged this way after two milestones of deferral. A row that a plan names as the SOLE mitigation for a risk becomes a named blocking carry, never a silent skip.",
           "done": false,
           "mandatory": true
         },
@@ -235,7 +235,7 @@
           "done": false
         },
         {
-          "action": "cross-ref plan vs implementation \u2014 mark each deliverable DONE/MISSING",
+          "action": "cross-ref plan vs implementation — mark each deliverable DONE/MISSING",
           "done": false
         },
         {
@@ -249,22 +249,22 @@
           "mandatory": true
         },
         {
-          "action": "scrutinize every code example in new/changed docs with the same security rigor as production code \u2014 doc examples are copy-pasted by users and inherit the production trust boundary",
+          "action": "scrutinize every code example in new/changed docs with the same security rigor as production code — doc examples are copy-pasted by users and inherit the production trust boundary",
           "done": false,
           "mandatory": true
         },
         {
-          "action": "trace every boundary where errors surface to UI, notifications, or logs \u2014 no stream URLs, file paths, or tree URIs leaked in user-visible messages",
+          "action": "trace every boundary where errors surface to UI, notifications, or logs — no stream URLs, file paths, or tree URIs leaked in user-visible messages",
           "done": false,
           "mandatory": true
         },
         {
-          "action": "WIRING_CHECK \u2014 every new public :core API needs a real call site in :app or the Media3 service layer (framework dispatch counts); every new :app public method/property needs a real caller or framework path. A test-only caller is a WIRING_GAP finding, not a pass.",
+          "action": "WIRING_CHECK — every new public :core API needs a real call site in :app or the Media3 service layer (framework dispatch counts); every new :app public method/property needs a real caller or framework path. A test-only caller is a WIRING_GAP finding, not a pass.",
           "done": false,
           "mandatory": true
         },
         {
-          "action": "test coverage gaps \u2014 if code generates output, do tests assert on content correctness (not just 'no error')?",
+          "action": "test coverage gaps — if code generates output, do tests assert on content correctness (not just 'no error')?",
           "done": false
         },
         {
@@ -286,12 +286,12 @@
           "mandatory": true
         },
         {
-          "action": "comments asserting a testable guarantee: any comment claiming a protection must be one mutation-testing would confirm. Six false ones shipped across PRs #23/#29/#34 (#31) \u2014 a claim about an EXTERNAL consumer is the highest-risk shape, since the local harness usually exercises only the branch the feature takes.",
+          "action": "comments asserting a testable guarantee: any comment claiming a protection must be one mutation-testing would confirm. Six false ones shipped across PRs #23/#29/#34 (#31) — a claim about an EXTERNAL consumer is the highest-risk shape, since the local harness usually exercises only the branch the feature takes.",
           "done": false,
           "mandatory": true
         },
         {
-          "action": "dispatcher-assumption check: any comment or test claiming an ordering/atomicity/race property must name the dispatcher it depends on. A pass on a FIFO test dispatcher proves nothing about a race FIFO structurally prevents (#25) \u2014 such a row must say so rather than imply coverage.",
+          "action": "dispatcher-assumption check: any comment or test claiming an ordering/atomicity/race property must name the dispatcher it depends on. A pass on a FIFO test dispatcher proves nothing about a race FIFO structurally prevents (#25) — such a row must say so rather than imply coverage.",
           "done": false,
           "mandatory": true
         },
@@ -317,7 +317,7 @@
           "done": false
         },
         {
-          "action": "broad codebase scan \u2014 pre-existing issues as IMPROVEMENT: lines only",
+          "action": "broad codebase scan — pre-existing issues as IMPROVEMENT: lines only",
           "done": false
         },
         {
@@ -366,11 +366,16 @@
           "done": false
         },
         {
-          "action": "if this change adds/renames/removes an enumerated unit (skill, CLI/slash command, plugin, make target, item in a 'supported X' list), update EVERY inventory/index doc that lists its siblings \u2014 grep a sibling's name across non-source files to find them; DOCS_ONLY does not exempt this",
+          "action": "if this change adds/renames/removes an enumerated unit (skill, CLI/slash command, plugin, make target, item in a 'supported X' list), update EVERY inventory/index doc that lists its siblings — grep a sibling's name across non-source files to find them; DOCS_ONLY does not exempt this",
           "done": false
         },
         {
-          "action": "if any stage corrected a FACTUAL claim during this run (a review finding, a mutation result that contradicted a comment), grep `docs/` and `CHANGELOG.md` for the same claim before committing. A false claim that reached documentation outlives the comment that spawned it \u2014 PR #29's forced-locale rationale was corrected in code while the copy in `docs/spec.md` survived a full fix pass.",
+          "action": "if any stage corrected a FACTUAL claim during this run (a review finding, a mutation result that contradicted a comment), grep `docs/` and `CHANGELOG.md` for the same claim before committing. A false claim that reached documentation outlives the comment that spawned it — PR #29's forced-locale rationale was corrected in code while the copy in `docs/spec.md` survived a full fix pass.",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "strike this task's ROADMAP priority-matrix row and add the ✅ shipped note to its milestone section — scripts/release-ready.sh reads those rows, so an unstruck row for merged work makes the release gate report work that is already done",
           "done": false,
           "mandatory": true
         },
@@ -391,7 +396,7 @@
           "done": false
         },
         {
-          "action": "git remote -v \u2014 verify github remote exists",
+          "action": "git remote -v — verify github remote exists",
           "done": false
         },
         {
@@ -407,7 +412,7 @@
           "done": false
         },
         {
-          "action": "git diff --check \u2014 no conflict markers",
+          "action": "git diff --check — no conflict markers",
           "done": false
         },
         {
@@ -423,7 +428,7 @@
           "done": false
         },
         {
-          "action": "verify PR body against actual diff \u2014 no phantom features, wrong counts, or incorrect terminology; fix with gh pr edit if needed",
+          "action": "verify PR body against actual diff — no phantom features, wrong counts, or incorrect terminology; fix with gh pr edit if needed",
           "done": false,
           "mandatory": true
         },
@@ -439,7 +444,7 @@
       "status": "pending",
       "verdict": null,
       "run_as": "subagent",
-      "subagent_prompt": "You are reviewing PR #{pr_number}. Project: {project_path}. PR targets {pr_target_branch}. Step 0: Read .pipeline-state/*-plan.md for the original plan. Step 1: Run git diff {pr_target_branch}...HEAD, read changed files. Check docs/PULL_REQUEST_CHECKLIST.md if exists \u2014 use as review framework. Step 2: Cross-ref plan vs implementation \u2014 verify every planned deliverable was implemented. Step 2b: Cross-ref the plan's test list against actual test files \u2014 every test the plan specified must exist. Step 3: Review for correctness, security (XSS, injection, secrets exposure), testing gaps, code quality (print vs logging, except:pass), docs, perf, architecture. Flag auto-reject triggers. Step 4: Run project test suite, report pass/fail. Step 5: Decide APPROVE/REQUEST_CHANGES/COMMENT. Step 6 MANDATORY: Post review to GitHub with gh pr review {pr_number} --comment --body '<formatted review with checklist>'. If REQUEST_CHANGES use --request-changes. Save to pr/feedback/ if dir exists. Step 7: Output verdict. Step FINAL (MANDATORY, #36): you are read-only \u2014 restore the executor's working tree before returning. Capture your starting branch first (START=$(git rev-parse --abbrev-ref HEAD)); on exit run `git checkout \"$START\"` and verify `git status --porcelain` is clean (`git restore --staged --worktree .` + `git clean -fd` (remove untracked files you created) if you dirtied it). NEVER leave the tree on {pr_target_branch} or with reverted/staged files \u2014 a build/scp the executor runs next would ship stale content.",
+      "subagent_prompt": "You are reviewing PR #{pr_number}. Project: {project_path}. PR targets {pr_target_branch}. Step 0: Read .pipeline-state/*-plan.md for the original plan. Step 1: Run git diff {pr_target_branch}...HEAD, read changed files. Check docs/PULL_REQUEST_CHECKLIST.md if exists — use as review framework. Step 2: Cross-ref plan vs implementation — verify every planned deliverable was implemented. Step 2b: Cross-ref the plan's test list against actual test files — every test the plan specified must exist. Step 3: Review for correctness, security (XSS, injection, secrets exposure), testing gaps, code quality (print vs logging, except:pass), docs, perf, architecture. Flag auto-reject triggers. Step 4: Run project test suite, report pass/fail. Step 5: Decide APPROVE/REQUEST_CHANGES/COMMENT. Step 6 MANDATORY: Post review to GitHub with gh pr review {pr_number} --comment --body '<formatted review with checklist>'. If REQUEST_CHANGES use --request-changes. Save to pr/feedback/ if dir exists. Step 7: Output verdict. Step FINAL (MANDATORY, #36): you are read-only — restore the executor's working tree before returning. Capture your starting branch first (START=$(git rev-parse --abbrev-ref HEAD)); on exit run `git checkout \"$START\"` and verify `git status --porcelain` is clean (`git restore --staged --worktree .` + `git clean -fd` (remove untracked files you created) if you dirtied it). NEVER leave the tree on {pr_target_branch} or with reverted/staged files — a build/scp the executor runs next would ship stale content.",
       "checklist": [
         {
           "action": "read .pipeline-state/<branch>-plan.md for plan compliance check",
@@ -454,12 +459,12 @@
           "done": false
         },
         {
-          "action": "cross-ref plan vs implementation \u2014 every deliverable accounted for",
+          "action": "cross-ref plan vs implementation — every deliverable accounted for",
           "done": false,
           "mandatory": true
         },
         {
-          "action": "cross-ref plan's test list against actual tests \u2014 every test the plan called for must exist",
+          "action": "cross-ref plan's test list against actual tests — every test the plan called for must exist",
           "done": false,
           "mandatory": true
         },
@@ -468,7 +473,7 @@
           "done": false
         },
         {
-          "action": "mutation-test the claims: for any row naming a production mechanism as its subject, delete or invert that mechanism and confirm the row FAILS. A mutation table must mark each entry APPLIED (executed, with observed failures) or PREDICTED (a claim) \u2014 PR #34 found two uncovered branches hiding in the PREDICTED column. Execute a sample of the PREDICTED entries; one that kills nothing is a coverage gap or an equivalent mutant, and you must say which. Driver hygiene: pass --continue AND clear the per-module test-results dirs between runs, or a failing early module leaves stale XML that is misattributed to the current mutation (#36).",
+          "action": "mutation-test the claims: for any row naming a production mechanism as its subject, delete or invert that mechanism and confirm the row FAILS. A mutation table must mark each entry APPLIED (executed, with observed failures) or PREDICTED (a claim) — PR #34 found two uncovered branches hiding in the PREDICTED column. Execute a sample of the PREDICTED entries; one that kills nothing is a coverage gap or an equivalent mutant, and you must say which. Driver hygiene: pass --continue AND clear the per-module test-results dirs between runs, or a failing early module leaves stale XML that is misattributed to the current mutation (#36).",
           "done": false,
           "mandatory": true
         },
@@ -491,7 +496,7 @@
           "done": false
         },
         {
-          "action": "persist the mutation table to `.pipeline-state/<branch>-mutations.md` \u2014 a table that exists only in a subagent's report cannot be audited by a later stage, which is exactly how PR #34's uncovered branches survived Implementation.",
+          "action": "persist the mutation table to `.pipeline-state/<branch>-mutations.md` — a table that exists only in a subagent's report cannot be audited by a later stage, which is exactly how PR #34's uncovered branches survived Implementation.",
           "done": false,
           "mandatory": true
         },
@@ -524,10 +529,10 @@
       "status": "pending",
       "verdict": null,
       "run_as": "subagent",
-      "subagent_prompt": "Merge PR #{pr_number} in {project_path}. Step 0: Run 'gh pr checks {pr_number}' \u2014 verify CI green. If pre-existing failure, document with gh pr comment before merging. Step 1: Run gh pr merge {pr_number} --squash --delete-branch. Do NOT run gh pr review --approve (GitHub blocks self-approval). Output PR_MERGED or MERGE_FAILED.",
+      "subagent_prompt": "Merge PR #{pr_number} in {project_path}. Step 0: Run 'gh pr checks {pr_number}' — verify CI green. If pre-existing failure, document with gh pr comment before merging. Step 1: Run gh pr merge {pr_number} --squash --delete-branch. Do NOT run gh pr review --approve (GitHub blocks self-approval). Output PR_MERGED or MERGE_FAILED.",
       "checklist": [
         {
-          "action": "verify CI green: gh pr checks \u2014 if failing for pre-existing reasons, document in PR comment before merging",
+          "action": "verify CI green: gh pr checks — if failing for pre-existing reasons, document in PR comment before merging",
           "done": false,
           "mandatory": true
         },
