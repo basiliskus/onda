@@ -42,7 +42,8 @@ object M3uParser {
     private fun parseExtinf(line: String): Triple<String, String?, String?>? {
         val afterColon = line.substringAfter("#EXTINF:")
         // The separator is the first comma at quote-depth zero: everything left of it is
-        // duration + attributes, everything right of it is the display name, verbatim. Tracking
+        // duration + attributes, everything right of it is the display name, verbatim apart
+        // from surrounding whitespace (see the trim below and the row pinning it). Tracking
         // quote depth is what keeps a comma inside a quoted value (group-title="News, Talk")
         // from truncating the attribute region, and matching attributes only left of the
         // separator is what keeps a word="value" substring inside a name from being read as an
@@ -71,6 +72,10 @@ object M3uParser {
                 ',' -> if (!inQuotes) return i else if (firstQuotedComma == -1) firstQuotedComma = i
             }
         }
-        return firstQuotedComma
+        // Only an unbalanced quote earns the fallback. With quotes balanced, a line whose only
+        // comma sits inside a quoted value has no display name at all — it is an attribute-only
+        // line, and scavenging a name out of the middle of an attribute value would invent a
+        // station the file never declared.
+        return if (inQuotes) firstQuotedComma else -1
     }
 }
