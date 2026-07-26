@@ -42,6 +42,40 @@ class M3uParserTest {
         assertEquals("http://url", s.url)
     }
 
+    @Test fun `a BOM immediately before the first EXTINF is stripped`() {
+        // U+FEFF is not Character.isWhitespace, so per-line trimming cannot remove it. In the row
+        // above the BOM rides on the #EXTM3U header, which is discarded either way; here the
+        // playlist has no header, so the BOM lands on the #EXTINF: line itself and only the
+        // explicit strip keeps `startsWith("#EXTINF:")` true. Drop the strip and the entry dies.
+        val s = M3uParser.parsePlaylist("x", "﻿#EXTINF:-1 group-title=\"G\",Headerless\nhttp://headerless")
+            .stations.single()
+        assertEquals("Headerless", s.name)
+        assertEquals("G", s.group)
+        assertEquals("http://headerless", s.url)
+    }
+
+    @Test fun `leading whitespace after the separator comma is not part of the name`() {
+        // Hand-edited and third-party playlists write `,` + space; the exporter never does. Only
+        // the trim on the display name keeps that space out of the rendered station name.
+        val p = M3uParser.parsePlaylist("x", "#EXTM3U\n#EXTINF:-1 group-title=\"G\", \tSpaced Name\nhttp://spaced")
+        assertEquals("Spaced Name", p.stations.single().name)
+    }
+
+    @Test fun `a non-http line directly after a valid EXTINF is not adopted as a stream`() {
+        // The exporter has emitted ftp:// rows. The scheme guard — not a mere null check on the
+        // pending entry — is what drops them instead of handing the player an unplayable URL.
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="G",Legacy FTP
+            ftp://legacy.example/stream.mp3
+            #EXTINF:-1 group-title="G",Relative
+            ./local/stream.mp3
+            #EXTINF:-1 group-title="G",Good
+            http://good
+        """.trimIndent())
+        assertEquals(listOf("http://good"), p.stations.map { it.url })
+    }
+
     @Test fun `skips malformed entries without failing the file`() {
         val p = M3uParser.parsePlaylist("x", """
             #EXTM3U
