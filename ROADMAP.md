@@ -8,7 +8,7 @@
 | **P2** | ✅ ~~song capture~~ | Like the playing track from the Now Playing sheet or the media notification; feeds the existing desktop titles-log → catalog pipeline. Contract pinned 2026-07-23 | v0.4.0 |
 | **P3** | ✅ ~~cross-playlist move~~ | "Move to playlist…" in the long-press sheet via the existing delete + targeted-add op pair; closes the only phone-side gap for stations not on radio-browser | v0.4.0 |
 
-| **P1** | browse fetch catches only IOException | A `SerializationException` from radio-browser crashes Discover; XS fix, real crash path. GitHub #13 | v0.5.0 |
+| **P1** | ✅ ~~browse fetch catches only IOException~~ | Premise stale — `RadioBrowserClient` already converts decode failures to `IOException` (469aaf3) and two rows pin it. Closed on evidence, no code needed. GitHub #13 | v0.5.0 |
 | **P1** | harden M3uParser against quotes in EXTINF names | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
 | **P2** | resumption survives move and regroup | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
 | **P0** | release v0.5.0 | v0.4.0 merged but never shipped — versionName is still 0.3.0. Blocks the owed hardware rows, the first real `library/onda.json`, and any live test of basiliskus/data#5 | v0.5.0 |
@@ -83,9 +83,15 @@ release carries the fixes. Session record:
 
 The release sits in the middle of this milestone, not at the end.
 
-**browse fetch catches only IOException**
-A `SerializationException` from a malformed radio-browser response escapes the
-catch and crashes Discover. XS. GitHub #13, Action Tracker #5 — open since PR #8.
+**browse fetch catches only IOException** — ✅ already fixed, no work needed
+Struck 2026-07-26 by `/pipeline-next`'s staleness check before any code was
+written. `RadioBrowserClient` converts both `SerializationException` and
+`IllegalArgumentException` into `IOException` before rethrowing
+(`RadioBrowserClient.kt:91-95`), so the crash is unreachable; `469aaf3` also made
+a garbage-serving mirror fail over rather than surface an error, and refuses to
+let it become the sticky preferred mirror. Pinned by two rows in
+`RadioBrowserClientTest`. The strategy session that scheduled this scored it from
+the issue title without checking the code — see the v0.5.0 session record.
 
 **harden M3uParser against quotes in EXTINF names**
 The attribute regex has no escape syntax, and `parseExtinf` matches attributes
