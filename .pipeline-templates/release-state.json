@@ -1,0 +1,364 @@
+{
+  "pipeline_type": "release",
+  "task_description": "",
+  "branch_name": "",
+  "pr_target_branch": "main",
+  "project_path": "",
+  "started_at": "",
+  "completed_at": null,
+  "current_stage": 1,
+  "pr_number": null,
+  "pr_url": null,
+  "rewind_count": 0,
+  "default_branch": "main",
+  "target_version": "",
+  "_note": "Cuts a tagged release. Policy: docs/adr/0001-release-at-milestone-end.md. Not selected by /pipeline-next from a ROADMAP row type — copy this template to .pipeline-state/release-vX.Y.Z.json by hand, set target_version, then /pipeline-run. The two-commit shape (implementation commit must not touch CHANGELOG) is deliberately WAIVED here: the version bump and the CHANGELOG promotion are one atomic fact, and splitting them produces a commit that claims a version it does not set. Stage 6 records the waiver.",
+  "stages": {
+    "1": {
+      "name": "Release Gate",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "run scripts/release-ready.sh <target_version> and paste its full output into the state file",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "the gate must exit 0 (READY). A ✗ row is a stop, not a judgement call — resolve it or, if the row is wrong, fix the gate and say so in the PR",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "confirm CI is green on the main commit being released: gh run list --branch main --limit 3",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output GATE_READY or GATE_BLOCKED <reasons>",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "2": {
+      "name": "Environment Check",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "git fetch origin && checkout release/v<target_version> from origin/main",
+          "done": false
+        },
+        {
+          "action": "verify JDK + Gradle wrapper (./gradlew --version)",
+          "done": false
+        },
+        {
+          "action": "output ENV_OK or ENV_FAILED",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "3": {
+      "name": "Version Bump",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "set versionName in app/build.gradle.kts to the target version WITHOUT the leading v",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "increment versionCode by 1 — Obtainium and the package manager order installs by this, not by versionName",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "run the release workflow's OWN parser against the edited file and confirm it yields the target: sed -n 's/^[[:space:]]*versionName = \"\\(.*\\)\"/\\1/p' app/build.gradle.kts. A reformat that breaks this regex fails the tag push, not the build",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output VERSION_BUMPED <old> -> <new>, versionCode <old> -> <new>",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "4": {
+      "name": "Changelog & Roadmap",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "rename ## [Unreleased] to ## [X.Y.Z] - YYYY-MM-DD and insert a fresh empty ## [Unreleased] above it",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "list every PR merged since the previous tag (gh pr list --state merged --json number,title,mergedAt) and confirm each user-visible one is represented in the new section — a PR with no CHANGELOG line is either missing or deliberately internal; say which",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "DERIVE every number in the release notes from a command, never transcribe one from memory or from an earlier PR body (v0.5.0 retro: a stale :core count reached CHANGELOG this way)",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "quantifier audit the new section: grep -nE 'always|never|every|all|cannot|incapable|has emitted|since' and verify each surviving claim against code or command output, or soften it",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "strike the release row in the ROADMAP priority matrix and add the ✅ shipped note to the milestone section",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "move the milestone into ROADMAP's ## Completed section with its PR range and a retro pointer",
+          "done": false
+        },
+        {
+          "action": "output DOCS_UPDATED with the section heading and PR count covered",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "5": {
+      "name": "Build Verification",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "./gradlew :core:test :app:testDebugUnitTest --rerun-tasks — the flag is mandatory: an UP-TO-DATE run replays a previous result and verifies nothing",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "read the counts out of build/test-results/**/*.xml rather than trusting the console summary; record tests/failures/errors per module",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "./gradlew :app:lintDebug — clean, or every warning explained",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "./gradlew :app:assembleDebug",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "state plainly that the RELEASE apk was NOT built locally — signing keys live only in CI, so the signed artifact is first produced at stage 11 and is unverified until then",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output BUILD_VERIFIED <counts> or BUILD_FAILED",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "6": {
+      "name": "Commit & PR",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "branch-verify reflex: HEAD matches this state file's branch_name",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "single commit 'chore: release vX.Y.Z' carrying the bump + CHANGELOG + ROADMAP together. The two-commit shape is waived here — record the waiver in the PR body so a reviewer does not read it as a Gate 1 violation",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "verify the commit contains ONLY app/build.gradle.kts, CHANGELOG.md and ROADMAP.md — any other file means unrelated work is riding the release",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "git push -u origin && gh pr create with the release notes as the body",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output PR_CREATED",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "7": {
+      "name": "Code Review",
+      "status": "pending",
+      "verdict": null,
+      "subagent_prompt": "Review this release PR with git diff origin/main...HEAD (three-dot). Check, in order: (1) versionName and versionCode both bumped, and the workflow's sed parser still extracts versionName from the edited line; (2) the CHANGELOG section covers every merged PR since the previous tag — enumerate them yourself with gh rather than trusting the PR body; (3) every number in the notes is reproducible from a command you run, not asserted; (4) every absolute quantifier (always/never/every/all/cannot) in the new section is true against the code; (5) nothing but the three release files is in the diff. Post the review with gh pr review --comment. Restore the working tree and HEAD to the PR branch before exiting.",
+      "checklist": [
+        {
+          "action": "spawn the review subagent with the prompt above",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "confirm the review landed on the PR (gh pr view --json reviews)",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output APPROVE or REQUEST_CHANGES <findings>",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "8": {
+      "name": "Review Verdict",
+      "status": "pending",
+      "verdict": null,
+      "skip_if": "Code Review produced zero findings",
+      "checklist": [
+        {
+          "action": "address every finding, or record why it is declined",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output FINDINGS_RESOLVED",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "9": {
+      "name": "Merge PR",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "gh pr checks — CI green",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "user has approved the merge (project rule: no PR merges without it)",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "gh pr merge --squash --delete-branch",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output PR_MERGED <sha>",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "10": {
+      "name": "Tag & Publish",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "git checkout main && git pull --ff-only — the tag goes on the squash-merge commit on main, never on the deleted branch head",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "confirm HEAD's app/build.gradle.kts yields the target version through the workflow's own sed, and that HEAD is the merge commit from stage 9",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "git tag vX.Y.Z && git push origin vX.Y.Z",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output TAG_PUSHED <tag> <sha>",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "11": {
+      "name": "Release Verification",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "watch the release workflow to completion: gh run watch $(gh run list --workflow=release.yml --limit 1 --json databaseId -q '.[0].databaseId')",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "confirm the GitHub release exists AND carries app-release.apk with a plausible size: gh release view vX.Y.Z --json assets. A release with no asset is a failed release even when the workflow is green",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "if the workflow failed, DELETE the tag (git push origin :refs/tags/vX.Y.Z) before retrying — a tag that exists without a release is the state the gate reads as 'already shipped'",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "hand off the hardware half: the owed smoke rows (GitHub #33) are runnable only once this APK is installed — say so explicitly rather than closing the milestone as fully verified",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output RELEASE_PUBLISHED <url> or RELEASE_FAILED",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    },
+    "12": {
+      "name": "Retrospective",
+      "status": "pending",
+      "verdict": null,
+      "checklist": [
+        {
+          "action": "rate quality 1-5",
+          "done": false
+        },
+        {
+          "action": "what went well + lessons learned; IDEA: lines for improvements",
+          "done": false
+        },
+        {
+          "action": "did the gate's verdict match reality? A gate that said READY when it should not have is a finding about the gate, not about the release",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "post retrospective to the PR: gh pr comment",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "append to .pipeline-log.md",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "output RETRO_COMPLETE",
+          "done": false,
+          "mandatory": true
+        }
+      ]
+    }
+  }
+}
