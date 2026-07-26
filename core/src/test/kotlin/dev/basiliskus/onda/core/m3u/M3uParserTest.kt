@@ -209,8 +209,8 @@ class M3uParserTest {
     }
 
     @Test fun `unbalanced quote before the separator comma still yields a name`() {
-        // No comma exists at quote-depth zero, so only the fallback to the first comma of any
-        // kind keeps this entry alive. Delete the fallback and this row fails.
+        // No comma exists at quote-depth zero, so only the fallback keeps this entry alive.
+        // Delete the fallback and this row fails.
         val p = M3uParser.parsePlaylist("x", "#EXTM3U\n#EXTINF:-1 \"weird,Name\nhttp://weird")
         val s = p.stations.single()
         assertEquals("Name", s.name)
@@ -218,13 +218,81 @@ class M3uParserTest {
         assertNull(s.logo)
     }
 
+    @Test fun `the fallback takes the first comma after the attributes, not the last comma`() {
+        // With no well-formed attribute to anchor on, the fallback searches from index 0, so the
+        // FIRST comma separates and every later comma belongs to the name. Make the fallback
+        // take the last comma instead and the name collapses to `More`.
+        val p = M3uParser.parsePlaylist("x", "#EXTM3U\n#EXTINF:-1 \"weird,Name,More\nhttp://weird")
+        assertEquals("Name,More", p.stations.single().name)
+    }
+
+    @Test fun `an unbalanced quote after a complete attribute does not split inside its value`() {
+        // Odd quote count before the separator: the depth-zero scan is unusable, and splitting at
+        // the first comma of any kind would land INSIDE group-title, inventing a station named
+        // `Talk" x",Radio Show` and losing the group. Anchoring the fallback on the end of the
+        // last well-formed attribute recovers both, exactly as the pre-quote-tracking parser did.
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="News, Talk" x",Radio Show
+            http://one
+            #EXTINF:-1 group-title="A, B" tvg-logo="http://c" ",Name
+            http://two
+        """.trimIndent())
+        val (first, second) = p.stations
+        assertEquals("Radio Show", first.name)
+        assertEquals("News, Talk", first.group)
+        assertEquals("Name", second.name)
+        assertEquals("A, B", second.group)
+        assertEquals("http://c", second.logo)
+    }
+
+    // --- pre-existing parsePlaylist branches, unpinned until now ----------------------------
+
+    @Test fun `one EXTINF followed by two URLs yields one station, not two`() {
+        // Clearing `pending` after a URL is consumed is what stops a second stream line from
+        // being adopted under the same name. Drop the clear and this file yields two stations.
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="G",Once
+            http://first
+            http://second
+        """.trimIndent())
+        assertEquals(listOf("http://first"), p.stations.map { it.url })
+    }
+
+    @Test fun `a blank line between EXTINF and its URL does not orphan the entry`() {
+        // Hand-edited playlists space their entries out. Blank lines must be skipped outright;
+        // fall through to the URL branch and the pending entry is cleared before its stream
+        // arrives, silently dropping the station.
+        val p = M3uParser.parsePlaylist("x", "#EXTM3U\n#EXTINF:-1 group-title=\"G\",Spaced\n\nhttp://spaced")
+        assertEquals("Spaced", p.stations.single().name)
+    }
+
+    @Test fun `an unrelated directive between EXTINF and its URL does not orphan the entry`() {
+        // #EXTVLCOPT and friends are legal between an #EXTINF: and its stream. Ignoring unknown
+        // `#` directives is what keeps the entry pending; treat them as candidate URLs instead
+        // and the station is dropped.
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="G",Optioned
+            #EXTVLCOPT:network-caching=1000
+            http://optioned
+        """.trimIndent())
+        assertEquals("Optioned", p.stations.single().name)
+    }
+
     @Test fun `an attribute-only line with balanced quotes is dropped, not scavenged`() {
-        // The only comma sits inside a quoted value and the quotes balance, so there is no
-        // display name — the fallback must NOT fire. Returning firstQuotedComma unconditionally
-        // splits inside group-title and invents a station named `Talk"`, which is what the
-        // pre-fix parser correctly refused to do. Make the fallback unconditional again and
-        // this row fails.
-        val p = M3uParser.parsePlaylist("x", "#EXTM3U\n#EXTINF:-1 group-title=\"News, Talk\"\nhttp://x")
+        // Quotes balance, so every comma sits inside a quoted value and there is no display name
+        // at all — the fallback must NOT fire. On the second line it would anchor past
+        // `group-title="G"` and split inside the trailing quoted token, inventing a station named
+        // `Name"` that the file never declared. Make the fallback unconditional and this fails.
+        val p = M3uParser.parsePlaylist("x", """
+            #EXTM3U
+            #EXTINF:-1 group-title="News, Talk"
+            http://x
+            #EXTINF:-1 group-title="G" "Odd,Name"
+            http://y
+        """.trimIndent())
         assertEquals(emptyList(), p.stations)
     }
 

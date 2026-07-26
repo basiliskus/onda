@@ -58,24 +58,30 @@ object M3uParser {
     }
 
     /**
-     * Index of the first comma at quote-depth zero, or — when an unbalanced quote leaves the
-     * scan permanently inside quotes and no such comma exists — the first comma of any kind.
-     * The fallback keeps a line like `#EXTINF:-1 "weird,Name` parsing as it always has instead
-     * of trading one silent drop for another. Returns -1 when there is no comma at all.
+     * Index of the first comma at quote-depth zero.
+     *
+     * An unbalanced quote leaves the scan permanently inside quotes, so quote depth stops
+     * meaning anything and no such comma can be found. That case falls back to the pre-fix
+     * rule — the first comma after the last well-formed `key="value"` match — which anchors on
+     * something the broken quoting cannot invalidate, and which by construction makes every
+     * unbalanced line parse exactly as it did before this parser tracked quotes at all.
+     *
+     * With quotes balanced the fallback must NOT fire: a line whose only comma sits inside a
+     * quoted value has no display name, and scavenging one out of the middle of an attribute
+     * value would invent a station the file never declared.
+     *
+     * Returns -1 when no separator exists under either rule.
      */
     private fun separatorIndex(afterColon: String): Int {
         var inQuotes = false
-        var firstQuotedComma = -1
         afterColon.forEachIndexed { i, c ->
             when (c) {
                 '"' -> inQuotes = !inQuotes
-                ',' -> if (!inQuotes) return i else if (firstQuotedComma == -1) firstQuotedComma = i
+                ',' -> if (!inQuotes) return i
             }
         }
-        // Only an unbalanced quote earns the fallback. With quotes balanced, a line whose only
-        // comma sits inside a quoted value has no display name at all — it is an attribute-only
-        // line, and scavenging a name out of the middle of an attribute value would invent a
-        // station the file never declared.
-        return if (inQuotes) firstQuotedComma else -1
+        if (!inQuotes) return -1
+        val afterLastAttr = attr.findAll(afterColon).lastOrNull()?.range?.last?.plus(1) ?: 0
+        return afterColon.indexOf(',', afterLastAttr)
     }
 }
