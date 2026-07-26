@@ -342,10 +342,13 @@ class PlaybackService : MediaLibraryService() {
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> =
             serviceScope.future {
                 val graph = (application as OndaApp).graph
+                // Named: the two String? parameters are adjacent, so a swap would compile
+                // and then fail silently — the id path would miss and a url would never
+                // parse as an id, leaving resumption permanently broken.
                 val station = resolveResumptionStation(
-                    graph.folderPrefs.lastPlayedMediaId,
-                    graph.folderPrefs.lastPlayedUrl,
-                    graph.opsRepository.effectivePlaylists,
+                    lastPlayedId = graph.folderPrefs.lastPlayedMediaId,
+                    lastPlayedUrl = graph.folderPrefs.lastPlayedUrl,
+                    states = graph.opsRepository.effectivePlaylists,
                 )
                 MediaSession.MediaItemsWithStartPosition(
                     ImmutableList.of(playableItem(MediaIds.station(station), station.name, station.url, station.logo)),
