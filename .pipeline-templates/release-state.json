@@ -314,7 +314,7 @@
           "mandatory": true
         },
         {
-          "action": "hand off the hardware half: the owed smoke rows (GitHub #33) are runnable only once this APK is installed — say so explicitly rather than closing the milestone as fully verified",
+          "action": "sanity-check the RELEASE artifact: install the published APK (Obtainium or adb) and confirm it launches, loads the synced folder and plays. The pre-tag smoke rows are run against a debug build, so this is the first execution of a release-signed, minifyEnabled build — ProGuard- and signing-sensitive behaviour is unproven until here",
           "done": false,
           "mandatory": true
         },
