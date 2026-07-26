@@ -41,18 +41,54 @@ object M3uParser {
 
     private fun parseExtinf(line: String): Triple<String, String?, String?>? {
         val afterColon = line.substringAfter("#EXTINF:")
-        // Attribute values are matched over the whole string (not just up to the first comma)
-        // so a comma inside a quoted value (e.g. group-title="News, Talk") doesn't truncate the
-        // match. The display name then starts at the first comma AFTER the last attribute match
-        // — everything before it is duration + attributes, everything after is the name (which
-        // may itself contain commas).
-        val matches = attr.findAll(afterColon).toList()
-        val searchFrom = matches.lastOrNull()?.range?.last?.plus(1) ?: 0
-        val commaIndex = afterColon.indexOf(',', searchFrom)
-        if (commaIndex == -1) return null
-        val name = afterColon.substring(commaIndex + 1).trim()
+        // The separator is the first comma at quote-depth zero: everything left of it is
+        // duration + attributes, everything right of it is the display name, verbatim apart
+        // from surrounding whitespace (see the trim below and the row pinning it). Tracking
+        // quote depth is what keeps a comma inside a quoted value (group-title="News, Talk")
+        // from truncating the attribute region, and matching attributes only left of the
+        // separator is what keeps a word="value" substring inside a name from being read as an
+        // attribute. Names may themselves contain commas and quotes; neither is interpreted.
+        val separator = separatorIndex(afterColon)
+        if (separator == -1) return null
+        val name = afterColon.substring(separator + 1).trim()
         if (name.isEmpty()) return null
-        val attrs = matches.associate { it.groupValues[1] to it.groupValues[2] }
+        val attrs = attr.findAll(afterColon.substring(0, separator))
+            .associate { it.groupValues[1] to it.groupValues[2] }
         return Triple(name, attrs["group-title"], attrs["tvg-logo"])
+    }
+
+    /**
+     * Index of the first comma at quote-depth zero.
+     *
+     * An unbalanced quote before the separator leaves the scan permanently inside quotes, so
+     * quote depth stops meaning anything and no such comma can be found. That case falls back
+     * to the pre-fix rule — the first comma after the LAST well-formed `key="value"` match —
+     * which anchors on something the broken quoting cannot invalidate. Every line that reaches
+     * this fallback therefore parses exactly as it did before this parser tracked quotes.
+     *
+     * Scoped deliberately: a quote that opens AFTER the separator never reaches here, because
+     * the depth-zero comma was already returned. Such lines are not covered by the equivalence
+     * above and do differ from the pre-fix parser — that difference is the fix.
+     *
+     * `lastOrNull` is load-bearing: anchoring on the first match instead would let an earlier
+     * attribute's quoted comma become the split point.
+     *
+     * With quotes balanced the fallback must NOT fire: a line whose only comma sits inside a
+     * quoted value has no display name, and scavenging one out of the middle of an attribute
+     * value would invent a station the file never declared.
+     *
+     * Returns -1 when no separator exists under either rule.
+     */
+    private fun separatorIndex(afterColon: String): Int {
+        var inQuotes = false
+        afterColon.forEachIndexed { i, c ->
+            when (c) {
+                '"' -> inQuotes = !inQuotes
+                ',' -> if (!inQuotes) return i
+            }
+        }
+        if (!inQuotes) return -1
+        val afterLastAttr = attr.findAll(afterColon).lastOrNull()?.range?.last?.plus(1) ?: 0
+        return afterColon.indexOf(',', afterLastAttr)
     }
 }
