@@ -16,8 +16,9 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P1** | ✅ ~~browse fetch catches only IOException~~ | Premise stale — `RadioBrowserClient` already converts decode failures to `IOException` (469aaf3) and two rows pin it. Closed on evidence, no code needed. GitHub #13 | v0.5.0 |
 | **P1** | ✅ ~~harden M3uParser against quotes in EXTINF names~~ | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
 | **P2** | ✅ ~~resumption survives move and regroup~~ | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
-| **P2** | ops journal: shared batch id + strictly-increasing ts | basiliskus/data is blocked on a field only this repo can emit; contract agreed from both ends. GitHub #38 | v0.5.0 |
-| **P0** | release v0.5.0 | v0.4.0 merged but never shipped — versionName is still 0.3.0. Gated on #33's owed hardware rows (labeled `release-blocker` 2026-07-26); unblocks the first real `library/onda.json` and the live test of basiliskus/data#5. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
+| **P0** | release v0.5.0 | v0.4.0 merged but never shipped — versionName is still 0.3.0. Unblocks #33's owed hardware rows (which now run against the release APK, not a debug build), the first real `library/onda.json`, and Onda's first real input to `basiliskus/data`. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
+| **P2** | ops journal: shared batch id + strictly-increasing ts | `.dotfiles#41` shipped the inference-based warning and closed, deferring exact rollback to a field only this repo can emit; contract agreed from both ends. Moved out of v0.5.0 2026-07-26 — the gap is unreachable in today's configuration and nothing is waiting on it. GitHub #38 | v0.5.1 |
+| **P0** | release v0.5.1 | Ships #38 plus whatever the v0.5.0 hardware pass (#33) surfaces. Last row of its milestone per ADR-0001 | v0.5.1 |
 
 ## Milestones
 
@@ -124,32 +125,54 @@ persisted for `onPlaybackResumption`. Moving a station — now a two-tap gesture
 changes both components, so it stops resuming. Testable in the `:core` harness
 via `resolveResumptionStation`. GitHub #35.
 
-**ops journal: shared batch id + strictly-increasing ts**
-`UndoToken` gains an id at construction; every op written under an armed token
-carries a `batch` field — uniform, including single-op mutations, so an absent
-field has exactly one meaning. Plus strictly-increasing `ts` within a batch,
-since the pair currently shares a millisecond and same-key ordering is
-load-bearing on the desktop. Contract agreed on GitHub #38; basiliskus/data is
-waiting on it.
-
 **release v0.5.0** — the last row, per ADR-0001
 One tag carrying the unreleased v0.4.0 milestone AND these fixes. Nothing from
 v0.4.0 has ever been installed, so a v0.4.0 tag would be superseded within
-minutes. Unblocks the first real `library/onda.json` and the live exercise of
-basiliskus/data#5.
+minutes. Unblocks the eleven owed hardware rows (#33), Onda's first real input
+to `basiliskus/data`, and with it the first real `library/onda.json`.
 
-**The owed hardware rows now come first.** #33 (smoke 13, 16-24 plus M1, M5,
-M11) was labeled `release-blocker` on 2026-07-26, inverting the dependency this
-section used to assert: the release no longer delivers the build those rows are
-run against — they gate the tag. Run them off `./gradlew :app:assembleDebug`
-and sideload the result. That build differs from the release APK in signing and
-`minifyEnabled`, so anything ProGuard-sensitive stays unproven until the tag
-ships; the release pipeline's last stage covers that half.
+**The hardware rows run after the tag, not before.** ~~#33 gates the tag.~~
+Reversed 2026-07-26. `release-blocker` means *known must-not-ship*; #33 is
+**unverified**, which is a different state — nothing in it is known broken, and
+M1, M5 and M11 have been owed precisely because no build was ever installed to
+run them against. Labeling it a blocker made the dependency circular and would
+have devalued the label for real defects. The rows now run against the release
+APK from Obtainium, which is strictly better evidence than a sideloaded debug
+build: `minifyEnabled` and release signing are exercised, and no uninstall or
+SAF re-grant is needed. If a row fails, what it surfaces gets `release-blocker`
+and v0.5.1 fixes it.
 
 Runs as its own pipeline: copy `.pipeline-templates/release-state.json` to
 `.pipeline-state/release-v0.5.0.json`, set `target_version`, then
 `/pipeline-run`. Stage 1 refuses to start unless `scripts/release-ready.sh`
 exits READY.
+
+### Milestone: v0.5.1 — Contract hardening
+
+**ops journal: shared batch id + strictly-increasing ts**
+`UndoToken` gains an id at construction; every op written under an armed token
+carries a `batch` field — uniform, including single-op mutations, so an absent
+field has exactly one meaning. Plus strictly-increasing `ts` within a batch,
+since the pair currently shares a millisecond and same-key ordering is
+load-bearing on the desktop. Contract agreed on GitHub #38.
+
+Moved out of v0.5.0 on 2026-07-26. Two reasons, both checked rather than
+assumed: #38 itself records that the gap is "currently unreachable, because the
+phone builds its playlist list from the same set the desktop allows", and
+`.dotfiles#41` closed as done-as-far-as-it-should-go after shipping the
+inference-based warning — so no desktop consumer is waiting, and there is no
+open issue there to receive the field. Refiling on `.dotfiles` is part of this
+task.
+
+**release v0.5.1** — the last row, per ADR-0001
+Ships #38 and anything the v0.5.0 hardware pass turns up. If every #33 row
+passes, this milestone is #38 alone and can wait for the next real need.
+
+Correction: the priority matrix and this section previously said
+`basiliskus/data` was blocked on #38. That was wrong in both places. `data` is
+the music harvester (titles log to JSON catalog); its Onda dependency was song
+capture, which shipped — `data#4` is closed and PRs #5 and #6 are merged. The
+ops journal is consumed by `stations-merge-ops.py` in `.dotfiles`.
 
 ## Completed
 
