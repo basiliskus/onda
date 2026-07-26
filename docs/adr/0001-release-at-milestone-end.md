@@ -57,6 +57,30 @@ Note what this deliberately does *not* do: it does not add a priority-label
 scheme. `tech-debt` and the ROADMAP matrix already carry ordering. The only
 new information is binary and release-scoped.
 
+**Amended 2026-07-26 — the label means *known* must-not-ship, not *unverified*.**
+The first thing labeled under this ADR was #33, the owed hardware smoke rows.
+That was a mistake, and an instructive one: nothing in #33 is known broken, and
+three of its rows (M1, M5, M11) had been owed *precisely because no build was
+ever installed to run them against*. Blocking the release on them made the
+dependency circular — the rows need an APK the release produces.
+
+The distinction the label must carry:
+
+| State | Blocks a tag? |
+|---|---|
+| Known defect that must not reach users | **yes** — label it |
+| Unverified, nothing known wrong | no — verify against the release build |
+| Known defect judged acceptable to ship | no — but say so on the issue |
+
+Verification belongs *after* the tag anyway, because the release APK is the
+artifact users get: a sideloaded debug build exercises neither `minifyEnabled`
+nor release signing, so verifying on one leaves the ProGuard-sensitive surface
+unproven — and costs an uninstall plus a SAF re-grant. If a post-tag row fails,
+what it surfaces gets the label and the next patch release fixes it.
+
+Conflating the two states would have devalued the label for real defects, which
+is the only job it has.
+
 **3. Readiness is executable, not a document.** `scripts/release-ready.sh`
 answers "is it time to tag?" with a verdict and per-check evidence: open
 blockers, unstruck milestone rows, release-row position, non-empty

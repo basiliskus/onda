@@ -33,8 +33,26 @@ command -v gh >/dev/null || die "gh not on PATH — the blocker check needs it"
 if [ $# -ge 1 ]; then
     TARGET="$1"
 else
-    TARGET=$(grep -oE '^### Milestone: v[0-9]+\.[0-9]+\.[0-9]+' "$ROADMAP" | tail -1 | awk '{print $3}')
+    # The OLDEST milestone whose release row is still unstruck — the next tag to cut, not
+    # the furthest-out one planned. Defaulting to the newest heading answered about a
+    # milestone two releases away the moment v0.5.1 was opened while v0.5.0 was being cut.
+    TARGET=$(awk '
+        # FS is "|" for the matrix rows, so a heading has no usable fields — match on $0.
+        /^### Milestone: v[0-9]+\.[0-9]+\.[0-9]+/ {
+            if (match($0, /v[0-9]+\.[0-9]+\.[0-9]+/)) order[++n] = substr($0, RSTART, RLENGTH)
+        }
+        /^\|/ {
+            if (NF < 5) next
+            ms = $(NF-1); gsub(/^[ \t]+|[ \t]+$/, "", ms)
+            feature = $3; gsub(/^[ \t]+|[ \t]+$/, "", feature)
+            bare = ms; sub(/^v/, "", bare)
+            if (tolower(feature) ~ ("release[ ]+v?" bare) && feature !~ /~~/) pending[ms] = 1
+        }
+        END { for (i = 1; i <= n; i++) if (order[i] in pending) { print order[i]; exit } }
+    ' FS='|' "$ROADMAP")
+    [ -n "$TARGET" ] || TARGET=$(grep -oE '^### Milestone: v[0-9]+\.[0-9]+\.[0-9]+' "$ROADMAP" | tail -1 | awk '{print $3}')
     [ -n "$TARGET" ] || die "no '### Milestone: vX.Y.Z' heading in $ROADMAP — pass a version explicitly"
+    echo "(no version given — targeting $TARGET, the oldest milestone with an unshipped release row)"
 fi
 case "$TARGET" in
     v[0-9]*.[0-9]*.[0-9]*) ;;
