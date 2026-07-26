@@ -64,8 +64,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   resume: the fallback follows `station|` ids only, so an `rb|` id whose url also
   sits in a playlist stays unresolvable. Where one url appears in more than one
   playlist, which the real station set does, the first in playlist order wins.
-  Existing installs need no migration — they carry an id and no url, which behaves
-  exactly as before until the station is next played. `:core` 107 → 115 tests.
+  A move is not the only way the id can miss: a station **deleted** from the
+  playlists whose url still exists elsewhere now resumes that copy — same stream,
+  possibly a different name and logo — rather than failing, and the next transition
+  makes the new copy the remembered one. Existing installs need no migration — they
+  carry an id and no url, which behaves exactly as before until the station is next
+  played. `:core` 107 → 117 tests.
 - M3U parsing: a `word="value"` substring inside a station name is no longer read
   as an EXTINF attribute. `parseExtinf` splits the line at the first comma at
   **quote-depth zero** — everything left is duration + attributes, everything right

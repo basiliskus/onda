@@ -40,18 +40,25 @@ class MediaIdsTest {
         assertNull(MediaIds.resolveStation("garbage", playlists))
     }
 
-    @Test fun `movedStation follows a station id by url when the id no longer resolves`() {
+    @Test fun `stationByUrl follows a station id by url when the id no longer resolves`() {
         val moved = kexp.copy(playlist = "public-radio", group = "Berkeley")
         val after = listOf(Playlist("public-radio", listOf(Group("Berkeley", listOf(moved)))))
         assertNull(MediaIds.resolveStation(MediaIds.station(kexp), after))
-        assertEquals(moved, MediaIds.movedStation(MediaIds.station(kexp), kexp.url, after))
+        assertEquals(moved, MediaIds.stationByUrl(MediaIds.station(kexp), kexp.url, after))
     }
 
     @Test fun `a Discover id is not followed by url even when the url is in a playlist`() {
-        assertNull(MediaIds.movedStation(MediaIds.rb("abc-123"), kexp.url, playlists))
-        assertNull(MediaIds.movedStation("garbage", kexp.url, playlists))
-        assertNull(MediaIds.movedStation(null, kexp.url, playlists))
-        assertNull(MediaIds.movedStation(MediaIds.station(kexp), null, playlists))
+        assertNull(MediaIds.stationByUrl(MediaIds.rb("abc-123"), kexp.url, playlists))
+    }
+
+    @Test fun `a garbage or absent id is not followed by url`() {
+        assertNull(MediaIds.stationByUrl("garbage", kexp.url, playlists))
+        assertNull(MediaIds.stationByUrl(null, kexp.url, playlists))
+    }
+
+    /** Stands in for the explicit null-url guard, deleted for surviving its mutation. */
+    @Test fun `a null url matches nothing`() {
+        assertNull(MediaIds.stationByUrl(MediaIds.station(kexp), null, playlists))
     }
 
     @Test fun `a url in two playlists resolves to the first in playlist order`() {
@@ -60,8 +67,8 @@ class MediaIdsTest {
             Playlist("public-radio", listOf(Group("Seattle", listOf(twin)))),
             Playlist("stations", listOf(Group("College Radio", listOf(kexp)))),
         )
-        assertEquals(twin, MediaIds.movedStation(MediaIds.station(kexp), kexp.url, order))
-        assertEquals(kexp, MediaIds.movedStation(MediaIds.station(kexp), kexp.url, order.reversed()))
+        assertEquals(twin, MediaIds.stationByUrl(MediaIds.station(kexp), kexp.url, order))
+        assertEquals(kexp, MediaIds.stationByUrl(MediaIds.station(kexp), kexp.url, order.reversed()))
     }
 
     /**
@@ -79,11 +86,12 @@ class MediaIdsTest {
             ).stations
         }
         val shared = rows.groupBy { it.url }.filterValues { it.size > 1 }
-        assertTrue(shared.isNotEmpty(), "expected shared urls across the six playlists")
-        assertTrue(
-            shared.any { (_, ss) -> ss.map { it.playlist }.distinct().size > 1 },
-            "expected at least one url present in two DIFFERENT playlists",
-        )
+        val why = "MediaIds.stationByUrl breaks ties by playlist order, and station ids hash " +
+            "playlist+group+url rather than url alone, BECAUSE urls are shared across the real " +
+            "playlists. If that is no longer true, revisit both decisions — do not just delete " +
+            "this row. Found ${rows.size} rows, ${rows.map { it.url }.distinct().size} distinct urls."
+        assertTrue(shared.isNotEmpty(), why)
+        assertTrue(shared.any { (_, ss) -> ss.map { it.playlist }.distinct().size > 1 }, why)
     }
 
     @Test fun `parse round-trips each node type`() {

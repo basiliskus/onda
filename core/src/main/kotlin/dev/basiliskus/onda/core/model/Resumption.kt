@@ -11,10 +11,10 @@ import kotlinx.coroutines.withTimeout
  * id, unavailable playlists, or a stale id; a stuck-Loading flow lets the timeout's
  * TimeoutCancellationException propagate — the caller treats any failure the same.
  *
- * [lastPlayedUrl] is consulted only when [lastPlayedId] no longer resolves, which happens
- * when the station was moved or regrouped after it was last played — see
- * [MediaIds.movedStation]. An install that predates the url being persisted passes null and
- * behaves exactly as before, so no migration is needed.
+ * [lastPlayedUrl] is consulted only when [lastPlayedId] no longer resolves — usually because
+ * the station was moved or regrouped after it was last played, though any id miss reaches it;
+ * see [MediaIds.stationByUrl]. An install that predates the url being persisted passes null
+ * and behaves exactly as before, so no migration is needed.
  * enforced by: ResumptionTest."a null url leaves a stale id failing as it always did"
  */
 suspend fun resolveResumptionStation(
@@ -28,6 +28,6 @@ suspend fun resolveResumptionStation(
         states.first { it !is PlaylistsState.Loading }.let { it as? PlaylistsState.Ready }
     }?.playlists ?: throw IllegalStateException("playlists unavailable")
     return MediaIds.resolveStation(lastPlayedId, playlists)
-        ?: MediaIds.movedStation(lastPlayedId, lastPlayedUrl, playlists)
+        ?: MediaIds.stationByUrl(lastPlayedId, lastPlayedUrl, playlists)
         ?: throw IllegalStateException("last played station no longer in playlists")
 }

@@ -21,12 +21,14 @@ object MediaIds {
         lastPlayedId?.let { stationIndex(playlists)[it] }
 
     /**
-     * Where a station that [resolveStation] can no longer find has moved to: the first
-     * station carrying [lastPlayedUrl], in playlist order.
+     * The first station carrying [lastPlayedUrl], in playlist order — the fallback for a
+     * [lastPlayedId] that no longer resolves.
      *
      * [station] hashes playlist and group alongside url, so moving or regrouping a station
      * changes its id and the stored one stops resolving. Url is the only component a move
-     * leaves alone, which is why it is persisted next to the id and consulted here.
+     * leaves alone, which is why it is persisted next to the id and consulted here. A move
+     * is not the only way the id can miss, though: a deleted station whose url survives
+     * elsewhere resolves to that copy rather than failing.
      *
      * Only station ids are followed. A Discover (`rb|`) id must keep failing even when its
      * url also sits in a playlist — Discover-only stations deliberately do not resume, and
@@ -39,11 +41,9 @@ object MediaIds {
      * enforced by: MediaIdsTest."a url in two playlists resolves to the first in playlist order"
      * enforced by: MediaIdsTest."the committed playlists really do share urls across files"
      */
-    fun movedStation(lastPlayedId: String?, lastPlayedUrl: String?, playlists: List<Playlist>): Station? {
+    fun stationByUrl(lastPlayedId: String?, lastPlayedUrl: String?, playlists: List<Playlist>): Station? {
         if (parse(lastPlayedId ?: return null) !is Parsed.StationNode) return null
-        // No null guard on lastPlayedUrl: Station.url is non-null, so a null simply matches
-        // nothing. An explicit check read well but no test could tell it apart — it survived
-        // deletion during the mutation pass, which is the definition of dead weight here.
+        // Station.url is non-null, so a null url simply matches nothing.
         return playlists.flatMap { it.stations }.firstOrNull { it.url == lastPlayedUrl }
     }
 
