@@ -7,14 +7,155 @@ issue or be explicitly closed with a reason.
 
 | # | Action | Source | GitHub | Status | Notes |
 |---|--------|--------|--------|--------|-------|
-| 1 | :app-module test harness (undo/compaction, banner VM, resumption) | PR #6, PR #8, PR #17 | #9 | Open | THIRD occurrence (v0.3.0 🔴 was this class) — escalated to scheduled v0.4.0 milestone work |
-| 2 | Extract resumption wait-and-resolve seam into :core | PR #6 | #10 | Open | Service-layer logic → extraction; ViewModels → harness (#1) |
+| 1 | :app-module test harness (undo/compaction, banner VM, resumption) | PR #6, PR #8, PR #17 | #9 | Closed | Shipped in PR #23; :app 0 → 68 rows by milestone close. Class narrowed, not closed — see row 15 |
+| 2 | Extract resumption wait-and-resolve seam into :core | PR #6 | #10 | Closed | Extracted as `resolveResumptionStation` in PR #23 (6 :core rows); semantics preserved incl. raw TimeoutCancellationException |
 | 3 | Persist Discover search text (`query` rememberSaveable) | PR #8 | #11 | Open | Polish pass |
 | 4 | Stations route missing `launchSingleTop` | PR #8 | #12 | Open | Pre-existing 🔵 |
 | 5 | Browse fetches catch only `IOException` | PR #8 | #13 | Open | Pre-existing 🔵; `SerializationException` would crash |
 | 6 | Confirm tag↔versionName guard ran when v0.2.0 is tagged | PR #7 | — | Closed | Guard ran green on the v0.2.0 tag (run 30107921024, step "Verify tag matches versionName": success) |
 | 7 | Ops-journal UX polish: voided-undo feedback, sheet rotation survival | PR #17 | #18 | Open | One polish pass with #3 (#11) |
 | 8 | Relay desktop contract notes (fresh-UUID/url-dedup backstop; move collapses dup urls) | PR #17 | — | Closed | Relayed to the dotfiles agent during the run; url-dedup kept mandatory in stations-merge-ops.py |
+| 9 | Comments asserting a testable guarantee must name the row enforcing it | PR #23, PR #29, PR #34 | #31 | Open | SIX instances across three PRs. Self-Review template item added this commit; `enforced by:` is a trial in one file — promote (with a dangling-reference check) or drop |
+| 10 | Mutation tables must mark each entry APPLIED vs PREDICTED, and a sample of PREDICTED must be executed | PR #34 | — | Closed | Applied to `.pipeline-templates/{feature,bugfix,refactor}-state.json` Code Review stage this commit. Both v0.4.0 coverage gaps were hiding in the PREDICTED column |
+| 11 | Verification stages must not silently replay: `--rerun-tasks` + XML counts; mutation drivers need `--continue` + cleared results dirs | PR #23, PR #34 | #36 | Open | Template item applied this commit; #36 tracks the driver-hygiene half, which can misattribute results rather than merely omit them |
+| 12 | Manual-matrix rows carry a `Requires:` field; a plan's sole-mitigation row becomes a blocking carry | PR #23, PR #29, PR #34 | #33 | Open | THIRD occurrence of the same IDEA. Template item applied this commit; #33 owns the 10 rows already owed |
+| 13 | Planning: mechanical self-join — every enumerated case gets a test row | PR #34 | — | Closed | Applied to the feature template's Planning stage this commit. Case 5c was named in one table and absent from the next, and shipped uncovered |
+| 14 | Planning: do not pre-litigate a simplification | PR #34 | — | Closed | Applied to the feature template's Planning stage this commit. Four layers ratified "group move keeps no Undo"; the user's reversal deleted three things and closed half of #18 |
+| 15 | Residual :app risk migrated into Compose — the harness bought coverage where it was cheapest | PR #23, PR #29, PR #34 | #26 | Open | #26 (pagination in-flight) survived the whole milestone uncovered; both user-found defects in PR #29 were in the layer with zero JVM reach |
+| 16 | Desktop-side defects found by Onda review | PR #34 | .dotfiles#38–42 | OUT-OF-REPO | basiliskus/.dotfiles — #38 `#`-group wedges the merge (reachable from 3 phone flows), #39 invisible row, #40 M3U attribute injection, #41 pair not atomic desktop-side, #42 ledger hardening |
+| 17 | Titles-log glob must widen before song capture is ingested | PR #29 | data#4 | OUT-OF-REPO | basiliskus/data — moved from onda#32. Until it lands, nothing Onda writes reaches the catalog |
+| 18 | Stage agents must persist artifacts a later stage will audit | PR #23, PR #34 | — | Closed | Applied to the Code Review stage of all three templates this commit. PR #34's mutation table existed only in a subagent report, so Test Execution had to re-derive it |
+| 19 | Docs re-check when a run corrects a factual claim | PR #29 | — | Closed | Applied to the Documentation stage of all three templates this commit. The forced-locale rationale was fixed in code while its copy in `docs/spec.md` survived a full fix pass |
+
+## v0.4.0 — Harness and capture (PRs #23, #29, #34)
+
+**Date**: 2026-07-25
+**Scope**: The `:app` JVM test harness plus the seams that made it possible
+(PR #23, closing GitHub #9 and #10); song capture to the synced titles log
+(PR #29); and cross-playlist move (PR #34). Ordered harness-first deliberately
+so the two features after it would inherit coverage from day one.
+**Tests at close**: 157 (`:core` 89, `:app` 68 — `:app` was 0 at milestone open)
+
+### What We Learned
+
+**1. Comments asserting a guarantee are unverified claims sitting where nothing checks them.**
+Six instances across three PRs: the vacuous U9 row (#23); the fake's "golden copy"
+claim, the forced-locale-implies-ASCII-digits claim that reached `docs/spec.md`, the
+per-call-formatter rationale, and `mimeFor`'s "mangling is harmless" (#29); and an
+inverted claim about the desktop's `apply_move` (#34). Detection improved
+monotonically — everything escaped in #23, four of five were caught in #29, and #34's
+was caught pre-merge — but the production rate did not move. The two highest-risk
+instances both asserted something about an *external consumer*, where the local
+harness exercises only the branch the feature takes, not the branch the comment
+describes.
+**Action taken**: Open — tracked in Action Tracker #9 (GitHub #31); Self-Review
+template item added to `.pipeline-templates/{feature,bugfix,refactor}-state.json`
+this commit.
+
+**2. A predicted mutation is a claim; only an executed one is evidence.**
+PR #34 split its mutation table into APPLIED and PREDICTED, and both of the
+milestone's coverage gaps were in or beside the PREDICTED column: two `compact()`
+branches invertible with all 155 tests green, one of them the plan's own case 5c.
+The plan's own C1 row also could not fail under the mutation the plan named for it —
+found by running it, not reading it. Executing a mutation also produces facts a
+prediction cannot: `M-DELEG` killing nothing identified it as an equivalent mutant.
+**Action taken**: Closed — mandatory item added to the "Code Review" stage checklist of
+`.pipeline-templates/{feature,bugfix,refactor}-state.json` this commit, requiring the
+APPLIED/PREDICTED split and execution of a PREDICTED sample (Action Tracker #10).
+
+**3. Verification tooling degrades silently, in two different ways.**
+Gradle served UP-TO-DATE results and turned Test Execution into a replay (#23,
+surfaced only because two subagents died mid-run). A failing `:core:test` aborts
+before `:app:testDebugUnitTest` and leaves stale `:app` XML, which a mutation driver
+misattributes to the current mutation (#34). The second is worse than the first: it
+reports *wrong* answers rather than none, and mutation testing is now a mandatory
+gate.
+**Action taken**: Open — tracked in Action Tracker #11 (GitHub #36); `--rerun-tasks`
+and the driver-hygiene requirement applied to all three templates this commit.
+
+**4. Before deferring a manual row, ask what it actually requires.**
+PRs #23 and #29 each deferred a row that then mattered — #23's M2 (resumption smoke)
+and #29's M6 (sheet like button, the surface where both user-found defects lived).
+PR #34 discharged its desktop round-trip *inside the pipeline* because the plan wrote
+"no device needed" into the row: the real `stations-merge-ops.py` ran against a
+scratch corpus with production journal bytes. First time in three PRs. The
+distinction is not device-vs-not; it is that nobody had asked.
+**Action taken**: Open — tracked in Action Tracker #12 (GitHub #33); `Requires:`
+field and the sole-mitigation blocking-carry rule applied to all three templates
+this commit. This IDEA was filed in #23, repeated in #29, and repeated again in #34
+before being implemented.
+
+**5. Plans lose things between their own tables, and settle questions review should ask.**
+PR #34's case 5c was enumerated in the plan's compaction table and absent from its
+test-list table; it shipped uncovered. Separately, a plan paragraph arguing why group
+move needed no Undo was ratified by four review layers — the user's one-line reversal
+deleted `OpsRepository.move()`, a screen parameter, and a discarded token, and closed
+half of GitHub #18. Pre-litigating an omission removes review pressure from it exactly
+as a false comment does.
+**Action taken**: Closed — two items added to the "Planning" stage checklist of
+`.pipeline-templates/feature-state.json` this commit: a mandatory mechanical
+self-join, and "do not pre-litigate a simplification" (Action Tracker #13, #14).
+
+**6. Harness-first ordering paid off where JVM reach exists, and the residual risk moved.**
+`:app` went 0 → 68 rows. The atomicity crux of PR #34 was only checkable because the
+harness existed; the algebra-rule gate found real holes in two consecutive PRs; and
+song capture used the harness on day one exactly as the ordering intended. But the
+harness bought coverage where it was cheapest, and both defects the user found in
+PR #29 were in Compose, which has zero JVM reach. #26 survived the entire milestone
+uncovered, and owed hardware rows grew from 1 to 10.
+**Action taken**: Open — tracked in Action Tracker #15 (GitHub #26, #33).
+
+### Insights
+
+- **Three disjoint review layers kept earning their slots.** Self-Review, a
+  fresh-context Code Review subagent, and the user each found things the others
+  missed, in all three PRs. The user's findings clustered exactly where automated
+  reach is zero.
+- **Verifying a consumer beats reading its description.** Planning read
+  `pyradio-to-json.py` and corrected the ROADMAP's format (#29); read
+  `stations-merge-ops.py` and confirmed no desktop work (#34); transcribed
+  `compact()` into Python and ran 13 compositions rather than trusting the algebra
+  table (#34). Every one of those found something the requirement had wrong.
+- **Adversarial security analysis found a real vulnerability**, not a checklist
+  sweep: the ICY title is attacker-controlled input written into a file a desktop
+  script parses, and forged records were demonstrated end to end before the fix.
+- **A bug fix produced a better architecture than the design** — moving capture to
+  the app scope with a `messages` flow (#29) also made the two feedback channels
+  structurally disjoint, which the original design achieved only by discipline.
+- **The best change of the milestone was a deletion** (#34), and it came from the user.
+
+### Review Stats
+
+| Metric | PR #23 | PR #29 | PR #34 | Total |
+|--------|--------|--------|--------|-------|
+| Tests added | 35 | 24 | 23 | 82 |
+| 🔴 Findings | 0 | 0 | 0 | 0 |
+| 🟡 Findings | 2 | 4 | 3 | 9 |
+| Findings fixed pre-merge | 2 | 4 | 3 | 9 |
+| #31-class comment defects | 1 | 4 | 1 | 6 |
+| CI failures | 0 | 0 | 0 | 0 |
+
+### Process Improvements Applied
+
+**Pipeline template**: `--rerun-tasks` + XML-count requirement (Test Execution);
+`Requires:` field and sole-mitigation blocking carry (Test Execution); mutation table
+APPLIED/PREDICTED split plus driver hygiene (Code Review); comments-asserting-
+guarantees rule and dispatcher-assumption check (Self-Review); mechanical self-join
+and no-pre-litigation (Planning). Applied to all three templates this commit.
+**CLAUDE.md**: `test_command` updated to run `:app:testDebugUnitTest` (PR #23).
+**CI**: `ci.yml` runs the `:app` suite (PR #23) — before this, CI ran no `:app` tests.
+**Docs**: `docs/spec.md` gained the synced-folder contract, titles-log format with its
+line-boundary rationale, and the cross-playlist move contract.
+
+### Open Items
+
+- [ ] Comment-guarantee rule + `enforced by:` promote-or-drop — Action Tracker #9 (GitHub #31)
+- [ ] Mutation-driver hygiene — Action Tracker #11 (GitHub #36)
+- [ ] Ten owed hardware rows (smoke 13, 16–24) — Action Tracker #12 (GitHub #33)
+- [ ] Compose-layer coverage gap, pagination in-flight — Action Tracker #15 (GitHub #26)
+- [ ] Desktop defects — Action Tracker #16 (basiliskus/.dotfiles#38–42)
+- [ ] Titles-log glob — Action Tracker #17 (basiliskus/data#4)
+- [ ] Remaining tech debt: GitHub #11, #12, #13, #18, #24, #25, #27, #28, #30, #35
 
 ## v0.3.0 — Playlist editing round-trip (PR #17)
 
@@ -112,9 +253,9 @@ Amendments section during the run (star scope, 400f807).
 
 ### Open Items
 
-- [ ] :app test harness (v0.4.0 milestone) — Action Tracker #1 (GitHub #9)
+- [x] :app test harness (v0.4.0 milestone) — Action Tracker #1 (GitHub #9) — resolved in v0.4.0 (PR #23)
 - [ ] Ops-journal UX polish — Action Tracker #7 (GitHub #18), with #3 (GitHub #11)
-- [ ] :core resumption seam decision folds into the harness plan — Action Tracker #2 (GitHub #10)
+- [x] :core resumption seam decision folds into the harness plan — Action Tracker #2 (GitHub #10) — resolved in v0.4.0 (PR #23)
 
 ## v0.2.0 — Daily-driver polish (PRs #6–#8)
 
@@ -208,8 +349,8 @@ note (finding 5).
 
 ### Open Items
 
-- [ ] :app ViewModel test harness — Action Tracker #1 (GitHub #9)
-- [ ] :core resumption seam — Action Tracker #2 (GitHub #10)
+- [x] :app ViewModel test harness — Action Tracker #1 (GitHub #9) — resolved in v0.4.0 (PR #23)
+- [x] :core resumption seam — Action Tracker #2 (GitHub #10) — resolved in v0.4.0 (PR #23)
 - [ ] Discover `query` persistence — Action Tracker #3 (GitHub #11)
 - [ ] `launchSingleTop` on stations route — Action Tracker #4 (GitHub #12)
 - [ ] Widen browse-fetch error handling — Action Tracker #5 (GitHub #13)
