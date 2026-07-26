@@ -8,6 +8,12 @@
 | **P2** | ✅ ~~song capture~~ | Like the playing track from the Now Playing sheet or the media notification; feeds the existing desktop titles-log → catalog pipeline. Contract pinned 2026-07-23 | v0.4.0 |
 | **P3** | ✅ ~~cross-playlist move~~ | "Move to playlist…" in the long-press sheet via the existing delete + targeted-add op pair; closes the only phone-side gap for stations not on radio-browser | v0.4.0 |
 
+| **P1** | browse fetch catches only IOException | A `SerializationException` from radio-browser crashes Discover; XS fix, real crash path. GitHub #13 | v0.5.0 |
+| **P1** | harden M3uParser against quotes in EXTINF names | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
+| **P2** | resumption survives move and regroup | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
+| **P0** | release v0.5.0 | v0.4.0 merged but never shipped — versionName is still 0.3.0. Blocks the owed hardware rows, the first real `library/onda.json`, and any live test of basiliskus/data#5 | v0.5.0 |
+| **P2** | ops journal: shared batch id + strictly-increasing ts | basiliskus/data is blocked on a field only this repo can emit; contract agreed from both ends. GitHub #38 | v0.5.0 |
+
 ## Milestones
 
 ### Milestone: v0.4.0 — Harness and capture
@@ -67,6 +73,48 @@ sheet now shares that one entry point, so `OpsRepository.move()` is gone and a
 group move gained Undo. Desktop round-trip verified live against the real
 `stations-merge-ops.py`. Known loss: an add rebuilds the row from name/url/icon,
 blanking `encoding` and dropping later columns (one live row: KALX, `volume=100`).
+
+### Milestone: v0.5.0 — Correct, then ship
+
+Chosen at the v0.4.0 boundary via `/pipeline-strategy` (deep mode). The
+recommendation was to release first; the chosen path fixes first so the
+release carries the fixes. Session record:
+`docs/strategy-sessions/2026-07-26-v0.5.0.md`.
+
+The release sits in the middle of this milestone, not at the end.
+
+**browse fetch catches only IOException**
+A `SerializationException` from a malformed radio-browser response escapes the
+catch and crashes Discover. XS. GitHub #13, Action Tracker #5 — open since PR #8.
+
+**harden M3uParser against quotes in EXTINF names**
+The attribute regex has no escape syntax, and `parseExtinf` matches attributes
+over the whole line, so a `word="value"` substring inside a station name forges
+an attribute or shifts the comma index until the entry parses empty and is
+dropped with no log line. Station names come from radio-browser — third-party
+data. Not exploitable today (the desktop sanitizes at the writer, and
+`IndirectionParser` never reaches this parser), but the safety property lives in
+another repository with nothing enforcing it here. GitHub #39.
+
+**resumption survives move and regroup**
+`MediaIds` hashes playlist + group into the media id, and the last-played id is
+persisted for `onPlaybackResumption`. Moving a station — now a two-tap gesture —
+changes both components, so it stops resuming. Testable in the `:core` harness
+via `resolveResumptionStation`. GitHub #35.
+
+**release v0.5.0**
+One tag carrying the unreleased v0.4.0 milestone AND these fixes. Nothing from
+v0.4.0 has ever been installed, so a v0.4.0 tag would be superseded within
+minutes. Unblocks smoke rows 13 and 16-24 (GitHub #33), the first real
+`library/onda.json`, and the live exercise of basiliskus/data#5.
+
+**ops journal: shared batch id + strictly-increasing ts**
+`UndoToken` gains an id at construction; every op written under an armed token
+carries a `batch` field — uniform, including single-op mutations, so an absent
+field has exactly one meaning. Plus strictly-increasing `ts` within a batch,
+since the pair currently shares a millisecond and same-key ordering is
+load-bearing on the desktop. Contract agreed on GitHub #38; basiliskus/data is
+waiting on it.
 
 ## Completed
 
