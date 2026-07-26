@@ -41,18 +41,36 @@ object M3uParser {
 
     private fun parseExtinf(line: String): Triple<String, String?, String?>? {
         val afterColon = line.substringAfter("#EXTINF:")
-        // Attribute values are matched over the whole string (not just up to the first comma)
-        // so a comma inside a quoted value (e.g. group-title="News, Talk") doesn't truncate the
-        // match. The display name then starts at the first comma AFTER the last attribute match
-        // — everything before it is duration + attributes, everything after is the name (which
-        // may itself contain commas).
-        val matches = attr.findAll(afterColon).toList()
-        val searchFrom = matches.lastOrNull()?.range?.last?.plus(1) ?: 0
-        val commaIndex = afterColon.indexOf(',', searchFrom)
-        if (commaIndex == -1) return null
-        val name = afterColon.substring(commaIndex + 1).trim()
+        // The separator is the first comma at quote-depth zero: everything left of it is
+        // duration + attributes, everything right of it is the display name, verbatim. Tracking
+        // quote depth is what keeps a comma inside a quoted value (group-title="News, Talk")
+        // from truncating the attribute region, and matching attributes only left of the
+        // separator is what keeps a word="value" substring inside a name from being read as an
+        // attribute. Names may themselves contain commas and quotes; neither is interpreted.
+        val separator = separatorIndex(afterColon)
+        if (separator == -1) return null
+        val name = afterColon.substring(separator + 1).trim()
         if (name.isEmpty()) return null
-        val attrs = matches.associate { it.groupValues[1] to it.groupValues[2] }
+        val attrs = attr.findAll(afterColon.substring(0, separator))
+            .associate { it.groupValues[1] to it.groupValues[2] }
         return Triple(name, attrs["group-title"], attrs["tvg-logo"])
+    }
+
+    /**
+     * Index of the first comma at quote-depth zero, or — when an unbalanced quote leaves the
+     * scan permanently inside quotes and no such comma exists — the first comma of any kind.
+     * The fallback keeps a line like `#EXTINF:-1 "weird,Name` parsing as it always has instead
+     * of trading one silent drop for another. Returns -1 when there is no comma at all.
+     */
+    private fun separatorIndex(afterColon: String): Int {
+        var inQuotes = false
+        var firstQuotedComma = -1
+        afterColon.forEachIndexed { i, c ->
+            when (c) {
+                '"' -> inQuotes = !inQuotes
+                ',' -> if (!inQuotes) return i else if (firstQuotedComma == -1) firstQuotedComma = i
+            }
+        }
+        return firstQuotedComma
     }
 }

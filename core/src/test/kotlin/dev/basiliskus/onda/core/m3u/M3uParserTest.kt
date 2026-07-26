@@ -51,6 +51,8 @@ class M3uParserTest {
             just-a-stray-line-without-extinf-is-a-bare-url
             #EXTINF:garbage
             http://orphan-after-bad-extinf
+            #EXTINF:-1 group-title="G",
+            http://orphan-after-empty-name
         """.trimIndent())
         assertEquals(listOf("http://good"), p.stations.map { it.url })
     }
@@ -170,6 +172,16 @@ class M3uParserTest {
         assertEquals("News, Talk", s.group)
         assertEquals("https://cdn.example/real.png", s.logo)
         assertEquals("""Rock FM <img src="logo.png"> Live""", s.name)
+    }
+
+    @Test fun `unbalanced quote before the separator comma still yields a name`() {
+        // No comma exists at quote-depth zero, so only the fallback to the first comma of any
+        // kind keeps this entry alive. Delete the fallback and this row fails.
+        val p = M3uParser.parsePlaylist("x", "#EXTM3U\n#EXTINF:-1 \"weird,Name\nhttp://weird")
+        val s = p.stations.single()
+        assertEquals("Name", s.name)
+        assertEquals("Ungrouped", s.group)
+        assertNull(s.logo)
     }
 
     @Test fun `all six real playlists parse with groups and plausible station count`() {
