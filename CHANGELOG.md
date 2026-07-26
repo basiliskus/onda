@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-26
+
+First release since 0.3.0, carrying two milestones: v0.4.0 (harness, song
+capture, cross-playlist move) was merged but never tagged, so nothing in it had
+ever been installed. v0.4.0 will not exist as a version.
+
 ### Added
 
 - Move a station to a different playlist: "Move to playlist…" in the long-press
@@ -41,7 +47,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ### Changed
 
 - Playback resumption wait-and-resolve moved out of `PlaybackService` into `:core`
-  (`resolveResumptionStation`, 6 tests); `PlaylistsState` moved to `:core` with it.
+  (`resolveResumptionStation`, 6 tests at extraction); `PlaylistsState` moved with it.
   Same semantics, including the 3s timeout and the three failure exits.
 - `PlaylistsSource` gained one append seam, `appendTitlesLogLine(line)` (SAF `"wa"`
   append, no read-modify-write). It takes no filename, so appending to any file

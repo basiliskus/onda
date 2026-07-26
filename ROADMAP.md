@@ -16,7 +16,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P1** | ✅ ~~browse fetch catches only IOException~~ | Premise stale — `RadioBrowserClient` already converts decode failures to `IOException` (469aaf3) and two rows pin it. Closed on evidence, no code needed. GitHub #13 | v0.5.0 |
 | **P1** | ✅ ~~harden M3uParser against quotes in EXTINF names~~ | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
 | **P2** | ✅ ~~resumption survives move and regroup~~ | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
-| **P0** | release v0.5.0 | v0.4.0 merged but never shipped — versionName is still 0.3.0. Unblocks #33's owed hardware rows (which now run against the release APK, not a debug build), the first real `library/onda.json`, and Onda's first real input to `basiliskus/data`. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
+| **P0** | ✅ ~~release v0.5.0~~ | v0.4.0 merged but never shipped — versionName is still 0.3.0. Unblocks #33's owed hardware rows (which now run against the release APK, not a debug build), the first real `library/onda.json`, and Onda's first real input to `basiliskus/data`. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
 | **P2** | ops journal: shared batch id + strictly-increasing ts | `.dotfiles#41` shipped the inference-based warning and closed, deferring exact rollback to a field only this repo can emit; contract agreed from both ends. Moved out of v0.5.0 2026-07-26 — the gap is unreachable in today's configuration and nothing is waiting on it. GitHub #38 | v0.5.1 |
 | **P0** | release v0.5.1 | Ships #38 plus whatever the v0.5.0 hardware pass (#33) surfaces. Last row of its milestone per ADR-0001 | v0.5.1 |
 
@@ -175,6 +175,15 @@ capture, which shipped — `data#4` is closed and PRs #5 and #6 are merged. The
 ops journal is consumed by `stations-merge-ops.py` in `.dotfiles`.
 
 ## Completed
+
+- v0.5.0 — Correct, then ship (2026-07-26, PRs #21–#49): first tag since v0.3.0,
+  carrying the never-released v0.4.0 milestone (`:app` test harness, song capture,
+  cross-playlist move) plus two correctness fixes — `M3uParser` attribute parsing
+  (#39, PR #43) and resumption surviving a move or regroup (#35, PR #47). Also
+  landed the release machinery itself: `scripts/release-ready.sh`, the release
+  pipeline template, and ADR-0001. `:core` 68 → 117; `:app` 0 → 68, the module
+  having had no test source at all at v0.3.0. The eleven owed
+  hardware rows (#33) run against this APK, not before it. Retro: `RETRO.md`.
 
 - v0.3.0 — Playlist editing round-trip (2026-07-24, PR #17): ops.jsonl journal with
   compaction algebra and optimistic overlay in :core, OpsRepository with
