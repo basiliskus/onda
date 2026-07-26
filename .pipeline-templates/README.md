@@ -11,5 +11,11 @@ injected into the relevant stages. Customizations made here are deliberate and a
 never regenerated blindly — re-copying from canonical requires an explicit
 `--force-templates` (with backup).
 
+`release-state.json` has no canonical counterpart — the pipeline-* family stops
+at a merged PR by design, so this repo authors its own release pipeline. It is
+not selected by `/pipeline-next` (no ROADMAP row type maps to it): copy it to
+`.pipeline-state/release-vX.Y.Z.json`, set `target_version`, then
+`/pipeline-run`. Policy: `docs/adr/0001-release-at-milestone-end.md`.
+
 This directory is committed. `.pipeline-state/` contents and `.pipeline-log.md` are
 per-checkout ephemera and stay gitignored.

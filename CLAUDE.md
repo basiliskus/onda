@@ -24,6 +24,23 @@ implementation work.
   Trivial one-liners go as a single-commit PR without a pipeline run;
   multi-file work goes through a pipeline run + PR.
 
+## Releases
+
+No pipeline skill cuts releases — the family stops at a merged PR by
+design. This repo owns the step:
+
+- **Is it time?** `scripts/release-ready.sh` answers, with evidence.
+  Never decide by reading the ROADMAP.
+- **What blocks a tag:** any open issue labeled `release-blocker`.
+  Label it when you file it, not at the next strategy session.
+- **The release is the last row of its milestone**, always.
+- **How:** copy `.pipeline-templates/release-state.json` into
+  `.pipeline-state/release-vX.Y.Z.json`, set `target_version`, run
+  `/pipeline-run`. Tagging is the only manual act; CI does the rest.
+
+Policy and the reasoning behind it:
+`docs/adr/0001-release-at-milestone-end.md`.
+
 ## Git workflow
 
 - Never commit directly to main. All work goes through a branch and a
