@@ -53,6 +53,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Playback resumption survives a move or regroup. `MediaIds.station` hashes
+  playlist and group alongside url, so moving a station — a two-tap gesture since
+  v0.4.0's cross-playlist move — changed its media id, the persisted last-played id
+  stopped resolving, and resumption after process death failed for that station
+  until it was played again. The url is now persisted next to the id and consulted
+  **only when the id misses**, so the id path — which `onAddMediaItems` also uses to
+  turn a controller-supplied id back into a station, as Android Auto's browse tree
+  does — keeps its exact previous semantics. Discover-only stations still do not
+  resume: the fallback follows `station|` ids only, so an `rb|` id whose url also
+  sits in a playlist stays unresolvable. Where one url appears in more than one
+  playlist, which the real station set does, the first in playlist order wins.
+  Existing installs need no migration — they carry an id and no url, which behaves
+  exactly as before until the station is next played. `:core` 107 → 115 tests.
 - M3U parsing: a `word="value"` substring inside a station name is no longer read
   as an EXTINF attribute. `parseExtinf` splits the line at the first comma at
   **quote-depth zero** — everything left is duration + attributes, everything right
