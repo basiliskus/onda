@@ -19,7 +19,7 @@ private const val TOP_INDEX = 2
 @Composable
 fun DiscoverScreen(vm: DiscoverViewModel, onOpenList: (kind: String, value: String) -> Unit) {
     LaunchedEffect(Unit) { vm.loadBrowseLists() }
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     var mode by rememberSaveable { mutableIntStateOf(0) }
     val tags by vm.tags.collectAsStateWithLifecycle()
     val countries by vm.countries.collectAsStateWithLifecycle()

@@ -22,7 +22,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P3** | ✅ ~~release template: fix the Tag & Publish `git tag` command~~ | Stage 10 now documents `git tag -m` with the one-line-summary convention. GitHub #52 | v0.5.1 |
 | **P0** | ✅ ~~release v0.5.1~~ | Shipped 2026-08-07 with #51, #38, #52. The #33 hardware pass runs against this APK (release-first per ADR-0001 precedent — unverified is not known-broken) | v0.5.1 |
 | **P1** | ✅ ~~undo integrity: #25 + #24 + #30~~ | Intent flag closes the tap race structurally (the losing interleaving cannot exist); migration self-bumps; buffered channels. 4 reproductions written failing at diagnosis, all green post-fix, control unchanged | v0.5.2 |
-| **P2** | polish sweep (grouped): #11 #12 #18 #28 | Four tiny items that individually lose every triage; one `--group` pipeline run, one PR. Undo-feedback half of #18 lands after the P1 row settles token semantics | v0.5.2 |
+| **P2** | ✅ ~~polish sweep (grouped): #11 #12 #18 #28~~ | Saveable query + sheets, singleTop content routes, "Nothing to undo" on a voided tap (new row failing pre-fix), MediaIds/Resumption → core.playback, PlaylistsSource extracted, catalog version.ref. Suspend conversion declined by decision | v0.5.2 |
 | **P2** | canon closure: #31 decision + #36 | Decide `enforced by:` promote-or-drop (one negative data point on record), reframe #31 as a canon doc so it stops absorbing scope; #36's stale-XML guard becomes a script, not vigilance | v0.5.2 |
 | **P0** | release v0.5.2 | Last row of its milestone per ADR-0001 | v0.5.2 |
 

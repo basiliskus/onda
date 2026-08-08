@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Polish sweep (#11 #12 #18 #28): Discover's search text survives navigation
+  and rotation like its segment selection already did; a fast double-tap on a
+  playlist row, settings, or a Discover list lands a single back-stack entry
+  (launchSingleTop matches the destination pattern, so a rapid A-then-B tap
+  burst lands on B with back returning to the list, not to A); a voided Undo
+  tap reports "Nothing to undo" instead of silently doing nothing — and only
+  when truly voided: a content-identical folder tick (every foreground
+  resume fires one) no longer voids a live token, so Undo survives a
+  lock/unlock or resume inside the snackbar window, a redundant tap after a
+  successful undo stays silent, the suppressed-mutation path stays silent
+  too, and a failed undo write leaves its token retryable — the next tap
+  retries the restore instead of claiming "Nothing to undo" — each pinned
+  by a row; action and picker sheets survive rotation and process death
+  mid-flow: the playlist sheets persist the tapped row's group+url key and
+  re-derive the live station from the current playlists (a station or
+  target playlist that vanished while the app was dead dismisses or steps
+  back its sheet instead of completing a move against a stale world, and
+  the key's group half keeps a stream that sits in two groups acting on
+  the tapped copy), the Discover add picker keeps its tapped radio-browser
+  snapshot (no phone-side identity to re-derive), and pickers wait for the
+  first scan to settle instead of rendering empty. `:app` 83 → 84.
+
 - Undo integrity — three silent failures in the token-and-feedback subsystem
   (the v0.5.2 P1 cluster), each reproduced deterministically before the fix:
   - An undo tapped before its mutation's coroutine ran silently no-opped and
@@ -52,6 +74,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
     collector, so its snackbar times out off-screen. Single consumer by
     design (the snackbar host); the only remaining conflated flow is the
     folder tick, where conflation is the point. `:app` 75 → 83.
+
+### Changed
+
+- Internal, behavior-preserving (#28): `MediaIds` and
+  `resolveResumptionStation` moved from `core.model` to `core.playback`,
+  `PlaylistsSource` extracted to its own file, and the version catalog's
+  last inline version now uses `version.ref`; the seam's blocking-I/O
+  methods stay non-suspend by decision (injected dispatcher + documented
+  contract).
 
 ## [0.5.1] - 2026-08-07
 

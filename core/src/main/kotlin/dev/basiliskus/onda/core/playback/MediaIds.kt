@@ -1,5 +1,7 @@
-package dev.basiliskus.onda.core.model
+package dev.basiliskus.onda.core.playback
 
+import dev.basiliskus.onda.core.model.Playlist
+import dev.basiliskus.onda.core.model.Station
 import java.security.MessageDigest
 
 object MediaIds {

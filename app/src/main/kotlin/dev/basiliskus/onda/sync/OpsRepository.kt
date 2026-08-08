@@ -68,7 +68,9 @@ class OpsRepository(
      *  the instant of handover can still consume a message unseen — the recreation window
      *  is narrowed, not closed; a backgrounded app keeps its LaunchedEffect collector,
      *  so a snackbar shown off-screen still times out unseen; and a burst deeper than the
-     *  buffer evicts oldest-first. Single consumer by design (the snackbar host) — a prose
+     *  buffer evicts oldest-first — UNDO_VOIDED_MESSAGE shares these slots, accepted
+     *  because it fires only on a genuine journal change under an open snackbar (PR #66
+     *  review; a no-op tick no longer voids). Single consumer by design (the snackbar host) — a prose
      *  contract; the Flow type cannot enforce it, and a second collector would steal
      *  deliveries.
      *  enforced by: UndoIntegrityTest."an ops error emitted with no collector reaches a late collector"
@@ -98,6 +100,7 @@ class OpsRepository(
          *  written on the main thread, read on [ioDispatcher].
          *  enforced by: UndoIntegrityTest."an undo tapped before the mutate runs suppresses the mutation entirely" */
         @Volatile internal var undoRequested = false
+
     }
 
     init {
@@ -126,7 +129,21 @@ class OpsRepository(
                 }
                 val parsed = text?.let(OpsJournal::parse)
                 reportMalformed(parsed?.malformed ?: 0)
-                setOps(OpsJournal.compact(parsed?.ops ?: emptyList()))
+                val next = OpsJournal.compact(parsed?.ops ?: emptyList())
+                // A content-identical re-read must not bump the generation: every
+                // foreground resume ticks the folder watcher even when nothing changed,
+                // and an unconditional setOps voided live undo tokens on that no-op
+                // refresh — with #18's feedback the tap then reported "Nothing to undo"
+                // about a delete that still stood (PR #66 review).
+                // Deliberately NOT re-voided on m3u-only changes either: a desktop merge
+                // whose re-exported m3u syncs before the journal clears leaves the token
+                // live, so an undo inside that window restores a journal whose delete
+                // was already consumed and the station stays gone — the pre-existing
+                // consumption window (hardware row R1), unreachable under this app's
+                // manual-sync workflow, and pre-guard the same tick merely turned it
+                // into a voided no-op that restored nothing either (PR #66 round 3).
+                // enforced by: UndoIntegrityTest."a content-identical refresh does not void a live undo token"
+                if (next != _ops.value) setOps(next)
             }
         }
     }
@@ -186,24 +203,45 @@ class OpsRepository(
     }
 
     /** Restores the pre-delete snapshot iff no journal change intervened since [delete]
-     *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops
-     *  (the missing feedback on that path is GitHub #18). The FIRST act is synchronous:
-     *  recording the intent on the token, so an undo tapped before its mutation has run
-     *  suppresses the mutation in [mutate] rather than racing it — the tap can no longer
-     *  lose to its own mutation's coroutine (GitHub #25). A tap [mutate]'s flag check has
-     *  already passed takes the snapshot path here, and an intervening journal change
-     *  still voids the token. */
+     *  (compare-and-swap on [generation] under the mutex); a voided tap reports
+     *  "Nothing to undo" through [errors] instead of silently no-oping (GitHub #18).
+     *  The disarmed-token path stays silent deliberately: snapshot == null means either
+     *  the mutation has not run yet (this tap's intent flag suppresses it in [mutate] —
+     *  the suppression IS the undo) or an earlier dispatch already restored it (success
+     *  disarms the token); neither has anything to report. The FIRST act is
+     *  synchronous: recording the intent on the token, so an undo tapped before its
+     *  mutation has run suppresses the mutation rather than racing it — the tap can no
+     *  longer lose to its own mutation's coroutine (GitHub #25). A tap [mutate]'s flag
+     *  check has already passed takes the snapshot path here, and an intervening journal
+     *  change still voids the token.
+     *  enforced by: UndoIntegrityTest."a voided undo reports Nothing to undo instead of silently no-oping" */
     fun undo(token: UndoToken) {
         token.undoRequested = true
         scope.launch(ioDispatcher) {
             mutex.withLock {
                 val snapshot = token.snapshot ?: return@withLock
-                if (token.generation != generation) return@withLock
+                if (token.generation != generation) {
+                    _errors.trySend(UNDO_VOIDED_MESSAGE)
+                    return@withLock
+                }
                 val before = _ops.value
                 setOps(snapshot)
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(snapshot))) {
                     setOps(before)
+                    // Re-arm: the rollback's own bumps must not void this token — the
+                    // undo did NOT happen, so a retry tap must find a live token rather
+                    // than a false "Nothing to undo" about a delete that still stands
+                    // (PR #66 round 3). Any LATER journal change still voids it.
+                    // enforced by: OpsRepositoryUndoTest."failed undo write rolls back to post-delete ops"
+                    token.generation = generation
                     _errors.trySend(UNAVAILABLE_MESSAGE)
+                } else {
+                    // A successful undo consumes the token by disarming it: a redundant
+                    // second dispatch (double-tapped snackbar action) takes the silent
+                    // snapshot-null exit above — nothing further to undo, nothing to
+                    // report — and the retained ops list becomes collectable.
+                    // enforced by: OpsRepositoryUndoTest."second undo is a no-op"
+                    token.snapshot = null
                 }
             }
         }
@@ -257,7 +295,7 @@ class OpsRepository(
                 // the armed snapshot below. The tap can no longer lose the race against
                 // its own mutation; an unrelated journal change (a folder-tick refresh,
                 // another mutation) can still void the token first, and that voided undo
-                // no-ops silently today (the feedback gap is GitHub #18).
+                // reports "Nothing to undo" (GitHub #18).
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)
@@ -332,5 +370,6 @@ class OpsRepository(
         const val JOURNAL = "ops.jsonl"
         const val LEGACY_CSV = "pending.csv"
         const val UNAVAILABLE_MESSAGE = "Playlist edits unavailable — synced folder unreachable"
+        const val UNDO_VOIDED_MESSAGE = "Nothing to undo"
     }
 }

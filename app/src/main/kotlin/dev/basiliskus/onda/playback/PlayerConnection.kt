@@ -10,7 +10,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dev.basiliskus.onda.core.capture.streamTitleOf
-import dev.basiliskus.onda.core.model.MediaIds
+import dev.basiliskus.onda.core.playback.MediaIds
 import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.radiobrowser.RbStation
 import kotlinx.coroutines.CoroutineScope

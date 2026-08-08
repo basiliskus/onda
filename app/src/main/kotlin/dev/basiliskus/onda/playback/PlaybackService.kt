@@ -34,10 +34,10 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.basiliskus.onda.OndaApp
 import dev.basiliskus.onda.core.capture.streamTitleOf
-import dev.basiliskus.onda.core.model.MediaIds
+import dev.basiliskus.onda.core.playback.MediaIds
 import dev.basiliskus.onda.core.model.PlaylistsState
 import dev.basiliskus.onda.core.model.Station
-import dev.basiliskus.onda.core.model.resolveResumptionStation
+import dev.basiliskus.onda.core.playback.resolveResumptionStation
 import dev.basiliskus.onda.core.radiobrowser.RadioBrowserClient
 import dev.basiliskus.onda.sync.SongCaptureRepository
 import dev.basiliskus.onda.sync.captureMessage

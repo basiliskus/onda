@@ -489,6 +489,10 @@ class OpsRepositoryMoveTest {
         val token = r.moveToPlaylist(s, "nts", "G")
         advanceUntilIdle()
         val pair = fake.journalOps()
+        // A genuinely-changed journal: a content-identical refresh no longer voids
+        // (UndoIntegrityTest pins that), so the desktop appends an op first.
+        val appended = addOp("http://z")
+        fake.seedJournal(*(pair + appended).toTypedArray())
         r.refresh()
         advanceUntilIdle()
         val writesAfterRefresh = fake.writes
@@ -498,7 +502,7 @@ class OpsRepositoryMoveTest {
         // Only the absence of a write distinguishes a voided token from a restore that
         // happens to rewrite the same bytes.
         assertEquals(writesAfterRefresh, fake.writes)
-        assertEquals(pair, fake.journalOps())
+        assertEquals(pair + appended, fake.journalOps())
     }
 
     @Test fun `failed write rolls back the whole pair and voids its token`() = runTest {
@@ -523,7 +527,8 @@ class OpsRepositoryMoveTest {
         advanceUntilIdle()
         assertEquals(1, fake.writes) // the rollback's own bump voided the token
         assertNull(fake.files[JOURNAL])
-        assertEquals(1, errors.size)
+        // The failed write's report, then the voided tap's own (#18).
+        assertEquals(listOf(UNAVAILABLE_MESSAGE, UNDO_VOIDED_MESSAGE), errors)
     }
 
     @Test fun `quick-star add survives a cross-playlist move of the same url`() = runTest {
