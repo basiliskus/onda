@@ -18,7 +18,7 @@ issue or be explicitly closed with a reason.
 | 9 | Comments asserting a testable guarantee must name the row enforcing it | PR #23, PR #29, PR #34, PR #43, PR #47, PR #50 | #31 | Open | Scope extended at v0.5.0 retro: the class migrated to PR prose, CHANGELOG, an API shape, and a release note — any artifact asserting a testable fact. `enforced by:` promote-or-drop now has a negative data point (map went stale inside one commit, PR #47) |
 | 10 | Mutation tables must mark each entry APPLIED vs PREDICTED, and a sample of PREDICTED must be executed | PR #34 | — | Closed | Applied to `.pipeline-templates/{feature,bugfix,refactor}-state.json` Code Review stage this commit. Both v0.4.0 coverage gaps were hiding in the PREDICTED column |
 | 11 | Verification stages must not silently replay: `--rerun-tasks` + XML counts; mutation drivers need `--continue` + cleared results dirs | PR #23, PR #34 | #36 | Open | Template item applied this commit; #36 tracks the driver-hygiene half, which can misattribute results rather than merely omit them |
-| 12 | Manual-matrix rows carry a `Requires:` field; a plan's sole-mitigation row becomes a blocking carry | PR #23, PR #29, PR #34 | #33 | Open | Template item applied at v0.4.0 retro; PR #43's matrix came back empty because of it. Hardware session 2026-07-26 (recorded on #33) discharged part of the debt against the release APK; nine rows remain (13, 16, 19, 20–25) — row 25 is the sole check on the write half of the #35 fix |
+| 12 | Manual-matrix rows carry a `Requires:` field; a plan's sole-mitigation row becomes a blocking carry | PR #23, PR #29, PR #34 | #33 | Closed | Template item applied at v0.4.0 retro; PR #43's matrix came back empty because of it. Hardware session 2026-07-26 (recorded on #33) discharged part of the debt against the release APK; nine rows remained; ALL discharged 2026-08-07/08 against the v0.5.1 release APK (full record on #33, closed). Row 17's creation half survives as a standing checklist row |
 | 13 | Planning: mechanical self-join — every enumerated case gets a test row | PR #34 | — | Closed | Applied to the feature template's Planning stage this commit. Case 5c was named in one table and absent from the next, and shipped uncovered |
 | 14 | Planning: do not pre-litigate a simplification | PR #34 | — | Closed | Applied to the feature template's Planning stage this commit. Four layers ratified "group move keeps no Undo"; the user's reversal deleted three things and closed half of #18 |
 | 15 | Residual :app risk migrated into Compose — the harness bought coverage where it was cheapest | PR #23, PR #29, PR #34 | #26 | Open | #26 (pagination in-flight) survived the whole milestone uncovered; both user-found defects in PR #29 were in the layer with zero JVM reach |
@@ -26,16 +26,150 @@ issue or be explicitly closed with a reason.
 | 17 | Titles-log glob must widen before song capture is ingested | PR #29 | data#4 | Closed | data#4 closed; `data` PRs #5/#6 merged. First real ingestion succeeded 2026-07-26: Onda's likes from `onda-titles.log` landed in `library/onda.json`. Successor defects tracked in row 24 |
 | 18 | Stage agents must persist artifacts a later stage will audit | PR #23, PR #34 | — | Closed | Applied to the Code Review stage of all three templates this commit. PR #34's mutation table existed only in a subagent report, so Test Execution had to re-derive it |
 | 19 | Docs re-check when a run corrects a factual claim | PR #29 | — | Closed | Applied to the Documentation stage of all three templates this commit. The forced-locale rationale was fixed in code while its copy in `docs/spec.md` survived a full fix pass |
-| 20 | Emit a shared batch id on ops written together | .dotfiles#41 | #38 | Open | Moved to v0.5.1 (PR #49) — the gap is unreachable today and `.dotfiles#41` closed after shipping the inference-based warning, so no open downstream issue receives the field. Refiling on `.dotfiles` is part of this task |
+| 20 | Emit a shared batch id on ops written together | .dotfiles#41 | #38 | Closed | Shipped in PR #57 (v0.5.1): batch stamped centrally, monotone fixed-width ts. Receiving issue landed as data#16 (topology had moved) and the desktop implemented drop-batch the same day. Field-verified incl. the mixed-batch caveat shape |
 | 21 | Harden `M3uParser` against quotes in EXTINF names | .dotfiles#40 | #39 | Closed | Shipped in PR #43: attributes parsed only before the first quote-depth-zero comma; hostile names kept verbatim. Three bugs fixed (silent drop, forged `tvg-logo`, forged `group-title` — the third unreported until diagnosis reproduced it). `:core` 89 → 107 |
-| 22 | Song capture: emit `>>> Station:` lines so likes can be attributed | Retro v0.5.0 | #51 | Open | pyradio interleaves station lines in its log; Onda's log has none, so the harvester attributes every Onda like to `station: null`. First real ingestion made the gap visible |
-| 23 | Release template's Tag & Publish documents a `git tag` command that fails | PR #50 | #52 | Open | `tag.gpgsign true` forces annotated tags; all tags carry a one-line summary. Template must say `git tag -m` |
+| 22 | Song capture: emit `>>> Station:` lines so likes can be attributed | Retro v0.5.0 | #51 | Closed | Shipped in PR #56 (v0.5.1); field-verified end-to-end 2026-08-07: real like attributed byte-equal through a station switch, negative control clean |
+| 23 | Release template's Tag & Publish documents a `git tag` command that fails | PR #50 | #52 | Closed | Fixed in PR #58 and consumed the same day by the v0.5.1 release run — the tag step worked first try for the first time |
 | 24 | Titles-harvester defects: artist/title split reversed, entity anomaly | Retro v0.5.0 | data#8 | OUT-OF-REPO | basiliskus/data — `radio-titles-to-json.py` splits `Artist - Title` into the wrong fields (fix exists as an UNCOMMITTED working-tree edit, no issue tracks it); `library/onda.json` needs regenerating after it lands. data#8 tracks the `&amp;`/`&` anomaly with evidence, no diagnosis |
 | 25 | Prose-diff verification: quantifier audit, derive-not-transcribe, cross-repo claims cite sha+command | PR #43, PR #50 | — | Closed | Applied to the Documentation stage of all three templates at the v0.5.0 retro. Catches 100% of the milestone's eight #31-class prose defects by two mechanical rules |
 | 26 | Review stages declare their instrument; a re-review must change it | PR #43, PR #47 | — | Closed | Applied to the Code Review stage of all three templates at the v0.5.0 retro. `lastOrNull` survived five suite-measuring stages; the write-path defect was reachable only by reading the type |
 | 27 | Diagnosis prototypes run on discriminating inputs; key changes count collisions in real data | PR #43, PR #47 | — | Closed | Applied to the bugfix Diagnosis stage at the v0.5.0 retro. PR #43 prototyped on the one input where all candidate rules agree and paid with three rewrites; PR #47's collision count (21/205) killed the obvious fix before it was written |
 | 28 | Bugfix Fix stage said "update CHANGELOG.md"; Gate 1 forbids it | PR #47 | — | Closed | Contradictory item removed from the bugfix template at the v0.5.0 retro; CHANGELOG belongs to the Documentation stage (Gate 2) |
 | 29 | Run `/pipeline-roadmap-audit` at strategy time, not one task at a time | PR #42, PR #43 | — | Closed | Applied to pipeline-strategy's survey stage (`~/.claude/skills/pipeline-strategy/SKILL.md`) at the v0.5.0 retro. Two stale-premise closures were both caught downstream by `/pipeline-next` |
+| 30 | External-existence claims ("filed on X", "exists in Y") verified by command at commit time | PR #57, PR #59, Retro v0.5.1 | — | Closed | Applied to the Documentation stage of all three templates at the v0.5.1 retro. Three forward-dated claims in one milestone; the quantifier audit is structurally blind to the shape |
+| 31 | Undo silent no-op — field-sighted, byte-proven | Retro v0.5.1 | #25 | Open | First field evidence posted on #25 (mixed-batch journal pair, 2026-08-07). Unreproduced under controlled re-runs; v0.5.2 triage priority — user-visible and data-affecting |
+| 32 | Release verification: fresh download paths, contradiction rule, XML-mtime check | PR #59 | — | Closed | Applied to the release template's Release Verification stage at the v0.5.1 retro. The stage-11 near-miss compared the old release against itself after the comparison script clobbered its own input |
+
+## v0.5.1 — Contract hardening (PRs #54–#60)
+
+**Date**: 2026-08-08
+**Scope**: Both outbound files gained the field their desktop consumer was
+waiting for — station attribution on likes (#51, PR #56) and batch atomicity
+on journal ops (#38, PR #57) — plus the release-template tag fix (#52, PR
+#58), the release itself (PR #59), and the row-17 rewrite (PR #60). Released
+2026-08-07 and **fully field-verified the same day**: every owed hardware row
+(#33, eleven rows two milestones deep) discharged against the release APK,
+both cross-repo contracts exercised against their real consumers, and the
+desktop's drop-batch half (data#16) implemented hours after being filed.
+**Tests at close**: 207 (`:core` 132, `:app` 75) — derived at retro time via
+`--rerun-tasks` + XML count, both suites green.
+
+### What We Learned
+
+**1. The #31 class's newest substrate: the forward-dated claim — a plan stated as fact.**
+Three instances in one milestone, all caught by a *different* instrument than
+the audits that exist: "The desktop drop-batch half is filed on `data`"
+written while the filing was deliberately deferred (PR #57 — caught by a
+workflow reviewer running `gh issue list` against the claimed repo); "both
+halves verified against the real consumer" while the hardware half was
+explicitly owed (PR #59 — caught by the release reviewer); and the ROADMAP's
+".dotfiles refile" instruction aimed at a repo that had stopped owning the
+script (caught by plan-time premise verification). The quantifier audit is
+structurally blind to all three: none contains a quantifier. The claim shape
+is "X exists in an external system", and its evidence is a command.
+**Action taken**: Closed — external-existence-claim verification item added to
+the Documentation stage of all three templates this commit (Action Tracker
+#30).
+
+**2. Instrument rotation is now confirmed by a controlled sequence, not just argued.**
+PR #57 ran three review layers, each catching what the previous structurally
+could not: self-review (doc-vs-code) produced the test-strengthening rows;
+the mutation round's M6/M7 were killed by *exactly those rows* and would have
+survived the original suite, while its own extra probe (M8) found the
+Add-only byte pin; the workflow round then found six verified findings after
+two green rounds — including the false forward-dated claim and two
+ts-contract gaps — using instruments (gh-verification, contract stress-read)
+neither prior round had used. The v0.5.0 retro's instrument-declaration canon
+(AT #26) predicted this; v0.5.1 measured it.
+**Action taken**: Closed — AT #26's template item is the mechanism, unchanged;
+this milestone is its confirming evidence (PRs #56–#57, review rounds cited).
+
+**3. Field verification found things in both directions no desk instrument reaches.**
+The hardware pass validated two defenses against their real threats — the
+consumed-ids ledger discarded a genuine Synology sync-echo replay (the
+crash-window defense meeting an unplanned real replay), and the mixed-batch
+compaction shape (data#16 caveat (a)) occurred in the wild on day one and
+applied correctly — and it produced the first field sighting of #25: one undo
+silently failed to reach the journal, provable only from captured journal
+bytes (a mixed-batch pair no pure phone state could produce). The
+enabling practice was **desktop-side journal-transition watching during the
+device pass**, which turned UI observations into byte evidence.
+**Action taken**: Open — #25 carries the full field evidence (comment posted
+2026-08-07) and a new Action Tracker row #31 for v0.5.2 triage; the
+journal-watcher practice added to `docs/smoke-checklist.md`'s preamble this
+commit.
+
+**4. A verification instrument can corrupt its own evidence.**
+Release stage 11: the new APK is byte-count-identical to v0.5.0's (padding
+absorbs small dex deltas), which correctly triggered a hash comparison — and
+the comparison script's fallback branch silently overwrote the artifact under
+test with the old release's asset, producing "identical" from comparing
+v0.5.0 against itself. The already-passed manifest check contradicted the
+result, which is what exposed it. Two rules: verification downloads go to
+fresh paths, and a result that contradicts an earlier check in the same pass
+means a broken instrument, not a wrong earlier check.
+**Action taken**: Closed — both rules added to the release template's Release
+Verification stage this commit (Action Tracker #32); the reviewer's
+XML-mtime-vs-commit-time check added alongside (it had no template row).
+
+### Insights
+
+- **A receiving issue that carries the full contract gets implemented fast and
+  right.** data#16 was filed with the compaction caveats, the hygiene rule,
+  and the consumer's own code-comment expectations quoted back at it; the
+  data agent shipped drop-batch enforcement plus review fixes within hours.
+  Contrast the `.dotfiles#41` era, where the ask travelled as prose and
+  landed as inference.
+- **The undo-authority observation**: with auto-sync, an undo's real window is
+  sync latency + the merge's 5s debounce — shorter than its snackbar. Benign
+  under manual sync (this phone's setup); recorded on #33 for the day sync
+  goes automatic.
+- **The quantifier-production rate still hasn't moved** — third milestone.
+  The audits catch what the writer keeps writing. Two data points say the
+  gates are load-bearing infrastructure, not training wheels.
+- **KCRW broadcasts unspaced `Title-Artist-Album`** — a second real-world ICY
+  convention variant, captured with its station name attached, exactly the
+  input the data repo's deferred station-aware pass needs.
+- **v0.5.1 is the first release with nothing owed against it** — every JVM
+  row, every hardware row, both cross-repo contracts live-verified.
+
+### Review Stats
+
+| Metric | PR #56 | PR #57 | PR #59 | Total |
+|--------|--------|--------|--------|-------|
+| Tests added | 10 | 12 | 0 | 22 |
+| Review findings (all layers) | 8 | 17 | 3 | 28 |
+| Findings fixed pre-merge | 5 | 12 | 1 | 18 |
+| Mutations applied / survivors | 6 / 0 | 8 / 1 (fixed) | — | 14 / 1 |
+| #31-class prose/claim defects | 1 | 3 | 1 | 5 |
+| CI failures | 0 | 0 | 0 | 0 |
+
+Unfixed findings were accepted-as-recorded bounds (severity 🔵), each stated
+in its PR body. Tests-added derived from the per-PR XML chains
+(117→123→132 / 68→72→75).
+
+### Process Improvements Applied
+
+**During the milestone**: release template's tag command fixed (#52, PR #58);
+smoke row 17 rewritten around consumer ingestion (PR #60, user decision).
+**This commit**: external-existence-claim item (Documentation stage, all three
+templates); fresh-paths + contradiction-rule + XML-mtime items (release
+template, Release Verification); journal-watcher note (smoke-checklist
+preamble).
+**Cross-repo**: data#16 filed and implemented; data#8 and the harvester's
+`_fields` fix remain OUT-OF-REPO (Action Tracker #24).
+
+### Open Items
+
+- [ ] #25 undo silent no-op — now field-sighted, Action Tracker #31 (v0.5.2
+  triage priority)
+- [ ] Row 17 creation half (fresh-folder SAF ladder) — standing checklist row,
+  not owed debt
+- [ ] Verify data's drop-batch implementation against data#16's caveats
+  (Action Tracker #24 sibling; the commits landed but were not reviewed from
+  this side)
+- [ ] Remaining tech debt: GitHub #11, #12, #18, #24, #26, #27, #28, #30, #31,
+  #36
 
 ## v0.5.0 — Correct, then ship (PRs #40–#50)
 
@@ -183,12 +317,16 @@ milestone close; #31 scope extended.
 
 ### Open Items
 
-- [ ] Nine owed hardware rows (13, 16, 19, 20–25) — Action Tracker #12 (GitHub
-  #33); row 25 is the sole check on the write half of the #35 fix
-- [ ] Ops batch id + refile the receiving issue on `.dotfiles` — Action
-  Tracker #20 (GitHub #38), moved to v0.5.1
-- [ ] Song capture station-attribution lines — Action Tracker #22 (GitHub #51)
-- [ ] Release-template tag command — Action Tracker #23 (GitHub #52)
+- [x] Nine owed hardware rows (13, 16, 19, 20–25) — Action Tracker #12 (GitHub
+  #33) — resolved in v0.5.1: all discharged 2026-08-07/08 against the release
+  APK, #33 closed
+- [x] Ops batch id + refile the receiving issue on `.dotfiles` — Action
+  Tracker #20 (GitHub #38) — resolved in v0.5.1 (PR #57); receiving issue
+  became data#16 (topology had moved), implemented same day
+- [x] Song capture station-attribution lines — Action Tracker #22 (GitHub
+  #51) — resolved in v0.5.1 (PR #56), field-verified
+- [x] Release-template tag command — Action Tracker #23 (GitHub #52) —
+  resolved in v0.5.1 (PR #58), consumed by the v0.5.1 release run
 - [ ] `enforced by:` promote-or-drop, now with a negative data point — Action
   Tracker #9 (GitHub #31)
 - [ ] Titles-harvester defects (artist/title split fix uncommitted, entity

@@ -2,6 +2,14 @@
 
 Run on a real phone before tagging. One station per quirk class.
 
+While the pass runs, watch the synced artifacts from the desktop —
+a loop that snapshots every content transition of `ops.jsonl` (and
+`tail` on the titles log) turns UI observations into byte evidence.
+v0.5.1's pass caught a silently-failed undo (#25) and a Synology
+sync-echo replay this way; neither was visible on the phone screen.
+Note the phone syncs manually, so the desktop sees coalesced final
+states per sync, not intermediate ones.
+
 | # | Quirk | Station | Pass criteria |
 |---|-------|---------|---------------|
 | 1 | Plain icecast AAC | KEXP 90.3 | audio < 5s, notification controls work |

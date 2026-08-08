@@ -319,6 +319,21 @@
           "mandatory": true
         },
         {
+          "action": "every artifact download in this stage goes to a FRESH path — a comparison script that downloads into its own working set can overwrite the artifact under test and verify the wrong bytes (v0.5.1 near-miss: the hash comparison ran the old release against itself)",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "if any check contradicts an earlier check in this pass (e.g. hashes identical but manifests differ), STOP: one of the two instruments is broken — re-establish both from fresh downloads before concluding anything",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "verify the JUnit XML used for the release counts was written AFTER the release commit's tree existed (mtime vs commit time) — the suite must have run on the tree being released, not a replay",
+          "done": false,
+          "mandatory": true
+        },
+        {
           "action": "output RELEASE_PUBLISHED <url> or RELEASE_FAILED",
           "done": false,
           "mandatory": true
