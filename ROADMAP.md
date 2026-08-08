@@ -21,6 +21,10 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P2** | ✅ ~~ops journal: shared batch id + strictly-increasing ts~~ | Every op of one journal write shares the write's uuid with strictly-increasing ts, stamped at the single write point; verified against the real desktop merge (3 applied, 0 rejected, pair order kept). GitHub #38 | v0.5.1 |
 | **P3** | ✅ ~~release template: fix the Tag & Publish `git tag` command~~ | Stage 10 now documents `git tag -m` with the one-line-summary convention. GitHub #52 | v0.5.1 |
 | **P0** | ✅ ~~release v0.5.1~~ | Shipped 2026-08-07 with #51, #38, #52. The #33 hardware pass runs against this APK (release-first per ADR-0001 precedent — unverified is not known-broken) | v0.5.1 |
+| **P1** | undo integrity: #25 + #24 + #30 | One subsystem, three silent failures: the undo-vs-mutate token race is field-sighted (byte-proven on #25, 2026-08-07); #24's skipped generation bump leaves stale tokens live; #30's replay-less messages drop the one report that matters (a lost WriteFailed). Chosen at the 2026-08-08 strategy session | v0.5.2 |
+| **P2** | polish sweep (grouped): #11 #12 #18 #28 | Four tiny items that individually lose every triage; one `--group` pipeline run, one PR. Undo-feedback half of #18 lands after the P1 row settles token semantics | v0.5.2 |
+| **P2** | canon closure: #31 decision + #36 | Decide `enforced by:` promote-or-drop (one negative data point on record), reframe #31 as a canon doc so it stops absorbing scope; #36's stale-XML guard becomes a script, not vigilance | v0.5.2 |
+| **P0** | release v0.5.2 | Last row of its milestone per ADR-0001 | v0.5.2 |
 
 ## Milestones
 
@@ -221,6 +225,43 @@ Correction: the priority matrix and this section previously said
 the music harvester (titles log to JSON catalog); its Onda dependency was song
 capture, which shipped — `data#4` is closed and PRs #5 and #6 are merged. The
 ops journal is consumed by `stations-merge-ops.py` in `.dotfiles`.
+
+### Milestone: v0.5.2 — Integrity and sweep
+
+Chosen at the 2026-08-08 strategy session (deep mode, three paths presented;
+session record: `docs/strategy-sessions/2026-08-08-v0.5.2.md`). The debt-burn
+path: the issue pool is 11 items all dated 2026-07-24/25, and this milestone
+retires everything except the coverage/process tail (#26, #27), which the P1
+row's own test seams partially absorb.
+
+**undo integrity: #25 + #24 + #30**
+The token-and-feedback subsystem made honest under races. #25: an undo tap can
+beat the mutate coroutine and silently no-op — field-sighted 2026-08-07 with
+byte-proof on the issue; the fix must close the arm-before-tap window (or make
+the no-op loud), and the design decides between arming the token synchronously
+and giving undo a pending-intent semantics. #24: a refresh can skip the
+generation bump after migration, leaving a stale token live — the inverse
+failure (undo fires when it must not). #30: like/error messages are
+best-effort with a replay-less one-slot buffer; a dropped WriteFailed is the
+case that matters — `Channel(BUFFERED).receiveAsFlow()` is the named primitive,
+for both repositories at once. Design constraint: whatever token semantics
+land, the desktop contract is untouched (journal writes stay whole-file,
+batch-stamped).
+
+**polish sweep (grouped): #11 #12 #18 #28**
+One `--group` run: Discover `query` rememberSaveable (#11), `launchSingleTop`
+on the stations route (#12), ops-journal UX polish (#18 — voided-undo
+feedback rides the P1 row's semantics, sheet rotation survival stays), PR #23
+style follow-ups (#28).
+
+**canon closure: #31 decision + #36**
+The `enforced by:` trial gets its verdict (promote with a dangling-reference
+check, or drop — one negative data point: the map went stale inside a single
+commit on PR #47). #31 then converts to a canon document listing the defect
+class's substrates and instruments, and closes as an issue. #36's driver
+hygiene becomes `scripts/` tooling.
+
+**release v0.5.2** — the last row, per ADR-0001.
 
 ## Completed
 

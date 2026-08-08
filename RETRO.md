@@ -42,6 +42,11 @@ issue or be explicitly closed with a reason.
 
 ## v0.5.1 — Contract hardening (PRs #54–#60)
 
+**Forward link**: v0.5.2 planned in a deep `/pipeline-strategy` session on
+2026-08-08 — see `docs/strategy-sessions/2026-08-08-v0.5.2.md`. Chosen path:
+debt burn (undo-integrity cluster led by the field-sighted #25, grouped polish
+sweep, canon closure), retiring the 2026-07-24/25 issue cohort.
+
 **Date**: 2026-08-08
 **Scope**: Both outbound files gained the field their desktop consumer was
 waiting for — station attribution on likes (#51, PR #56) and batch atomicity
