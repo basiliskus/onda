@@ -30,10 +30,12 @@ internal class FakePlaylistsSource(
     override val folderTicks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val files = mutableMapOf<String, String>()
     var failReads = false
-    /** Read calls made so far; with [readFailuresAt], lets a row fail the Nth upcoming read
-     *  (e.g. a refresh's own journal re-read while the migration's reads succeed). */
-    var reads = 0
-    var readFailuresAt: Set<Int> = emptySet()
+    /** Fail the Nth read (1-based, counted per name over the fake's lifetime) of the named
+     *  file — e.g. a refresh's own journal re-read while the migration's reads succeed.
+     *  Name-scoped so reads of other files never shift the target; [readsOf] anchors the
+     *  count at the call site. */
+    var failReadOf: Pair<String, Int>? = null
+    private val readsByName = mutableMapOf<String, Int>()
     var failWrites = false
     var failAppends = false
     /** The seam could not reach recordings/onda-titles.log under exactly that name — in
@@ -51,9 +53,12 @@ internal class FakePlaylistsSource(
      *  a path wrote nothing by not attempting, rather than by writing identical bytes. */
     var appends = 0
 
+    /** Reads of [name] so far — the anchor for a relative [failReadOf] target. */
+    fun readsOf(name: String): Int = readsByName[name] ?: 0
+
     override fun readSyncedText(name: String): Result<String?> {
-        reads++
-        return if (failReads || reads in readFailuresAt)
+        val nth = readsByName.merge(name, 1, Int::plus)!!
+        return if (failReads || failReadOf == name to nth)
             Result.failure(IOException("synced folder unreachable"))
         else Result.success(files[name])
     }
@@ -119,8 +124,9 @@ internal fun TestScope.repo(fake: FakePlaylistsSource): OpsRepository =
     OpsRepository(fake, repoScope(), StandardTestDispatcher(testScheduler))
 
 /** Start collecting repo errors before acting — the strictest ordering; since #30 the
- *  channel buffers, so a late collector would also receive (UndoIntegrityTest pins that).
- *  Note the channel is single-consumer: one collectErrors per repository instance. */
+ *  channel holds one message (newest wins), so a late collector still receives the latest
+ *  (UndoIntegrityTest pins that). A live collector sees every error a row drains between
+ *  emissions. Single-consumer: one collectErrors per repository instance. */
 internal fun TestScope.collectErrors(repo: OpsRepository): List<String> {
     val errors = mutableListOf<String>()
     repoScope().launch(start = CoroutineStart.UNDISPATCHED) { repo.errors.collect { errors += it } }

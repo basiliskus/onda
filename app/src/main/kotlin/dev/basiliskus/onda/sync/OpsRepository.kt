@@ -13,6 +13,7 @@ import java.util.UUID
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,13 +57,19 @@ class OpsRepository(
         combine(playlists.state, _ops) { st, opList ->
             if (st is PlaylistsState.Ready) PlaylistsState.Ready(applyOps(st.playlists, opList)) else st
         }.stateIn(scope, SharingStarted.Eagerly, playlists.state.value)
-    /** Buffered channel, not a replay-less SharedFlow: an error emitted while no collector
-     *  exists (Activity recreating, app backgrounded) waits for the next one instead of
+    /** Capacity-1 newest-wins channel, not a replay-less SharedFlow: an error emitted while
+     *  no collector exists (Activity recreating) waits for the next one instead of
      *  vanishing — a dropped write-failure was the one report that mattered (GitHub #30).
-     *  Single consumer by design: the snackbar host. 64-slot buffer; trySend drops the
-     *  newest on overflow — unreachable at human rates with a collector normally present.
+     *  Capacity 1 + DROP_OLDEST bounds staleness to the single latest error: a folder
+     *  outage can never queue a backlog of expired snackbars ahead of a fresh report.
+     *  What this does NOT cover: delivery is at-most-once, so a collector cancelled at
+     *  the instant of handover can still consume a message unseen — the recreation window
+     *  is narrowed, not closed; and a backgrounded app keeps its LaunchedEffect collector,
+     *  so a snackbar shown off-screen still times out unseen. Single consumer by design
+     *  (the snackbar host) — a prose contract; the Flow type cannot enforce it, and a
+     *  second collector would steal deliveries.
      *  enforced by: UndoIntegrityTest."an ops error emitted with no collector reaches a late collector" */
-    private val _errors = Channel<String>(Channel.BUFFERED)
+    private val _errors = Channel<String>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val errors: Flow<String> = _errors.receiveAsFlow()
     private val mutex = Mutex()
     /** Bumped (under [mutex]) on every _ops change; guards [UndoToken] validity. */
@@ -97,13 +104,16 @@ class OpsRepository(
     fun refresh() {
         scope.launch(ioDispatcher) {
             mutex.withLock {
-                // A migration is a journal change, so it voids live tokens ITSELF — the
-                // setOps below also bumps, but the error-return between here and there
-                // must not leave a pre-migration token live against a post-migration
-                // journal: its undo would overwrite the migrated adds, whose pending.csv
-                // is already deleted (GitHub #24).
+                // A migration must land in _ops HERE, not wait for the setOps below: the
+                // error-return between them would otherwise leave a pre-migration mirror
+                // (and its live tokens) against a post-migration journal — an undo OR any
+                // later ordinary mutation would then serialize the stale mirror over the
+                // migrated adds, whose pending.csv is already deleted (GitHub #24; the
+                // mutate door is PR #65's review). setOps's generation bump is what voids
+                // the tokens.
                 // enforced by: UndoIntegrityTest."migration voids a live undo token even when the follow-up read fails"
-                if (migrateLegacyPending()) generation++
+                //              UndoIntegrityTest."a mutation after a migration with a failed re-read keeps the migrated adds"
+                migrateLegacyPending()?.let(::setOps)
                 val text = playlists.readSyncedText(JOURNAL).getOrElse {
                     _errors.trySend(UNAVAILABLE_MESSAGE)
                     return@withLock
@@ -172,10 +182,13 @@ class OpsRepository(
     }
 
     /** Restores the pre-delete snapshot iff no journal change intervened since [delete]
-     *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops.
-     *  The FIRST act is synchronous: recording the intent on the token, so an undo tapped
-     *  before its mutation has run suppresses the mutation in [mutate] rather than racing
-     *  it — the tap itself can never be lost (GitHub #25). */
+     *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops
+     *  (the missing feedback on that path is GitHub #18). The FIRST act is synchronous:
+     *  recording the intent on the token, so an undo tapped before its mutation has run
+     *  suppresses the mutation in [mutate] rather than racing it — the tap can no longer
+     *  lose to its own mutation's coroutine (GitHub #25). A tap [mutate]'s flag check has
+     *  already passed takes the snapshot path here, and an intervening journal change
+     *  still voids the token. */
     fun undo(token: UndoToken) {
         token.undoRequested = true
         scope.launch(ioDispatcher) {
@@ -201,8 +214,12 @@ class OpsRepository(
                 // An undo already requested for this mutation suppresses it entirely: no
                 // optimistic update, no journal write — the mutation never happened, which
                 // IS its undo, and a suppressed write is one the desktop can never consume
-                // (the 2026-08-07 field loss). Checked under the mutex, so every
-                // interleaving of the tap and this coroutine resolves the same way.
+                // (the 2026-08-07 field loss). A tap the flag-write did NOT beat here reads
+                // as a late undo: the armed-snapshot path below, two writes, the
+                // pre-existing eventual-consistency window included. Suppression narrows
+                // that window to the taps that land first; it does not close it — which is
+                // why hardware row R1 (fast undo under the journal watcher) stays in the
+                // release pass.
                 // enforced by: UndoIntegrityTest."an undo tapped before the mutate runs suppresses the mutation entirely"
                 if (armUndo?.undoRequested == true) return@withLock
                 val before = _ops.value
@@ -233,7 +250,10 @@ class OpsRepository(
                 // coroutine runs; an Undo tap landing in that window is handled by the
                 // undoRequested check at the top of this block (GitHub #25) — the tap sets
                 // the flag synchronously, so it either suppresses this mutation or finds
-                // the armed snapshot below. No interleaving loses the undo.
+                // the armed snapshot below. The tap can no longer lose the race against
+                // its own mutation; an unrelated journal change (a folder-tick refresh,
+                // another mutation) can still void the token first, and that voided undo
+                // no-ops silently today (the feedback gap is GitHub #18).
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)
@@ -254,24 +274,25 @@ class OpsRepository(
      * miss) at the start of every refresh, inside the mutex. A crash between journal write
      * and csv delete re-runs it next refresh: the re-appended adds collapse via dup-add
      * compaction keyed (url, null), so the journal converges and the csv is deleted on the
-     * next clean pass.
+     * next clean pass. Returns the merged, compacted ops when it wrote the journal — the
+     * caller owes them to [setOps] so the mirror can never go stale against the file —
+     * and null when there was nothing to migrate or the write did not land.
      */
-    /** Returns whether it wrote the journal — the caller owes a generation bump if so. */
-    private fun migrateLegacyPending(): Boolean {
+    private fun migrateLegacyPending(): List<Op>? {
         // getOrNull collapses "no csv" (normal) and "folder unreachable" (refresh's own
         // journal read surfaces that error) into skip.
-        val csv = playlists.readSyncedText(LEGACY_CSV).getOrNull() ?: return false
+        val csv = playlists.readSyncedText(LEGACY_CSV).getOrNull() ?: return null
         val adds = LegacyPendingMigration.toOps(csv, ids = ::newId, ts = now())
             // The migration is one journal write like any other, so its adds share one batch
             // id — uniformity is what gives an absent field its single meaning (GitHub #38).
             // Nothing is prior: every op is this write's.
             .let { OpsJournal.stamp(it, priorIds = emptySet(), batch = newId(), baseTs = Instant.now()) }
-        val existing = playlists.readSyncedText(JOURNAL).getOrElse { return false }
+        val existing = playlists.readSyncedText(JOURNAL).getOrElse { return null }
             ?.let { OpsJournal.parse(it).ops } ?: emptyList()
         val merged = OpsJournal.compact(existing + adds)
-        if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(merged))) return false
+        if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(merged))) return null
         playlists.deleteSyncedFile(LEGACY_CSV)
-        return true
+        return merged
     }
 
     private fun opStation(s: RbStation) = OpStation(

@@ -5,6 +5,7 @@ import java.time.LocalDateTime
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -30,14 +31,16 @@ internal class SongCaptureRepository(
 
     private val mutex = Mutex()
 
-    private val _messages = Channel<String>(Channel.BUFFERED)
+    private val _messages = Channel<String>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     /** Outcomes of [like] only. [capture] stays silent here so the sheet's snackbar and the
-     *  notification's toast never both fire for one tap — see [captureMessage]. Buffered
-     *  channel, not a replay-less SharedFlow: a WriteFailed emitted while the Activity is
-     *  recreating waits for the next collector instead of vanishing (GitHub #30). Single
-     *  consumer by design: the snackbar host. 64-slot buffer; trySend drops the newest on
-     *  overflow — unreachable at human tap rates with a collector normally present.
+     *  notification's toast never both fire for one tap — see [captureMessage]. Capacity-1
+     *  newest-wins channel, not a replay-less SharedFlow: a WriteFailed emitted while the
+     *  Activity is recreating waits for the next collector instead of vanishing (GitHub
+     *  #30), and a newer outcome replaces an unconsumed older one — at most one message
+     *  can carry over, so a relaunch never replays a backlog of stale outcomes. Single
+     *  consumer by design (the snackbar host) — a prose contract the Flow type cannot
+     *  enforce. See OpsRepository.errors for the windows this does NOT cover.
      *  enforced by: UndoIntegrityTest."a capture message emitted with no collector reaches a late collector" */
     val messages: Flow<String> = _messages.receiveAsFlow()
 
@@ -69,10 +72,12 @@ internal class SongCaptureRepository(
      * completes. A capture that writes nothing is the failure this feature must not have.
      *
      * The write is guaranteed, and since GitHub #30 the message survives collector absence
-     * too: [messages] is a buffered channel (matching OpsRepository.errors), so an outcome
-     * emitted while the Activity recreates or the app is backgrounded waits for the next
-     * collector instead of vanishing. Best-effort now means only the pathological: a full
-     * 64-slot buffer drops the newest, which no human tap rate reaches.
+     * too: [messages] is a capacity-1 newest-wins channel (matching OpsRepository.errors),
+     * so an outcome emitted while the Activity recreates waits for the next collector
+     * instead of vanishing. Not covered: a backgrounded app keeps its LaunchedEffect
+     * collector, so its snackbar times out off-screen; delivery is at-most-once, so
+     * cancellation at the instant of handover can still lose a message; and a second like
+     * before the first outcome is consumed replaces it.
      */
     fun like(streamTitle: String?, station: String?) {
         scope.launch { _messages.trySend(captureMessage(capture(streamTitle, station))) }

@@ -81,12 +81,10 @@ class UndoIntegrityTest {
         advanceUntilIdle() // armed; journal = [delete]
 
         // pending.csv appears (synced from the desktop), and the refresh's own journal
-        // re-read fails: reads are (1) LEGACY_CSV, (2) JOURNAL inside the migration,
-        // then (3) JOURNAL again in refresh — fail exactly that third one.
-        fake.files[LEGACY_CSV] =
-            "# name,url,encoding,icon,profile,buffering,force-http,volume,referer,player,stationuuid,tags,country,votes\n" +
-            "NTS,https://nts.example/stream,,,,,,,,,uuid-1,eclectic,United Kingdom,812\n"
-        fake.readFailuresAt = setOf(fake.reads + 3)
+        // re-read fails: this refresh reads JOURNAL (1) inside the migration, then (2)
+        // again in refresh itself — fail exactly that second one.
+        fake.files[LEGACY_CSV] = PENDING_CSV
+        fake.failReadOf = JOURNAL to fake.readsOf(JOURNAL) + 2
         r.refresh()
         advanceUntilIdle() // migration wrote the merged journal and deleted the csv; bump owed
 
@@ -97,6 +95,33 @@ class UndoIntegrityTest {
         assertTrue(
             "https://nts.example/stream" in urls,
             "undo after a migration clobbered the migrated add — the csv is already deleted, so it is lost permanently",
+        )
+    }
+
+    /**
+     * PR #65 review — the #24 loss shape through the OTHER door: a failed follow-up read
+     * also leaves the in-memory mirror stale, and the next ORDINARY mutation (no undo
+     * involved) serializes that stale mirror over the migrated journal. The migration's
+     * merged ops must land in the mirror itself, not merely void tokens.
+     */
+    @Test fun `a mutation after a migration with a failed re-read keeps the migrated adds`() = runTest {
+        val s = station("http://u")
+        val fake = FakePlaylistsSource(ready(s))
+        val r = repo(fake)
+        advanceUntilIdle()
+
+        fake.files[LEGACY_CSV] = PENDING_CSV
+        fake.failReadOf = JOURNAL to fake.readsOf(JOURNAL) + 2
+        r.refresh()
+        advanceUntilIdle() // migration wrote the merged journal; refresh's own re-read failed
+
+        r.delete(s)
+        advanceUntilIdle()
+
+        val urls = fake.journalOps().filterIsInstance<Op.Add>().map { it.station.url }
+        assertTrue(
+            "https://nts.example/stream" in urls,
+            "a mutation from a stale mirror clobbered the migrated add — the csv is already deleted, so it is lost permanently",
         )
     }
 
@@ -144,5 +169,12 @@ class UndoIntegrityTest {
         job.cancel()
 
         assertEquals(listOf(UNAVAILABLE_MESSAGE), seen)
+    }
+
+    private companion object {
+        /** One desktop-synced pending row — the migrated add whose loss the #24 rows watch for. */
+        const val PENDING_CSV =
+            "# name,url,encoding,icon,profile,buffering,force-http,volume,referer,player,stationuuid,tags,country,votes\n" +
+            "NTS,https://nts.example/stream,,,,,,,,,uuid-1,eclectic,United Kingdom,812\n"
     }
 }
