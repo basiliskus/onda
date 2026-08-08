@@ -64,9 +64,10 @@ Policy and the reasoning behind it:
 ## Data contract
 
 The app renders playlists it does not own. Source of truth is
-`stations.csv` (+ five sibling playlists) in the dotfiles repo
-(`~/.dotfiles/home/.config/pyradio/`), exported by
-`~/.dotfiles/scripts/tools/stations-to-m3u.py` to `~/Sync/Radio/*.m3u`
+`stations.csv` (+ five sibling playlists) in the data repo
+(`~/Code/Personal/data/radio/` — moved from `.dotfiles` by dotfiles#35;
+`.dotfiles` keeps only the launchd wrappers), exported by
+`radio/scripts/stations-to-m3u.py` to `~/Sync/Radio/*.m3u`
 (EXTM3U with `group-title` on every entry), which Synology Drive syncs
 to the phone. The app watches that synced folder and hot-reloads —
 importing is not a concept. Six playlists today: stations, nts, fip,

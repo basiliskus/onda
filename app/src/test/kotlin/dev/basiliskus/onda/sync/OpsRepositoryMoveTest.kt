@@ -53,6 +53,63 @@ class OpsRepositoryMoveTest {
         assertEquals(writesBefore + 1, fake.writes)
     }
 
+    /** The journal-side contract of GitHub #38: the pair carries the write's shared batch id
+     *  with strictly increasing ts, so the desktop can enforce the atomicity the phone
+     *  guarantees in memory. Byte shape (absent key on old ops) is canon in OpsJournalTest;
+     *  these rows pin what the REPOSITORY stamps. */
+    @Test fun `cross-playlist pair shares one batch id with strictly increasing ts`() = runTest {
+        val s = station("http://u")
+        val fake = FakePlaylistsSource(sourceAndTarget(s))
+        val r = repo(fake)
+        advanceUntilIdle()
+
+        r.moveToPlaylist(s, "nts", "Jazz")
+        advanceUntilIdle()
+
+        val ops = fake.journalOps()
+        assertEquals(2, ops.size)
+        val batch = ops[0].batch
+        assertNotNull(batch, "delete carries no batch id")
+        assertEquals(batch, ops[1].batch, "pair does not share the write's batch id")
+        val (d, a) = ops.map { java.time.Instant.parse(it.ts) }
+        assertTrue(d < a, "ts not strictly increasing within the batch: $d !< $a")
+    }
+
+    @Test fun `separate mutates mint distinct batch ids and a single-op mutate still carries one`() = runTest {
+        val s = station("http://u")
+        val fake = FakePlaylistsSource(ready(s, station("http://u2")))
+        val r = repo(fake)
+        advanceUntilIdle()
+
+        r.delete(s)
+        advanceUntilIdle()
+        r.delete(station("http://u2"))
+        advanceUntilIdle()
+
+        val batches = fake.journalOps().map { it.batch }
+        assertTrue(batches.all { it != null }, "a single-op mutate lost its batch id: $batches")
+        assertEquals(2, batches.toSet().size, "distinct writes share a batch id: $batches")
+    }
+
+    @Test fun `journal bytes carry batch for new ops and no batch key for pre-existing ones`() = runTest {
+        val s = station("http://u")
+        val fake = FakePlaylistsSource(sourceAndTarget(s))
+        // Seed a pre-#38 journal line: parsed on refresh, batch stays null, and the rewrite
+        // must not invent a key for it.
+        fake.seedJournal(addOp("http://old"))
+        val r = repo(fake)
+        advanceUntilIdle()
+
+        r.delete(s)
+        advanceUntilIdle()
+
+        val lines = fake.files.getValue(JOURNAL).trim().lines()
+        val old = lines.single { it.contains("http://old") }
+        val new = lines.single { it.contains("\"op\":\"delete\"") }
+        assertFalse(old.contains("\"batch\""), "rewrite invented a batch key on a pre-#38 op: $old")
+        assertTrue(new.contains("\"batch\""), "new op serialized without its batch id: $new")
+    }
+
     @Test fun `cross-playlist move arms one token that undoes both ops`() = runTest {
         val s = station("http://u")
         val fake = FakePlaylistsSource(sourceAndTarget(s))

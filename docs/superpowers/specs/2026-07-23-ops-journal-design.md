@@ -166,3 +166,27 @@ merging (single phone assumed).
 adds, and un-star never removes them; targeted adds are managed as
 pending rows in the playlist UI. Supersedes the "an unconsumed add op
 for this url exists" wording above.
+
+2026-08-07 (GitHub #38): every op introduced by one journal write
+carries a `"batch"` field — the write's fresh uuid, shared across the
+group, uniform including single-op writes and the pending.csv
+migration. An **absent** key (never `"batch":null` — unlike
+playlist/group, whose explicit nulls the sample above pins) means
+exactly one thing: the op predates the field. Within a batch, `ts` is
+strictly increasing in write order (base + index ms, fixed-width
+`.SSS` millis), and the write's base is floored strictly above every
+parseable `ts` already in the journal — so ops the phone stamps are
+monotone in file order even when a write lands inside an earlier
+batch's synthesized span or the wall clock steps back. Across batches
+`ts` stays informational and file order authoritative on-phone, as
+above; consumers must compare parsed instants, not raw strings, while
+pre-batch lines exist (mixed-width ISO strings are not byte-order
+consistent). This is what lets the desktop merge treat a group (e.g. the
+cross-playlist Delete+Add pair) as all-or-nothing instead of inferring
+pairs by url. Two caveats the desktop's drop-batch must honor,
+established at review: phone-side compaction can leave a pair spanning
+two batches (a repeated identical move keeps the first delete's batch
+while the replacing add carries the newer one), and a batch's members
+can be non-contiguous with non-monotone ts after a rewrite transfers a
+later write's ts onto a surviving op. Batch is a grouping hint with
+one writer, not a completeness proof.

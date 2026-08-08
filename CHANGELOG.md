@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Journal ops carry a shared `batch` id: every op introduced by one journal
+  write — the cross-playlist Delete+Add pair, a single delete, the one-time
+  `pending.csv` migration alike — is stamped with the write's fresh uuid and a
+  strictly-increasing `ts` (base + index ms), so the desktop merge can treat
+  the group as all-or-nothing instead of inferring pairs by url, closing the
+  station-lost-in-neither-playlist window a rejected Add after an applied
+  Delete would open. Stamping happens where the writes happen — `mutate()`,
+  which every mutation flows through, plus the one-time migration — so no
+  call site can forget it; `undo` restores a snapshot and introduces no ops,
+  so it stamps nothing and preserves every op's original batch. A null batch
+  is **absent** from the JSON — a pre-#38 line and a batchless op are the same
+  bytes — while `playlist`/`group` keep
+  their contract-pinned explicit nulls. Verified against the real desktop
+  merge over a scratch corpus of the six real CSVs: a batch pair plus a
+  batchless control, 3 applied, 0 rejected, pair order preserved through the
+  ts sort. The desktop-side drop-batch enforcement is the data repo's half of
+  the contract (data#16). Stamped `ts` are fixed-width millis with the write's
+  base floored above the journal's existing timestamps, so the ops Onda stamps
+  stay monotone in file order under clock step-backs too. `:core` 123 → 132,
+  `:app` 72 → 75. Contract:
+  `docs/superpowers/specs/2026-07-23-ops-journal-design.md`.
+
 - Song capture attributes likes to their station: whenever the playing item
   names one, the liked line is preceded by a `>>> Station: <name>` line in
   pyradio's own shape (same timestamp, no liked-line indent), so the desktop

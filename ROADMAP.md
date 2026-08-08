@@ -18,7 +18,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P2** | ✅ ~~resumption survives move and regroup~~ | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
 | **P0** | ✅ ~~release v0.5.0~~ | v0.4.0 merged but never shipped — versionName is still 0.3.0. Unblocks #33's owed hardware rows (which now run against the release APK, not a debug build), the first real `library/onda.json`, and Onda's first real input to `basiliskus/data`. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
 | **P1** | ✅ ~~song capture: emit `>>> Station:` lines~~ | Liked lines travel with a `>>> Station:` line as one untearable append (single line when the item names no station); verified against the real harvester (attribution byte-equal + negative control). GitHub #51 | v0.5.1 |
-| **P2** | ops journal: shared batch id + strictly-increasing ts | `.dotfiles#41` shipped the inference-based warning and closed, deferring exact rollback to a field only this repo can emit; contract agreed from both ends. Moved out of v0.5.0 2026-07-26 — the gap is unreachable in today's configuration and nothing is waiting on it. GitHub #38 | v0.5.1 |
+| **P2** | ✅ ~~ops journal: shared batch id + strictly-increasing ts~~ | Every op of one journal write shares the write's uuid with strictly-increasing ts, stamped at the single write point; verified against the real desktop merge (3 applied, 0 rejected, pair order kept). GitHub #38 | v0.5.1 |
 | **P3** | release template: fix the Tag & Publish `git tag` command | `tag.gpgsign true` forces annotated tags, so the documented command fails as written; must land before this milestone's own release run reads the template. GitHub #52 | v0.5.1 |
 | **P0** | release v0.5.1 | Ships #51, #38, #52 plus whatever the v0.5.0 hardware pass (#33) surfaces. Last row of its milestone per ADR-0001 | v0.5.1 |
 
@@ -194,6 +194,18 @@ phone builds its playlist list from the same set the desktop allows", and
 inference-based warning — so no desktop consumer is waiting, and there is no
 open issue there to receive the field. Refiling on `.dotfiles` is part of this
 task.
+
+*Topology correction, found at plan time 2026-08-07:* the merge script moved
+to `data/radio/scripts/stations-merge-ops.py` (dotfiles#35; `.dotfiles` keeps
+only the launchd wrapper), so the receiving issue belongs to
+**basiliskus/data**, not `.dotfiles`.
+
+✅ Shipped 2026-08-07. `batch` stamped centrally in `mutate()` before
+compaction — uniform across call sites, migration included — with
+`@EncodeDefault(NEVER)` so absence is the only spelling of "pre-#38".
+Verified against the real merge script over a scratch corpus (3 applied,
+0 rejected, order ledger-verified). The desktop drop-batch half is data#16; contract amendments (two compaction caveats) in
+`docs/superpowers/specs/2026-07-23-ops-journal-design.md`.
 
 **release v0.5.1** — the last row, per ADR-0001
 Ships #51, #38, #52 and anything the v0.5.0 hardware pass turns up. #51 is

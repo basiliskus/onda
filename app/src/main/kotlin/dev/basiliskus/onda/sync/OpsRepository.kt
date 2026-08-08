@@ -175,7 +175,21 @@ class OpsRepository(
         scope.launch(ioDispatcher) {
             mutex.withLock {
                 val before = _ops.value
-                val updated = OpsJournal.compact(transform(before))
+                val transformed = transform(before)
+                // One journal write = one batch id on the ops it introduces (GitHub #38),
+                // stamped here — the single write point — so no call site can forget it.
+                // Stamp precedes compact: compaction may rewrite or drop ops, and the ops
+                // it keeps carry the batch of the write that introduced them.
+                // enforced by: OpsRepositoryMoveTest."cross-playlist pair shares one batch id with strictly increasing ts"
+                //              OpsRepositoryMoveTest."separate mutates mint distinct batch ids and a single-op mutate still carries one"
+                //              OpsJournalTest."compaction's move-rewrites-add keeps the add's batch and takes the move's ts"
+                val beforeIds = before.mapTo(HashSet()) { it.id }
+                val updated = OpsJournal.compact(
+                    // A remove-only transform (un-star) introduces nothing — skip the stamp
+                    // rather than mint a uuid and map the list for an identity result.
+                    if (transformed.all { it.id in beforeIds }) transformed
+                    else OpsJournal.stamp(transformed, priorIds = beforeIds, batch = newId(), baseTs = Instant.now())
+                )
                 // Optimistic: _ops (and everything derived from it) updates before the SAF
                 // write lands; rolled back on write failure so the UI never sticks in a
                 // state the journal doesn't back.
@@ -217,6 +231,10 @@ class OpsRepository(
         // journal read surfaces that error) into skip.
         val csv = playlists.readSyncedText(LEGACY_CSV).getOrNull() ?: return
         val adds = LegacyPendingMigration.toOps(csv, ids = ::newId, ts = now())
+            // The migration is one journal write like any other, so its adds share one batch
+            // id — uniformity is what gives an absent field its single meaning (GitHub #38).
+            // Nothing is prior: every op is this write's.
+            .let { OpsJournal.stamp(it, priorIds = emptySet(), batch = newId(), baseTs = Instant.now()) }
         val existing = playlists.readSyncedText(JOURNAL).getOrElse { return }
             ?.let { OpsJournal.parse(it).ops } ?: emptyList()
         val merged = OpsJournal.compact(existing + adds)
@@ -236,6 +254,11 @@ class OpsRepository(
     private fun opStation(s: Station) = OpStation(name = s.name, url = s.url, icon = s.logo.orEmpty())
 
     private fun newId() = UUID.randomUUID().toString()
+
+    /** Construction-site ts only: the write path re-mints every new op's ts in
+     *  [OpsJournal.stamp] (mutate and the migration both), so these values never reach the
+     *  journal — kept as an honest placeholder rather than a sentinel a stamp bypass would
+     *  serialize as garbage. */
     private fun now() = Instant.now().toString()
 
     private companion object {
