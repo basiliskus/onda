@@ -52,12 +52,18 @@ class OpsJournalTest {
         // Absent-key is the contract: a pre-#38 op and a batchless line must be the same
         // bytes. playlist/group keep their explicit nulls (contract sample) — the
         // @EncodeDefault(NEVER) narrowing is batch's alone.
+        // All three shapes: the annotation lives per-property, so an Add-only row would let
+        // a dropped @EncodeDefault on Delete or Move ship green (Code Review mutation M8).
+        OpsJournal.serialize(listOf(quickAdd, delete, move)).trim().lines().forEach { line ->
+            assertFalse(line.contains("\"batch\""), line)
+        }
         val line = OpsJournal.serialize(listOf(quickAdd)).trim()
-        assertFalse(line.contains("\"batch\""), line)
         assertTrue(line.contains("\"playlist\":null"), line)
         assertTrue(line.contains("\"group\":null"), line)
-        val stamped = OpsJournal.serialize(listOf(quickAdd.copy(batch = "b-9"))).trim()
-        assertTrue(stamped.contains("\"batch\":\"b-9\""), stamped)
+        val stamped = OpsJournal.serialize(
+            listOf(quickAdd.copy(batch = "b-9"), delete.copy(batch = "b-9"), move.copy(batch = "b-9")),
+        ).trim().lines()
+        stamped.forEach { assertTrue(it.contains("\"batch\":\"b-9\""), it) }
     }
 
     @Test fun `a pre-batch journal line parses with a null batch`() {
