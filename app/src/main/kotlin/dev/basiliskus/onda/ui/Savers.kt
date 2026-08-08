@@ -11,13 +11,16 @@ import dev.basiliskus.onda.core.radiobrowser.RbStation
  * restored value is the same snapshot the var held, with the same staleness window a
  * config change never widened. Field lists are positional: adding a field to either type
  * without touching its saver restores garbage, which is why each save/restore pair sits
- * here in one place. An empty list encodes null (listSaver rejects empty lists from
- * non-null values, so the encoding is unambiguous).
+ * here in one place. An empty list encodes null: listSaver saves nothing for an empty
+ * list, so a null value restores as the initializer's own null and the non-empty
+ * branches below are the only ones a real restore reaches.
  */
 internal val StationSaver: Saver<Station?, Any> = listSaver(
     // logo rides as "" for null — a null element inside the saved list is not reliably
-    // Bundle-saveable, and the M3U parser never produces an empty-but-present tvg-logo,
-    // so "" -> null round-trips the only value that occurs.
+    // Bundle-saveable. The M3U parser CAN hand through an empty-but-present tvg-logo
+    // verbatim, so restore collapses that edge to null: the one direction that is safe,
+    // since null is what every consumer handles as logo-absent (StationRow via
+    // isNullOrBlank, playableItem by skipping setArtworkUri's parse).
     save = { s -> if (s == null) emptyList() else listOf(s.name, s.url, s.group, s.playlist, s.logo.orEmpty(), s.pending) },
     restore = { l ->
         if (l.isEmpty()) null
