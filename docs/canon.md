@@ -32,7 +32,9 @@ Each entry names the PR that caught the class on that substrate.
 2. **PR prose and review claims** — PR #57 ("filed on data" written before
    filing), PR #59 ("both halves verified", caught by the release reviewer),
    PR #64's strategy doc ("~4 pool", transcribed from conversation instead
-   of derived — Action Tracker #30 collects all three).
+   of derived). Each example cites only its own PR: this sentence's first
+   two drafts each carried a collective cross-reference that was itself
+   misattributed — caught by two successive primary-record reviews.
 3. **API shapes** — a signature implying a guarantee the implementation
    scopes narrower (PR #29's `mimeFor`).
 4. **Release notes / CHANGELOG** — PR #65 (suppression scope, channel
