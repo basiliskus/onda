@@ -7,7 +7,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -37,7 +36,8 @@ internal class SongCaptureRepository(
      *  notification's toast never both fire for one tap — see [captureMessage]. Buffered
      *  channel, not a replay-less SharedFlow: a WriteFailed emitted while the Activity is
      *  recreating waits for the next collector instead of vanishing (GitHub #30). Single
-     *  consumer by design: the snackbar host.
+     *  consumer by design: the snackbar host. 64-slot buffer; trySend drops the newest on
+     *  overflow — unreachable at human tap rates with a collector normally present.
      *  enforced by: UndoIntegrityTest."a capture message emitted with no collector reaches a late collector" */
     val messages: Flow<String> = _messages.receiveAsFlow()
 

@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -60,7 +59,8 @@ class OpsRepository(
     /** Buffered channel, not a replay-less SharedFlow: an error emitted while no collector
      *  exists (Activity recreating, app backgrounded) waits for the next one instead of
      *  vanishing — a dropped write-failure was the one report that mattered (GitHub #30).
-     *  Single consumer by design: the snackbar host.
+     *  Single consumer by design: the snackbar host. 64-slot buffer; trySend drops the
+     *  newest on overflow — unreachable at human rates with a collector normally present.
      *  enforced by: UndoIntegrityTest."an ops error emitted with no collector reaches a late collector" */
     private val _errors = Channel<String>(Channel.BUFFERED)
     val errors: Flow<String> = _errors.receiveAsFlow()
@@ -156,8 +156,8 @@ class OpsRepository(
      *
      * The atomicity claimed is over the journal file and the ops StateFlow, under [mutate]'s
      * mutex on [ioDispatcher] — nothing more. The token is handed back synchronously, before
-     * that coroutine runs, so this inherits [delete]'s Undo-versus-mutate race unchanged
-     * (see [mutate]); the FIFO test dispatcher cannot exercise it and no row claims it does.
+     * that coroutine runs; an Undo tap in that window suppresses the whole mutation via the
+     * token's intent flag (GitHub #25 — see [mutate] and [undo]), same as [delete].
      */
     fun moveToPlaylist(station: Station, toPlaylist: String, toGroup: String): UndoToken {
         val token = UndoToken()
@@ -230,11 +230,10 @@ class OpsRepository(
                 // the generation again, voiding the token.
                 //
                 // delete()/moveToPlaylist() hand the token back synchronously, before this
-                // coroutine runs, so on the multi-threaded production Dispatchers.IO an
-                // Undo tap can reach the mutex first and find snapshot == null — a silent
-                // no-op, leaving the delete standing. Fail-safe and sub-millisecond, but
-                // real: the tests run on a FIFO StandardTestDispatcher and structurally
-                // cannot exercise it.
+                // coroutine runs; an Undo tap landing in that window is handled by the
+                // undoRequested check at the top of this block (GitHub #25) — the tap sets
+                // the flag synchronously, so it either suppresses this mutation or finds
+                // the armed snapshot below. No interleaving loses the undo.
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)
