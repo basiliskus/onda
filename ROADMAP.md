@@ -19,7 +19,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P0** | ✅ ~~release v0.5.0~~ | v0.4.0 merged but never shipped — versionName is still 0.3.0. Unblocks #33's owed hardware rows (which now run against the release APK, not a debug build), the first real `library/onda.json`, and Onda's first real input to `basiliskus/data`. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
 | **P1** | ✅ ~~song capture: emit `>>> Station:` lines~~ | Liked lines travel with a `>>> Station:` line as one untearable append (single line when the item names no station); verified against the real harvester (attribution byte-equal + negative control). GitHub #51 | v0.5.1 |
 | **P2** | ✅ ~~ops journal: shared batch id + strictly-increasing ts~~ | Every op of one journal write shares the write's uuid with strictly-increasing ts, stamped at the single write point; verified against the real desktop merge (3 applied, 0 rejected, pair order kept). GitHub #38 | v0.5.1 |
-| **P3** | release template: fix the Tag & Publish `git tag` command | `tag.gpgsign true` forces annotated tags, so the documented command fails as written; must land before this milestone's own release run reads the template. GitHub #52 | v0.5.1 |
+| **P3** | ✅ ~~release template: fix the Tag & Publish `git tag` command~~ | Stage 10 now documents `git tag -m` with the one-line-summary convention. GitHub #52 | v0.5.1 |
 | **P0** | release v0.5.1 | Ships #51, #38, #52 plus whatever the v0.5.0 hardware pass (#33) surfaces. Last row of its milestone per ADR-0001 | v0.5.1 |
 
 ## Milestones
@@ -179,6 +179,10 @@ tags. Loud failure, but it sits in the one stage ADR-0001 exists to protect,
 and a release is rare enough that the next executor rediscovers it by failing.
 Must merge before this milestone's release run copies the template. Trivial
 single-commit PR per the direct-to-main threshold. GitHub #52.
+
+✅ Shipped 2026-08-07: stage 10 documents `git tag -m "<one-line summary>"`
+with the existing tags' style (`git tag -n1`) and records why the bare form
+fails.
 
 **ops journal: shared batch id + strictly-increasing ts**
 `UndoToken` gains an id at construction; every op written under an armed token

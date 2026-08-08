@@ -282,7 +282,7 @@
           "mandatory": true
         },
         {
-          "action": "git tag vX.Y.Z && git push origin vX.Y.Z",
+          "action": "git tag -m \"<one-line summary in the style of the existing tags>\" vX.Y.Z && git push origin vX.Y.Z — the -m is required: tag.gpgsign true forces annotated tags, so a bare `git tag` fails with `fatal: no tag message?` (discovered by running it during v0.5.0; GitHub #52). All existing tags carry a one-line summary — read `git tag -n1` for the style",
           "done": false,
           "mandatory": true
         },
