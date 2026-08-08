@@ -175,7 +175,14 @@ class OpsRepository(
         scope.launch(ioDispatcher) {
             mutex.withLock {
                 val before = _ops.value
-                val updated = OpsJournal.compact(transform(before))
+                val transformed = transform(before)
+                // One journal write = one batch id on the ops it introduces (GitHub #38),
+                // stamped here — the single write point — so no call site can forget it.
+                // Stamp precedes compact: compaction may rewrite or drop ops, and the ops
+                // it keeps carry the batch of the write that introduced them.
+                val beforeIds = before.mapTo(HashSet()) { it.id }
+                val newIds = transformed.filter { it.id !in beforeIds }.mapTo(HashSet()) { it.id }
+                val updated = OpsJournal.compact(OpsJournal.stamp(transformed, newIds, newId(), Instant.now()))
                 // Optimistic: _ops (and everything derived from it) updates before the SAF
                 // write lands; rolled back on write failure so the UI never sticks in a
                 // state the journal doesn't back.
@@ -217,6 +224,9 @@ class OpsRepository(
         // journal read surfaces that error) into skip.
         val csv = playlists.readSyncedText(LEGACY_CSV).getOrNull() ?: return
         val adds = LegacyPendingMigration.toOps(csv, ids = ::newId, ts = now())
+            // The migration is one journal write like any other, so its adds share one batch
+            // id — uniformity is what gives an absent field its single meaning (GitHub #38).
+            .let { OpsJournal.stamp(it, it.mapTo(HashSet()) { op -> op.id }, newId(), Instant.now()) }
         val existing = playlists.readSyncedText(JOURNAL).getOrElse { return }
             ?.let { OpsJournal.parse(it).ops } ?: emptyList()
         val merged = OpsJournal.compact(existing + adds)

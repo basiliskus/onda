@@ -41,6 +41,62 @@ class OpsJournalTest {
         assertTrue(lines[2].contains("\"to_group\":"), lines[2])
     }
 
+    @Test fun `batch round-trips through serialize and parse on all three shapes`() {
+        val ops = listOf(
+            add.copy(batch = "b-1"), delete.copy(batch = "b-1"), move.copy(batch = "b-2"),
+        )
+        assertEquals(ops, OpsJournal.parse(OpsJournal.serialize(ops)).ops)
+    }
+
+    @Test fun `a null batch emits no batch key while playlist and group nulls stay explicit`() {
+        // Absent-key is the contract: a pre-#38 op and a batchless line must be the same
+        // bytes. playlist/group keep their explicit nulls (contract sample) — the
+        // @EncodeDefault(NEVER) narrowing is batch's alone.
+        val line = OpsJournal.serialize(listOf(quickAdd)).trim()
+        assertFalse(line.contains("\"batch\""), line)
+        assertTrue(line.contains("\"playlist\":null"), line)
+        assertTrue(line.contains("\"group\":null"), line)
+        val stamped = OpsJournal.serialize(listOf(quickAdd.copy(batch = "b-9"))).trim()
+        assertTrue(stamped.contains("\"batch\":\"b-9\""), stamped)
+    }
+
+    @Test fun `a pre-batch journal line parses with a null batch`() {
+        // Raw fixture, not serialize() output — this is the byte shape already on phones.
+        val line = """{"op":"delete","id":"d9","ts":"2026-07-01T00:00:00Z",""" +
+            """"url":"https://old.example/s","playlist":"stations"}"""
+        val result = OpsJournal.parse(line)
+        assertEquals(0, result.malformed)
+        assertNull((result.ops.single() as Op.Delete).batch)
+    }
+
+    @Test fun `stamp shares one batch across new ops with strictly increasing ts in list order`() {
+        val base = java.time.Instant.parse("2026-08-07T12:00:00Z")
+        val stamped = OpsJournal.stamp(
+            listOf(delete, quickAdd, move), newIds = setOf("d1", "a2", "m1"), batch = "b-7", baseTs = base,
+        )
+        assertEquals(listOf("d1", "a2", "m1"), stamped.map { it.id }, "order must be preserved")
+        assertTrue(stamped.all { it.batch == "b-7" }, "batch not shared: $stamped")
+        val instants = stamped.map { java.time.Instant.parse(it.ts) }
+        assertEquals(base, instants.first())
+        instants.zipWithNext().forEach { (a, b) -> assertTrue(a < b, "ts not strictly increasing: $instants") }
+    }
+
+    @Test fun `stamp leaves ops outside newIds untouched, batch included`() {
+        val old = delete.copy(batch = "b-old")
+        val stamped = OpsJournal.stamp(
+            listOf(old, quickAdd), newIds = setOf("a2"),
+            batch = "b-new", baseTs = java.time.Instant.parse("2026-08-07T12:00:00Z"),
+        )
+        assertSame(old, stamped[0])
+        assertEquals("b-new", stamped[1].batch)
+        assertEquals("2026-08-07T12:00:00Z", stamped[1].ts)
+    }
+
+    @Test fun `compaction keeps a surviving op's batch`() {
+        val kept = OpsJournal.compact(listOf(delete.copy(batch = "b-3"), quickAdd.copy(batch = "b-4")))
+        assertEquals(listOf("b-3", "b-4"), kept.map { it.batch })
+    }
+
     @Test fun `serialize emits one line per op with trailing newline`() {
         val text = OpsJournal.serialize(listOf(add, delete))
         assertTrue(text.endsWith("\n"))

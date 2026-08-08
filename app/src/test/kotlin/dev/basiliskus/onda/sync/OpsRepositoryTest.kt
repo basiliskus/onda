@@ -130,6 +130,8 @@ class OpsRepositoryTest {
         assertNull(add.group)
         assertEquals("https://nts.example/stream", add.station.url)
         assertEquals(setOf("https://nts.example/stream"), r.starredUrls.value)
+        // The migration is one journal write, so its adds are one batch (GitHub #38).
+        assertNotNull(add.batch, "migrated add carries no batch id")
     }
 
     @Test fun `pending csv migration aborts on write failure keeping the csv`() = runTest {

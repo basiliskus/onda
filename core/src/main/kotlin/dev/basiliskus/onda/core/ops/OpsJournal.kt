@@ -30,6 +30,28 @@ object OpsJournal {
     fun serialize(ops: List<Op>): String =
         ops.joinToString("") { json.encodeToString(Op.serializer(), it) + "\n" }
 
+    /**
+     * Stamps the ops entering the journal in one write (GitHub #38): each op whose id is in
+     * [newIds] gets the write's shared [batch] uuid and a re-minted ts of [baseTs] plus its
+     * stamped index in milliseconds — strictly increasing within the batch, in list order, so
+     * the desktop's ts sort needs no stable-tiebreak assumption for ops written together.
+     * Ops outside [newIds] (already in the journal) pass through untouched, keeping the batch
+     * id of the write that stamped them.
+     */
+    fun stamp(ops: List<Op>, newIds: Set<String>, batch: String, baseTs: java.time.Instant): List<Op> {
+        var stamped = 0
+        return ops.map { op ->
+            if (op.id !in newIds) op
+            else baseTs.plusMillis((stamped++).toLong()).toString().let { ts ->
+                when (op) {
+                    is Op.Add -> op.copy(ts = ts, batch = batch)
+                    is Op.Delete -> op.copy(ts = ts, batch = batch)
+                    is Op.Move -> op.copy(ts = ts, batch = batch)
+                }
+            }
+        }
+    }
+
     fun compact(ops: List<Op>): List<Op> {
         val residues = LinkedHashMap<Pair<String, String?>, MutableList<Op>>()
         for (op in ops) {
