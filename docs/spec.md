@@ -134,6 +134,14 @@ directory, splits each line on `" | "`, and keeps messages ending in
   (Until v0.5.1 Onda emitted no station lines and its likes landed
   without a `station` field — GitHub #51 records why that stopped being
   tolerable once the consumer's station-aware pass shipped.)
+- **Guarded bound** (from the data agent, 2026-08-08): a stationless
+  like is unreachable from Onda's UI today, but if that ever changes,
+  the consumer's carry-forward would attribute it to the last station
+  line in the log — with **no session boundary**, since Onda writes no
+  `=== Logging` markers, so the carried name could be days stale.
+  Whoever makes stationless likes reachable must also emit either a
+  session marker on stream stop or an explicitly blank station line.
+  Contract row: "Contract with Onda", data `radio/README.md`.
 
 **Line-boundary neutralization.** An ICY `StreamTitle` — and the
 station name, which reaches the same log — is untrusted remote input
@@ -159,11 +167,13 @@ The user's 205 stations already span every awkward format:
   (`radio.garden/api/ara/content/listen/<id>/channel.mp3` — self-heal
   as stations move), RadioKing `/play/` URLs, `radioeins.de/livemp3`.
 - Shoutcast v1 servers answering `ICY 200 OK` (breaks strict HTTP
-  clients; the dotfiles `stations-check.py` treats it as alive).
+  clients; the data repo's `radio/scripts/stations-check.py` treats it
+  as alive).
 - Plain icecast MP3/AAC (majority).
 
-The dotfiles tools (`stations-to-m3u.py`, `stations-check.py`) are the
-reference implementations for parsing and probing these.
+The data repo's radio tools (`radio/scripts/stations-to-m3u.py`,
+`radio/scripts/stations-check.py` — moved from dotfiles by dotfiles#35)
+are the reference implementations for parsing and probing these.
 
 ### Learned during MVP build (2026-07-23)
 
