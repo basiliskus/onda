@@ -159,11 +159,13 @@ The user's 205 stations already span every awkward format:
   (`radio.garden/api/ara/content/listen/<id>/channel.mp3` — self-heal
   as stations move), RadioKing `/play/` URLs, `radioeins.de/livemp3`.
 - Shoutcast v1 servers answering `ICY 200 OK` (breaks strict HTTP
-  clients; the dotfiles `stations-check.py` treats it as alive).
+  clients; the data repo's `radio/scripts/stations-check.py` treats it
+  as alive).
 - Plain icecast MP3/AAC (majority).
 
-The dotfiles tools (`stations-to-m3u.py`, `stations-check.py`) are the
-reference implementations for parsing and probing these.
+The data repo's radio tools (`radio/scripts/stations-to-m3u.py`,
+`radio/scripts/stations-check.py` — moved from dotfiles by dotfiles#35)
+are the reference implementations for parsing and probing these.
 
 ### Learned during MVP build (2026-07-23)
 

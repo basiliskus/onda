@@ -73,6 +73,11 @@ to the phone. The app watches that synced folder and hot-reloads —
 importing is not a concept. Six playlists today: stations, nts, fip,
 bbc, public-radio, radio-garden (~205 stations).
 
+The canonical statement of every cross-repo invariant — producing
+side, consuming side, and the test pinning each — is the **"Contract
+with Onda"** section of the data repo's `radio/README.md`. When this
+file and that section disagree, that section wins.
+
 Phone-side edits flow back through `ops.jsonl` in the same folder
 (identity-anchored add/delete/move ops; optimistic overlay until the
 desktop merge script consumes-and-clears; the phone owns the journal).
