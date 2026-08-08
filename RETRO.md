@@ -15,19 +15,184 @@ issue or be explicitly closed with a reason.
 | 6 | Confirm tag↔versionName guard ran when v0.2.0 is tagged | PR #7 | — | Closed | Guard ran green on the v0.2.0 tag (run 30107921024, step "Verify tag matches versionName": success) |
 | 7 | Ops-journal UX polish: voided-undo feedback, sheet rotation survival | PR #17 | #18 | Open | One polish pass with #3 (#11) |
 | 8 | Relay desktop contract notes (fresh-UUID/url-dedup backstop; move collapses dup urls) | PR #17 | — | Closed | Relayed to the dotfiles agent during the run; url-dedup kept mandatory in stations-merge-ops.py |
-| 9 | Comments asserting a testable guarantee must name the row enforcing it | PR #23, PR #29, PR #34 | #31 | Open | SIX instances across three PRs. Self-Review template item added this commit; `enforced by:` is a trial in one file — promote (with a dangling-reference check) or drop |
+| 9 | Comments asserting a testable guarantee must name the row enforcing it | PR #23, PR #29, PR #34, PR #43, PR #47, PR #50 | #31 | Open | Scope extended at v0.5.0 retro: the class migrated to PR prose, CHANGELOG, an API shape, and a release note — any artifact asserting a testable fact. `enforced by:` promote-or-drop now has a negative data point (map went stale inside one commit, PR #47) |
 | 10 | Mutation tables must mark each entry APPLIED vs PREDICTED, and a sample of PREDICTED must be executed | PR #34 | — | Closed | Applied to `.pipeline-templates/{feature,bugfix,refactor}-state.json` Code Review stage this commit. Both v0.4.0 coverage gaps were hiding in the PREDICTED column |
 | 11 | Verification stages must not silently replay: `--rerun-tasks` + XML counts; mutation drivers need `--continue` + cleared results dirs | PR #23, PR #34 | #36 | Open | Template item applied this commit; #36 tracks the driver-hygiene half, which can misattribute results rather than merely omit them |
-| 12 | Manual-matrix rows carry a `Requires:` field; a plan's sole-mitigation row becomes a blocking carry | PR #23, PR #29, PR #34 | #33 | Open | THIRD occurrence of the same IDEA. Template item applied this commit; #33 owns the 10 rows already owed |
+| 12 | Manual-matrix rows carry a `Requires:` field; a plan's sole-mitigation row becomes a blocking carry | PR #23, PR #29, PR #34 | #33 | Open | Template item applied at v0.4.0 retro; PR #43's matrix came back empty because of it. Hardware session 2026-07-26 (recorded on #33) discharged part of the debt against the release APK; nine rows remain (13, 16, 19, 20–25) — row 25 is the sole check on the write half of the #35 fix |
 | 13 | Planning: mechanical self-join — every enumerated case gets a test row | PR #34 | — | Closed | Applied to the feature template's Planning stage this commit. Case 5c was named in one table and absent from the next, and shipped uncovered |
 | 14 | Planning: do not pre-litigate a simplification | PR #34 | — | Closed | Applied to the feature template's Planning stage this commit. Four layers ratified "group move keeps no Undo"; the user's reversal deleted three things and closed half of #18 |
 | 15 | Residual :app risk migrated into Compose — the harness bought coverage where it was cheapest | PR #23, PR #29, PR #34 | #26 | Open | #26 (pagination in-flight) survived the whole milestone uncovered; both user-found defects in PR #29 were in the layer with zero JVM reach |
 | 16 | Desktop-side defects found by Onda review | PR #34 | .dotfiles#38–42 | Closed | All five fixed and closed upstream (`.dotfiles` a0aac52, dc544e1). #40 bounced back a threat-model correction — station names are third-party radio-browser data, not user-typed — tracked here as #39 |
-| 17 | Titles-log glob must widen before song capture is ingested | PR #29 | data#4 | OUT-OF-REPO | basiliskus/data — moved from onda#32. `data` PR #5 open and reviewed from this side: glob widened, parser split on `\n` only, per-app library files. Approved pending a docstring fix. Reviewing it corrected this repo's claim that the injection risk was gated on the glob — pyradio's own always-globbed log carried it independently |
+| 17 | Titles-log glob must widen before song capture is ingested | PR #29 | data#4 | Closed | data#4 closed; `data` PRs #5/#6 merged. First real ingestion succeeded 2026-07-26: Onda's likes from `onda-titles.log` landed in `library/onda.json`. Successor defects tracked in row 24 |
 | 18 | Stage agents must persist artifacts a later stage will audit | PR #23, PR #34 | — | Closed | Applied to the Code Review stage of all three templates this commit. PR #34's mutation table existed only in a subagent report, so Test Execution had to re-derive it |
 | 19 | Docs re-check when a run corrects a factual claim | PR #29 | — | Closed | Applied to the Documentation stage of all three templates this commit. The forced-locale rationale was fixed in code while its copy in `docs/spec.md` survived a full fix pass |
-| 20 | Emit a shared batch id on ops written together | .dotfiles#41 | #38 | Open | The phone's one-write atomicity does not reach `ops.jsonl`, so the desktop checks each op independently; a rejected Add after an applied Delete loses the station. Unreachable today, undefended if the playlist lists diverge |
-| 21 | Harden `M3uParser` against quotes in EXTINF names | .dotfiles#40 | #39 | Open | Forged `tvg-logo` (Coil fetches it) or a silent entry drop. Not exploitable today — the desktop sanitizes and `IndirectionParser` never reaches this parser — but the safety property lives in another repo, enforced by nothing here |
+| 20 | Emit a shared batch id on ops written together | .dotfiles#41 | #38 | Open | Moved to v0.5.1 (PR #49) — the gap is unreachable today and `.dotfiles#41` closed after shipping the inference-based warning, so no open downstream issue receives the field. Refiling on `.dotfiles` is part of this task |
+| 21 | Harden `M3uParser` against quotes in EXTINF names | .dotfiles#40 | #39 | Closed | Shipped in PR #43: attributes parsed only before the first quote-depth-zero comma; hostile names kept verbatim. Three bugs fixed (silent drop, forged `tvg-logo`, forged `group-title` — the third unreported until diagnosis reproduced it). `:core` 89 → 107 |
+| 22 | Song capture: emit `>>> Station:` lines so likes can be attributed | Retro v0.5.0 | #51 | Open | pyradio interleaves station lines in its log; Onda's log has none, so the harvester attributes every Onda like to `station: null`. First real ingestion made the gap visible |
+| 23 | Release template's Tag & Publish documents a `git tag` command that fails | PR #50 | #52 | Open | `tag.gpgsign true` forces annotated tags; all tags carry a one-line summary. Template must say `git tag -m` |
+| 24 | Titles-harvester defects: artist/title split reversed, entity anomaly | Retro v0.5.0 | data#8 | OUT-OF-REPO | basiliskus/data — `radio-titles-to-json.py` splits `Artist - Title` into the wrong fields (fix exists as an UNCOMMITTED working-tree edit, no issue tracks it); `library/onda.json` needs regenerating after it lands. data#8 tracks the `&amp;`/`&` anomaly with evidence, no diagnosis |
+| 25 | Prose-diff verification: quantifier audit, derive-not-transcribe, cross-repo claims cite sha+command | PR #43, PR #50 | — | Closed | Applied to the Documentation stage of all three templates at the v0.5.0 retro. Catches 100% of the milestone's eight #31-class prose defects by two mechanical rules |
+| 26 | Review stages declare their instrument; a re-review must change it | PR #43, PR #47 | — | Closed | Applied to the Code Review stage of all three templates at the v0.5.0 retro. `lastOrNull` survived five suite-measuring stages; the write-path defect was reachable only by reading the type |
+| 27 | Diagnosis prototypes run on discriminating inputs; key changes count collisions in real data | PR #43, PR #47 | — | Closed | Applied to the bugfix Diagnosis stage at the v0.5.0 retro. PR #43 prototyped on the one input where all candidate rules agree and paid with three rewrites; PR #47's collision count (21/205) killed the obvious fix before it was written |
+| 28 | Bugfix Fix stage said "update CHANGELOG.md"; Gate 1 forbids it | PR #47 | — | Closed | Contradictory item removed from the bugfix template at the v0.5.0 retro; CHANGELOG belongs to the Documentation stage (Gate 2) |
+| 29 | Run `/pipeline-roadmap-audit` at strategy time, not one task at a time | PR #42, PR #43 | — | Closed | Applied to pipeline-strategy's survey stage (`~/.claude/skills/pipeline-strategy/SKILL.md`) at the v0.5.0 retro. Two stale-premise closures were both caught downstream by `/pipeline-next` |
+
+## v0.5.0 — Correct, then ship (PRs #40–#50)
+
+**Date**: 2026-08-07
+**Scope**: Two correctness fixes — `M3uParser` quote hardening (PR #43, closing
+#39) and resumption surviving a move (PR #47, closing #35) — plus the executable
+release gate with ADR-0001 (PR #45) and the first pipeline-run release (PR #50):
+v0.5.0 tagged, signed, APK verified on the GitHub release. Seven docs PRs
+(#40–#42, #44, #46, #48, #49) carried the strategy session, two stale-premise
+closures, and the gate's own corrections. First milestone that actually
+*shipped* since v0.3.0 — v0.4.0 was merged but never tagged, which is what the
+gate exists to prevent.
+**Tests at close**: 185 (`:core` 117, `:app` 68) — derived at retro time via
+`--rerun-tasks` + XML count, both suites green.
+
+### What We Learned
+
+**1. The #31 defect class lives wherever verified work gets described — and it moved substrates four times.**
+v0.4.0 counted six instances, all in source comments. This milestone produced
+eight more, none of them in source: four false claims in PR #43's prose and
+CHANGELOG (an inverted cross-repo history claim, an over-broad equivalence
+claim, an invented `ftp://` justification, a transcribed test count), an API
+shape in PR #47 (`FolderPrefs`' id/url pair, whose must-describe-the-same-station
+invariant was held by a KDoc), and a correct-somewhere baseline in PR #50's
+release notes (`:core` 89 — right in PR #43's context, wrong two PRs later).
+In every case the underlying engineering was correct; the sentence about it was
+not. Mutation testing reaches none of these surfaces. The countermeasures are
+mechanical: audit the *prose diff* for quantifiers (`always`, `never`, `all`,
+`cannot`, `since`), derive rather than transcribe any number a command can
+produce, and cite a sha + command for any claim about another repo's history.
+**Action taken**: Open — Action Tracker #9 (GitHub #31) scope extended from
+source comments to any artifact asserting a testable fact (comment posted);
+quantifier-audit, derive-not-transcribe, and cross-repo-citation items added to
+the Documentation stage of all three templates this commit (Action Tracker #25).
+
+**2. A defect survives exactly as long as the stages hunting it share an instrument.**
+PR #43's chain — reproduce, invert-and-observe, read-doc-against-code, apply
+mutations, differentially execute — produced five disjoint finding classes,
+each invisible to every instrument upstream of it. `lastOrNull` survived five
+stages because all of them measured against the test suite, and the mutant
+passes the suite; only comparing against the other parser could see it. PR #47
+is the converse: the write path has no JVM reach, so no mutation could ever
+find the `setLastPlayed` pairing risk — a human reading the type was the only
+instrument left, and it was the reviewer's. A re-review that repeats the
+previous round's instrument is nearly free of information.
+**Action taken**: Closed — instrument-declaration item added to the Code Review
+stage of all three templates this commit: state the instrument used, and a
+re-review round must change it (Action Tracker #26).
+
+**3. The release pipeline's first execution falsified two of its own documents.**
+Stage 10's `git tag vX.Y.Z` fails as written — `tag.gpgsign true` forces
+annotated tags, discovered by running it (GitHub #52). Stage 11's
+"rows runnable only once this APK is installed" claim was never true and was
+corrected before first use (PR #46). The gate's default-target selector shipped
+with a silent awk fallback, caught only by executing it against the real
+ROADMAP (PR #49). Meanwhile the one piece of the milestone that shipped
+*outside* a pipeline run — PR #45, the gate itself — is the one PR with no
+retro artifact (backfilled this retro), and PR #47 surfaced a template
+contradiction: the bugfix Fix stage said "update CHANGELOG.md" while Gate 1
+forbids exactly that. Processes are code; only execution verifies them.
+**Action taken**: Open — Action Tracker #23 (GitHub #52) for the tag command;
+Fix-stage CHANGELOG item removed from the bugfix template this commit (Action
+Tracker #28); PR #45 retrospective backfilled via `gh pr comment` this retro.
+
+**4. A gate encodes a judgement, and the judgement needs stating.**
+The gate as first built blocked the tag on #33's hardware rows — conflating
+*unverified* with *known must-not-ship* and making the dependency circular,
+since those rows were owed precisely because no release build existed to run
+them against. The user's reversal — release first, then verify — was right and
+produced strictly better evidence: the rows now run against a minified,
+release-signed APK installed over Obtainium, not a sideloaded debug build.
+`release-blocker` keeps its meaning only because ADR-0001 now states the three
+states (known defect: label it; unverified: verify against the release build;
+known-acceptable: say so on the issue).
+**Action taken**: Closed — ADR-0001 amended with the release-blocker semantics
+table (PRs #46, #49).
+
+**5. A hypothesis is only tested by an input that could refute it.**
+PR #43's diagnosis prototyped the fallback on the one input where every
+candidate rule returns the same index — the single shape incapable of
+discriminating — and all three subsequent rewrites were about inputs where the
+rules diverge. The positive twin is PR #47: counting url collisions in the
+real fixtures (21 of 205 shared) killed the obvious one-line fix before it was
+written. Same lesson at plan scale: the strategy session triaged eight
+candidates from issue titles without opening a file, and item one was already
+fixed — the second stale-premise closure caught downstream by
+`/pipeline-next`'s staleness check rather than at planning time.
+**Action taken**: Closed — discriminating-input and collision-count items added
+to the bugfix Diagnosis stage this commit (Action Tracker #27);
+`/pipeline-roadmap-audit` added to pipeline-strategy's survey stage
+(`~/.claude/skills/pipeline-strategy/SKILL.md`, Action Tracker #29).
+
+### Insights
+
+- **The manual matrix came back empty for the first time in three milestones**
+  (PR #43) — not by deferral but because the `Requires:` field forced the
+  question per row and every answer was "nothing", including a cross-repo row
+  discharged by driving the real desktop exporter with its sanitizer neutered.
+- **The best process call of the milestone was the user's**, and it beat the
+  gate its own author built: release first, then verify, produced better
+  evidence than verify-then-release ever could.
+- **A surviving mutation was resolved by deleting the code, not adding a test**
+  (PR #47's M4): a guard no test can distinguish is #31 wearing an `if`.
+- **Correct-somewhere numbers are the ones that travel.** The `:core` 89
+  baseline survived review precisely because it was genuinely right in the
+  artifact it was copied from.
+- **The million-input differential harness was deliberately discarded.** The
+  shipped fallback is pinned by 26 `M3uParserTest` rows; a maintained Python
+  model of the parser would itself be an unverified artifact. Simplification
+  noted, not an omission.
+- **Verification kept finding things outside the diff**: PR #50's stage 11
+  established that v2-only signing is invisible in the zip listing
+  (`META-INF/*.RSA` absent ≠ unsigned), and the harvester's swapped
+  artist/title split was caught by the user reading five lines of JSON that
+  three prior format checks had passed over.
+
+### Review Stats
+
+| Metric | PR #43 | PR #45 | PR #47 | PR #50 | Total |
+|--------|--------|--------|--------|--------|-------|
+| Tests added | 18 | 0 | 10 | 0 | 28 |
+| Review findings | 12 (7 🟡, 5 🔵) | — (no pipeline run) | 9 | 1 | 22 |
+| Findings fixed pre-merge | 12 | — | 9 | 1 | 22 |
+| #31-class prose/shape defects | 5 | — | 2 | 1 | 8 |
+| CI failures | 0 | 0 | 0 | 0 | 0 |
+
+Tests-added counts derived from `gh pr diff N | rg -c '^\+\s*@Test'`; suite
+totals from fresh `--rerun-tasks` XML.
+
+### Process Improvements Applied
+
+**During the milestone**: ADR-0001 (release at milestone end) +
+`.pipeline-templates/release-state.json` (12 stages) + `scripts/release-ready.sh`
+(PR #45); gate default-target selector fixed by running it (PR #49); mandatory
+ROADMAP-strike item in the Documentation stage of all three templates (PR #48);
+JVM crash dumps gitignored (PR #44); release stage-11 claim corrected to a
+signed-artifact check (PR #46).
+**This commit**: Documentation-stage quantifier-audit / derive-not-transcribe /
+cross-repo-citation items (all three templates); Code Review
+instrument-declaration item (all three); bugfix Diagnosis discriminating-input
++ collision-count items; bugfix Fix-stage CHANGELOG item removed (Gate 1
+conflict); `pipeline-strategy` survey stage gains `/pipeline-roadmap-audit`.
+**GitHub**: #52 (tag command), #51 (station-attribution lines) filed at
+milestone close; #31 scope extended.
+
+### Open Items
+
+- [ ] Nine owed hardware rows (13, 16, 19, 20–25) — Action Tracker #12 (GitHub
+  #33); row 25 is the sole check on the write half of the #35 fix
+- [ ] Ops batch id + refile the receiving issue on `.dotfiles` — Action
+  Tracker #20 (GitHub #38), moved to v0.5.1
+- [ ] Song capture station-attribution lines — Action Tracker #22 (GitHub #51)
+- [ ] Release-template tag command — Action Tracker #23 (GitHub #52)
+- [ ] `enforced by:` promote-or-drop, now with a negative data point — Action
+  Tracker #9 (GitHub #31)
+- [ ] Titles-harvester defects (artist/title split fix uncommitted, entity
+  anomaly) — Action Tracker #24 (basiliskus/data#8)
 
 ## v0.4.0 — Harness and capture (PRs #23, #29, #34)
 
@@ -161,10 +326,15 @@ line-boundary rationale, and the cross-playlist move contract.
 - [ ] Comment-guarantee rule + `enforced by:` promote-or-drop — Action Tracker #9 (GitHub #31)
 - [ ] Mutation-driver hygiene — Action Tracker #11 (GitHub #36)
 - [ ] Ten owed hardware rows (smoke 13, 16–24) — Action Tracker #12 (GitHub #33)
+  — partially discharged in v0.5.0 (2026-07-26 session vs the release APK,
+  recorded on #33); nine rows remain
 - [ ] Compose-layer coverage gap, pagination in-flight — Action Tracker #15 (GitHub #26)
 - [ ] Desktop defects — Action Tracker #16 (basiliskus/.dotfiles#38–42)
-- [ ] Titles-log glob — Action Tracker #17 (basiliskus/data#4)
-- [ ] Remaining tech debt: GitHub #11, #12, #13, #18, #24, #25, #27, #28, #30, #35
+- [x] Titles-log glob — Action Tracker #17 (basiliskus/data#4) — resolved in
+  v0.5.0: data PRs #5/#6 merged, first ingestion 2026-07-26 (successor defects
+  in Action Tracker #24)
+- [ ] Remaining tech debt: GitHub #11, #12, #18, #24, #25, #27, #28, #30 —
+  #13 closed stale-premise in v0.5.0 (PR #42); #35 fixed in v0.5.0 (PR #47)
 
 ## v0.3.0 — Playlist editing round-trip (PR #17)
 
@@ -362,7 +532,9 @@ note (finding 5).
 - [x] :core resumption seam — Action Tracker #2 (GitHub #10) — resolved in v0.4.0 (PR #23)
 - [ ] Discover `query` persistence — Action Tracker #3 (GitHub #11)
 - [ ] `launchSingleTop` on stations route — Action Tracker #4 (GitHub #12)
-- [ ] Widen browse-fetch error handling — Action Tracker #5 (GitHub #13)
+- [x] Widen browse-fetch error handling — Action Tracker #5 (GitHub #13) —
+  closed stale-premise in v0.5.0 (PR #42): `RadioBrowserClient` already
+  converts decode failures to `IOException`
 - [x] Confirm release guard on v0.2.0 tag — Action Tracker #6 — resolved: guard ran
   green on the v0.2.0 tag (run 30107921024; closed via PR #16)
 

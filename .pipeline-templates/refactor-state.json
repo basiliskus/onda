@@ -260,6 +260,21 @@
           "mandatory": true
         },
         {
+          "action": "quantifier audit: grep the PROSE diff of this run (CHANGELOG, KDoc, commit/PR bodies, test comments) for `always`, `never`, `every`, `all`, `cannot`, `since`, `has emitted`, `structurally`. Each hit either names the executed evidence for its scope or gets narrowed. PR #43 shipped four false prose claims over correct code; all were quantifier or transcription failures",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "derive, never transcribe: any number in prose that a command can produce (test counts, row counts, sizes) must be re-derived by running the command at the commit that ships the text. PR #50's `:core 89` baseline was correct in the artifact it was copied from and wrong where it landed",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "any claim about another repository's history (\"the exporter has always X\") must cite a sha and the command that found it — both cross-repo claims in PR #43 back-projected today's code into the past, and both were wrong",
+          "done": false,
+          "mandatory": true
+        },
+        {
           "action": "output DOCS_UPDATED with categorized list",
           "done": false,
           "mandatory": true
@@ -373,6 +388,11 @@
         },
         {
           "action": "persist the mutation table to `.pipeline-state/<branch>-mutations.md` — a table that exists only in a subagent's report cannot be audited by a later stage, which is exactly how PR #34's uncovered branches survived Implementation.",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "declare this review's instrument (mutation, differential execution, doc-vs-code read, type-shape read, real-consumer drive). A re-review round must use a DIFFERENT instrument than the previous round — PR #43's `lastOrNull` survived five suite-measuring stages and fell only to differential execution; PR #47's write-path defect was reachable only by reading the type",
           "done": false,
           "mandatory": true
         },
