@@ -124,15 +124,24 @@ directory, splits each line on `" | "`, and keeps messages ending in
 - The title passes through **raw** (the consumer strips it), and the
   line ends at `" (LIKED)"` with nothing after it.
 - Local wall-clock time, as pyradio writes it.
-- Onda emits no `Station: <name>` lines, so Onda-liked tracks land
-  without a `station` field. The consumer already tolerates that.
+- When the playing item names a station, the liked line is preceded
+  by a `>>> Station: <name>` line in pyradio's shape (same timestamp,
+  no liked-line indent — the indent is the title marker), written
+  together as ONE append so the pair cannot
+  tear. The consumer carries the station forward by file order, so each
+  like is attributable on its own with no writer-side state; a null or
+  blank station degrades to the liked line alone, the pre-v0.5.1 shape.
+  (Until v0.5.1 Onda emitted no station lines and its likes landed
+  without a `station` field — GitHub #51 records why that stopped being
+  tolerable once the consumer's station-aware pass shipped.)
 
-**Line-boundary neutralization.** An ICY `StreamTitle` is untrusted
-remote input landing in a file a desktop parser reads, so before
-formatting, every character Python's `str.splitlines()` treats as a
-line boundary (LF, VT, FF, CR, FS, GS, RS, NEL, U+2028, U+2029 — all
-reachable through Media3's DOTALL `IcyDecoder`) is replaced with a
-space. Without it a crafted title splits into several records, each
+**Line-boundary neutralization.** An ICY `StreamTitle` — and the
+station name, which reaches the same log — is untrusted remote input
+landing in a file a desktop parser reads, so before formatting, every
+character Python's `str.splitlines()` treats as a line boundary (LF,
+VT, FF, CR, FS, GS, RS, NEL, U+2028, U+2029 — all reachable through
+Media3's DOTALL `IcyDecoder`) is replaced with a space. Without it a
+crafted title splits into several records, each
 still able to satisfy `endswith(" (LIKED)")` or `startswith("Station:
 ")`, forging entries and dropping the genuine one. Framing only:
 nothing is trimmed, decoded, or parsed.
