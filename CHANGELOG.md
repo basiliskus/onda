@@ -5,6 +5,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Undo integrity — three silent failures in the token-and-feedback subsystem
+  (the v0.5.2 P1 cluster), each reproduced deterministically before the fix:
+  - An undo tapped before its mutation's coroutine ran silently no-opped and
+    the mutation stood — field-sighted 2026-08-07 by journal forensics, since
+    no JVM row could reorder the coroutines (#25). `undo()` now records the
+    intent synchronously on the token and `mutate()` honors it under the
+    mutex, suppressing the whole mutation: no optimistic update, no journal
+    write — a suppressed mutation never reaches the journal, so the desktop
+    can never consume it. A late undo — including a tap that lands after
+    `mutate`'s flag check on the multi-threaded production dispatcher — keeps
+    the pre-existing restore semantics, where the eventual-consistency window
+    is unchanged; suppression narrows that window to the taps that land
+    first, it does not close it (hardware row R1 re-checks the fast-undo
+    shape end-to-end in the release pass). Of the six
+    tap/mutate/undo interleavings, the only losing one is now structurally
+    impossible (the flag write precedes the undo coroutine's existence), and
+    the suppression is pinned by a write-count assertion (pre-fix: 2 writes,
+    post-fix: 0). The late undo keeps its exact previous snapshot semantics,
+    pinned by an unchanged control row.
+  - A `pending.csv` migration lands its merged ops in the in-memory mirror
+    and ends the refresh there (#24): the follow-up re-read of the journal
+    it had just written no longer exists, so a flaked re-read can neither
+    strand a stale mirror nor emit a false unavailable report. A stale
+    mirror lost data through two doors — a live pre-migration token's undo
+    overwrote the migrated journal, and (PR #65's review) the next ordinary
+    delete or move serialized the stale mirror over it with no undo
+    involved. The migrated rows' csv is already deleted by then, so either
+    loss was permanent; one regression row pins each door. The migration
+    also reports the malformed journal lines its rewrite discards, exactly
+    as a plain refresh reports them — previously the report vanished with
+    the lines.
+  - Like/error messages survive collector absence (#30): both
+    `SongCaptureRepository.messages` and `OpsRepository.errors` are now
+    small newest-wins channels (four slots, evicting oldest) rather than
+    replay-less shared flows, so a WriteFailed emitted while the Activity
+    recreates waits for the next collector instead of vanishing, distinct
+    reports in one burst all survive (a capacity-1 draft briefly let a
+    later "Liked" mask an unseen WriteFailed — caught in review), and a
+    folder outage or a relaunch replays at most four messages, never a
+    backlog of stale snackbars. Narrowed, not closed: delivery is
+    at-most-once, so a collector cancelled at the instant of handover can
+    still consume a message unseen, and a backgrounded app keeps its
+    collector, so its snackbar times out off-screen. Single consumer by
+    design (the snackbar host); the only remaining conflated flow is the
+    folder tick, where conflation is the point. `:app` 75 → 83.
+
 ## [0.5.1] - 2026-08-07
 
 Contract hardening: both of Onda's outbound files gain the field their desktop

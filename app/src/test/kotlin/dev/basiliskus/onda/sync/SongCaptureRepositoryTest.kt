@@ -167,8 +167,9 @@ class SongCaptureRepositoryTest {
     }
 
     /** like() is the sheet's entry point and reports only through [SongCaptureRepository.messages].
-     *  Collected UNDISPATCHED because the flow has no replay — a collector started later would
-     *  miss the emission and the row would pass vacuously. */
+     *  Collected UNDISPATCHED as the strictest ordering; since #30 the channel buffers, so a
+     *  late collector would also see the emission (pinned by UndoIntegrityTest's
+     *  late-collector rows). */
     @Test fun `like reports the outcome that actually occurred`() = runTest {
         suspend fun messageFor(title: String?, failAppends: Boolean): String {
             val fake = FakePlaylistsSource().apply { this.failAppends = failAppends }

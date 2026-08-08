@@ -1,16 +1,18 @@
 package dev.basiliskus.onda.sync
 
 import dev.basiliskus.onda.core.capture.TitlesLog
+import java.time.LocalDateTime
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.time.LocalDateTime
 
 /**
  * Captures the currently playing track into the synced titles log the desktop harvester
@@ -29,11 +31,20 @@ internal class SongCaptureRepository(
 
     private val mutex = Mutex()
 
-    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    private val _messages = Channel<String>(capacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     /** Outcomes of [like] only. [capture] stays silent here so the sheet's snackbar and the
-     *  notification's toast never both fire for one tap — see [captureMessage]. */
-    val messages: SharedFlow<String> = _messages
+     *  notification's toast never both fire for one tap — see [captureMessage]. Small
+     *  newest-wins channel (4 slots, DROP_OLDEST), not a replay-less SharedFlow: a
+     *  WriteFailed emitted while the Activity is recreating waits for the next collector
+     *  instead of vanishing (GitHub #30). Four slots, not one: distinct outcomes in one
+     *  burst must all survive — capacity 1 let a later like's "Liked" evict an unseen
+     *  WriteFailed, reporting a failed capture as a success (PR #65 round 3) — while a
+     *  relaunch still replays at most four stale outcomes, never a backlog. Single
+     *  consumer by design (the snackbar host) — a prose contract the Flow type cannot
+     *  enforce. See OpsRepository.errors for the windows this does NOT cover.
+     *  enforced by: UndoIntegrityTest."a capture message emitted with no collector reaches a late collector" */
+    val messages: Flow<String> = _messages.receiveAsFlow()
 
     /**
      * Appends the liked record for [streamTitle] — a `>>> Station:` line plus the liked line
@@ -62,16 +73,16 @@ internal class SongCaptureRepository(
      * must still land if the sheet closes or the activity is recreated before the append
      * completes. A capture that writes nothing is the failure this feature must not have.
      *
-     * The write is guaranteed; the message is best-effort. [messages] is replay-less with a
-     * one-slot buffer (matching OpsRepository.errors — diverging for this one caller would be
-     * worse than the gap), so a message is dropped if nothing is collecting (activity
-     * recreating, app backgrounded) or if a second like arrives while the first snackbar is
-     * still showing. Reaching the latter from the sheet needs a reopen between taps. A dropped
-     * WriteFailed is the case that would matter; Channel(BUFFERED).receiveAsFlow() is the
-     * primitive that would close it, for both repositories at once.
+     * The write is guaranteed, and since GitHub #30 the message survives collector absence
+     * too: [messages] is a small newest-wins channel (matching OpsRepository.errors), so an
+     * outcome emitted while the Activity recreates waits for the next collector instead of
+     * vanishing, and a burst of distinct outcomes survives up to four deep. Not covered: a
+     * backgrounded app keeps its LaunchedEffect collector, so its snackbar times out
+     * off-screen; delivery is at-most-once, so cancellation at the instant of handover can
+     * still lose a message; and a burst deeper than the buffer evicts the oldest outcome.
      */
     fun like(streamTitle: String?, station: String?) {
-        scope.launch { _messages.tryEmit(captureMessage(capture(streamTitle, station))) }
+        scope.launch { _messages.trySend(captureMessage(capture(streamTitle, station))) }
     }
 }
 

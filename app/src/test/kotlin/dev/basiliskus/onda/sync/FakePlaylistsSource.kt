@@ -30,6 +30,12 @@ internal class FakePlaylistsSource(
     override val folderTicks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val files = mutableMapOf<String, String>()
     var failReads = false
+    /** Fail the Nth read (1-based, counted per name over the fake's lifetime) of the named
+     *  file — e.g. a refresh's own journal re-read while the migration's reads succeed.
+     *  Name-scoped so reads of other files never shift the target; [readsOf] anchors the
+     *  count at the call site. */
+    var failReadOf: Pair<String, Int>? = null
+    private val readsByName = mutableMapOf<String, Int>()
     var failWrites = false
     var failAppends = false
     /** The seam could not reach recordings/onda-titles.log under exactly that name — in
@@ -47,9 +53,15 @@ internal class FakePlaylistsSource(
      *  a path wrote nothing by not attempting, rather than by writing identical bytes. */
     var appends = 0
 
-    override fun readSyncedText(name: String): Result<String?> =
-        if (failReads) Result.failure(IOException("synced folder unreachable"))
+    /** Reads of [name] so far — the anchor for a relative [failReadOf] target. */
+    fun readsOf(name: String): Int = readsByName[name] ?: 0
+
+    override fun readSyncedText(name: String): Result<String?> {
+        val nth = readsByName.merge(name, 1, Int::plus)!!
+        return if (failReads || failReadOf == name to nth)
+            Result.failure(IOException("synced folder unreachable"))
         else Result.success(files[name])
+    }
 
     override fun writeSyncedText(name: String, text: String): Boolean {
         writes++
@@ -111,8 +123,12 @@ internal fun TestScope.repoScope(): CoroutineScope =
 internal fun TestScope.repo(fake: FakePlaylistsSource): OpsRepository =
     OpsRepository(fake, repoScope(), StandardTestDispatcher(testScheduler))
 
-/** Start collecting repo errors before acting — the error flow has no replay, so a late
- *  collector would miss emissions (UNDISPATCHED subscribes before any queued coroutine runs). */
+/** Start collecting repo errors before acting — the strictest ordering; since #30 the
+ *  channel buffers a few messages (newest wins), so a late collector still receives them
+ *  (UndoIntegrityTest pins that). PRECONDITION for burst rows: drain (advanceUntilIdle)
+ *  after each expected error — emissions beyond the buffer inside one drain window evict
+ *  oldest-first, so a row asserting a deep burst without draining loses messages silently.
+ *  Single-consumer: one collectErrors per repository instance. */
 internal fun TestScope.collectErrors(repo: OpsRepository): List<String> {
     val errors = mutableListOf<String>()
     repoScope().launch(start = CoroutineStart.UNDISPATCHED) { repo.errors.collect { errors += it } }
