@@ -32,7 +32,7 @@ class SongCaptureRepositoryTest {
         val fake = FakePlaylistsSource()
         val r = capture(fake, testScheduler)
 
-        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("Artist - Title"))
+        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("Artist - Title", station = null))
         assertEquals(expectedLine + "\n", fake.files[TITLES_LOG_PATH])
     }
 
@@ -55,7 +55,7 @@ class SongCaptureRepositoryTest {
         val before = fake.files.toMap()
         val r = capture(fake, testScheduler)
 
-        r.capture("Artist - Title")
+        r.capture("Artist - Title", station = null)
         assertEquals(before[JOURNAL], fake.files[JOURNAL])
         assertEquals(before["recordings/pyradio-titles.log"], fake.files["recordings/pyradio-titles.log"])
         assertEquals(before.keys + TITLES_LOG_PATH, fake.files.keys)
@@ -68,7 +68,7 @@ class SongCaptureRepositoryTest {
         fake.files[TITLES_LOG_PATH] = seed
         val r = capture(fake, testScheduler)
 
-        r.capture("Artist - Title")
+        r.capture("Artist - Title", station = null)
         val after = fake.files.getValue(TITLES_LOG_PATH)
         assertTrue(after.startsWith(seed), "existing content was not preserved verbatim")
         assertEquals(3, fake.titlesLogLines().size)
@@ -83,8 +83,8 @@ class SongCaptureRepositoryTest {
         // launches in submission order. This is an ordering-regression row only: it is NOT
         // evidence that the Mutex prevents interleaving on the multi-threaded production
         // Dispatchers.IO, which the harness structurally cannot exercise.
-        launch { r.capture("First - Song") }
-        launch { r.capture("Second - Song") }
+        launch { r.capture("First - Song", station = null) }
+        launch { r.capture("Second - Song", station = null) }
         advanceUntilIdle()
         assertEquals(
             listOf("Jul 23 (Thu) 21:08 |     First - Song (LIKED)",
@@ -97,7 +97,7 @@ class SongCaptureRepositoryTest {
         val fake = FakePlaylistsSource()
         val r = capture(fake, testScheduler)
 
-        assertEquals(SongCaptureRepository.Outcome.NoTitle, r.capture(null))
+        assertEquals(SongCaptureRepository.Outcome.NoTitle, r.capture(null, station = null))
         assertEquals(0, fake.appends)
         assertTrue(fake.files.isEmpty())
     }
@@ -106,7 +106,7 @@ class SongCaptureRepositoryTest {
         val fake = FakePlaylistsSource()
         val r = capture(fake, testScheduler)
 
-        assertEquals(SongCaptureRepository.Outcome.NoTitle, r.capture("   "))
+        assertEquals(SongCaptureRepository.Outcome.NoTitle, r.capture("   ", station = null))
         assertEquals(0, fake.appends)
         assertTrue(fake.files.isEmpty())
     }
@@ -120,7 +120,7 @@ class SongCaptureRepositoryTest {
         val r = capture(fake, testScheduler)
 
         fake.failAppends = true
-        assertEquals(SongCaptureRepository.Outcome.WriteFailed, r.capture("Artist - Title"))
+        assertEquals(SongCaptureRepository.Outcome.WriteFailed, r.capture("Artist - Title", station = null))
         assertEquals(pyradioLine + "\n", fake.files[TITLES_LOG_PATH])
         assertEquals(1, fake.appends, "the failure must be an observed attempt, not a skipped one")
     }
@@ -135,7 +135,7 @@ class SongCaptureRepositoryTest {
         val r = capture(fake, testScheduler)
 
         fake.unresolvableTitlesLog = true
-        assertEquals(SongCaptureRepository.Outcome.WriteFailed, r.capture("Artist - Title"))
+        assertEquals(SongCaptureRepository.Outcome.WriteFailed, r.capture("Artist - Title", station = null))
         assertTrue(fake.files.isEmpty(), "a refused resolve left a shard: ${fake.files.keys}")
         assertEquals(1, fake.appends, "the failure must be an observed attempt, not a skipped one")
     }
@@ -144,9 +144,9 @@ class SongCaptureRepositoryTest {
         val fake = FakePlaylistsSource()
         val r = capture(fake, testScheduler)
 
-        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("Artist - Title"))
+        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("Artist - Title", station = null))
         fake.failAppends = true
-        assertEquals(SongCaptureRepository.Outcome.WriteFailed, r.capture("Second - Song"))
+        assertEquals(SongCaptureRepository.Outcome.WriteFailed, r.capture("Second - Song", station = null))
         assertEquals(listOf(expectedLine), fake.titlesLogLines())
     }
 
@@ -154,7 +154,7 @@ class SongCaptureRepositoryTest {
         val fake = FakePlaylistsSource()
         val r = capture(fake, testScheduler)
 
-        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("  A - B  "))
+        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("  A - B  ", station = null))
         assertEquals("Jul 23 (Thu) 21:08 |       A - B   (LIKED)", fake.titlesLogLines().single())
     }
 
@@ -162,7 +162,7 @@ class SongCaptureRepositoryTest {
         val fake = FakePlaylistsSource()
         val r = capture(fake, testScheduler)
 
-        r.capture("Artist - Title")
+        r.capture("Artist - Title", station = null)
         assertEquals(expectedLine, fake.titlesLogLines().single())
     }
 
@@ -175,7 +175,7 @@ class SongCaptureRepositoryTest {
             val r = capture(fake, testScheduler)
             val seen = mutableListOf<String>()
             val job = launch(start = CoroutineStart.UNDISPATCHED) { r.messages.collect { seen += it } }
-            r.like(title)
+            r.like(title, station = null)
             advanceUntilIdle()
             job.cancel()
             return seen.single()
@@ -204,14 +204,14 @@ class SongCaptureRepositoryTest {
         // it would pass for the wrong reason. Together they pin the scope from both sides.
         val live = FakePlaylistsSource()
         val liveScope = CoroutineScope(StandardTestDispatcher(testScheduler))
-        capture(live, testScheduler, scope = liveScope).like("Artist - Title")
+        capture(live, testScheduler, scope = liveScope).like("Artist - Title", station = null)
         advanceUntilIdle()
         assertEquals(listOf(expectedLine), live.titlesLogLines(), "like() did not run on the injected scope")
         liveScope.cancel()
 
         val cancelled = FakePlaylistsSource()
         val deadScope = CoroutineScope(StandardTestDispatcher(testScheduler))
-        capture(cancelled, testScheduler, scope = deadScope).like("Artist - Title")
+        capture(cancelled, testScheduler, scope = deadScope).like("Artist - Title", station = null)
         deadScope.cancel()
         advanceUntilIdle()
         assertEquals(emptyList(), cancelled.titlesLogLines(), "capture outlived the scope it was launched on")
@@ -226,12 +226,61 @@ class SongCaptureRepositoryTest {
         val seen = mutableListOf<String>()
         val job = launch(start = CoroutineStart.UNDISPATCHED) { r.messages.collect { seen += it } }
 
-        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("Artist - Title"))
+        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("Artist - Title", station = null))
         advanceUntilIdle()
         job.cancel()
 
         assertEquals(listOf(expectedLine), fake.titlesLogLines(), "the write must still land")
         assertTrue(seen.isEmpty(), "capture() reported through messages: $seen")
+    }
+
+    /** The pair's bytes are canon in TitlesLogTest; these rows pin what the REPOSITORY adds:
+     *  the record reaches the seam as one append, whole or not at all. */
+    @Test fun `capture with a station appends the pair as one record`() = runTest {
+        val fake = FakePlaylistsSource()
+        val r = capture(fake, testScheduler)
+
+        assertEquals(
+            SongCaptureRepository.Outcome.Saved,
+            r.capture("Artist - Title", "KEXP 90.3 Seattle  WA (AAC 160K)"),
+        )
+        assertEquals(1, fake.appends, "the pair must reach the seam as a single append")
+        assertEquals(
+            listOf("Jul 23 (Thu) 21:08 | >>> Station: KEXP 90.3 Seattle  WA (AAC 160K)", expectedLine),
+            fake.titlesLogLines(),
+        )
+    }
+
+    @Test fun `a blank station writes the liked line alone`() = runTest {
+        val fake = FakePlaylistsSource()
+        val r = capture(fake, testScheduler)
+
+        assertEquals(SongCaptureRepository.Outcome.Saved, r.capture("Artist - Title", "   "))
+        assertEquals(listOf(expectedLine), fake.titlesLogLines())
+    }
+
+    @Test fun `a failed append with a station tears neither line into the log`() = runTest {
+        val fake = FakePlaylistsSource()
+        val r = capture(fake, testScheduler)
+
+        fake.failAppends = true
+        assertEquals(
+            SongCaptureRepository.Outcome.WriteFailed,
+            r.capture("Artist - Title", "KEXP"),
+        )
+        assertEquals(1, fake.appends, "the failure must be an observed attempt, not a skipped one")
+        assertTrue(fake.files.isEmpty(), "a torn pair reached the log: ${fake.files}")
+    }
+
+    @Test fun `a station line never appears without a liked line`() = runTest {
+        // The NoTitle guard runs before the record is built, so a station with no likeable
+        // title produces no write at all — not a dangling attribution line.
+        val fake = FakePlaylistsSource()
+        val r = capture(fake, testScheduler)
+
+        assertEquals(SongCaptureRepository.Outcome.NoTitle, r.capture("   ", "KEXP"))
+        assertEquals(0, fake.appends)
+        assertTrue(fake.files.isEmpty())
     }
 
     @Test fun `each outcome maps to its own user-visible message`() {

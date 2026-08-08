@@ -235,7 +235,7 @@ fun OndaRoot(graph: AppGraph) {
                 // the Removed snackbar). like() runs on the app scope and reports through
                 // songCapture.messages, so neither the write nor the message depends on this
                 // composable still being around.
-                onLike = { showSheet = false; graph.songCapture.like(nowPlaying.streamTitle) },
+                onLike = { showSheet = false; graph.songCapture.like(nowPlaying.streamTitle, nowPlaying.stationName) },
                 onDismiss = { showSheet = false },
             )
         }

@@ -36,17 +36,21 @@ internal class SongCaptureRepository(
     val messages: SharedFlow<String> = _messages
 
     /**
-     * Appends one liked line for [streamTitle], or reports why it could not. Serialisation is
-     * the [mutex]'s job on the production multi-threaded Dispatchers.IO; the tests run on a
-     * FIFO StandardTestDispatcher and structurally cannot exercise an interleaving.
+     * Appends the liked record for [streamTitle] — a `>>> Station:` line plus the liked line
+     * when [station] names one, the liked line alone otherwise — or reports why it could not.
+     * The record reaches the seam as ONE append, so the pair cannot be torn by a failure or
+     * process death between two writes; a station line is never written without its liked
+     * line. Serialisation is the [mutex]'s job on the production multi-threaded
+     * Dispatchers.IO; the tests run on a FIFO StandardTestDispatcher and structurally cannot
+     * exercise an interleaving.
      *
      * The blank guard uses takeIf, which hands back the original instance — a title is never
      * trimmed on the way out, because the desktop consumer strips it itself.
      */
-    suspend fun capture(streamTitle: String?): Outcome = withContext(ioDispatcher) {
+    suspend fun capture(streamTitle: String?, station: String?): Outcome = withContext(ioDispatcher) {
         val title = streamTitle?.takeIf { it.isNotBlank() } ?: return@withContext Outcome.NoTitle
         mutex.withLock {
-            if (playlists.appendTitlesLogLine(TitlesLog.likedLine(title, clock()))) Outcome.Saved
+            if (playlists.appendTitlesLogLine(TitlesLog.likedRecord(title, station, clock()))) Outcome.Saved
             else Outcome.WriteFailed
         }
     }
@@ -66,8 +70,8 @@ internal class SongCaptureRepository(
      * WriteFailed is the case that would matter; Channel(BUFFERED).receiveAsFlow() is the
      * primitive that would close it, for both repositories at once.
      */
-    fun like(streamTitle: String?) {
-        scope.launch { _messages.tryEmit(captureMessage(capture(streamTitle))) }
+    fun like(streamTitle: String?, station: String?) {
+        scope.launch { _messages.tryEmit(captureMessage(capture(streamTitle, station))) }
     }
 }
 

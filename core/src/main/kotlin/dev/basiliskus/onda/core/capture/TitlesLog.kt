@@ -19,6 +19,27 @@ object TitlesLog {
     fun likedLine(streamTitle: String, at: LocalDateTime): String =
         "${timestamp().format(at)} |     ${oneLine(streamTitle)} (LIKED)"
 
+    /**
+     * The full record for one like: the liked line, preceded by a `>>> Station:` line when
+     * [station] names one, joined by the `\n` the log frames records with. The consumer binds
+     * the pair by file order — the station line stays in effect until the next station or
+     * session line — so writing one per like keeps every like attributable on its own, with no
+     * writer-side state to lose across process death or log rotation. Both lines share one
+     * timestamp. A blank or absent station yields exactly [likedLine], the pre-#51 shape.
+     */
+    fun likedRecord(streamTitle: String, station: String?, at: LocalDateTime): String {
+        val liked = likedLine(streamTitle, at)
+        val name = station?.takeIf { it.isNotBlank() } ?: return liked
+        return "${stationLine(name, at)}\n$liked"
+    }
+
+    // pyradio's own shape (`>>> ` marker, no four-space indent — the indent is the title
+    // marker). The station name is ICY-adjacent untrusted input like the title and gets the
+    // same oneLine neutralization: a raw boundary character here forges records exactly as one
+    // in a title would.
+    private fun stationLine(station: String, at: LocalDateTime): String =
+        "${timestamp().format(at)} | >>> Station: ${oneLine(station)}"
+
     // Built per call rather than held in a val. This is an `object`, so <clinit> is lazy: a
     // cached formatter would be built inside whichever test first touches TitlesLog, after that
     // test's setDefault — baking in that locale for the whole run. If the explicit Locale.ENGLISH
