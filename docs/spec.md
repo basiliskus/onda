@@ -105,7 +105,7 @@ Jul 23 (Thu) 21:08 |     Artist - Title (LIKED)
 ```
 
 Pinned byte-for-byte by the desktop consumer,
-`music/scripts/pyradio-to-json.py`, which globs the whole log
+`music/scripts/radio-titles-to-json.py`, which globs the whole log
 directory, splits each line on `" | "`, and keeps messages ending in
 `" (LIKED)"`:
 

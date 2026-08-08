@@ -5,7 +5,7 @@ import java.util.Locale
 import kotlin.test.*
 
 /**
- * The titles-log line format is a contract with `music/scripts/pyradio-to-json.py`, which
+ * The titles-log line format is a contract with `music/scripts/radio-titles-to-json.py`, which
  * parses it as `ts_part, " | ", msg` and requires `msg` to end in " (LIKED)". Every row here
  * pins a byte the consumer reads; none of them may be relaxed without the desktop agreeing.
  */

@@ -8,7 +8,7 @@ import java.util.Locale
  * Renders the one line Onda appends to the synced titles log for a liked track, byte-identical
  * to the `(LIKED)` lines pyradio writes into its own log in the same folder.
  *
- * The format is pinned by the desktop consumer (`music/scripts/pyradio-to-json.py`): it splits
+ * The format is pinned by the desktop consumer (`music/scripts/radio-titles-to-json.py`): it splits
  * on `" | "`, requires the message to end in `" (LIKED)"`, indents liked titles four further
  * spaces, and infers the year from the file's mtime — so the timestamp carries no year.
  */

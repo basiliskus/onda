@@ -23,6 +23,10 @@ import kotlinx.coroutines.launch
 data class NowPlaying(
     val mediaId: String,
     val stationName: String,
+    /** Raw station metadata, unlike [stationName]'s display fallbacks — the attribution path
+     *  must degrade to an unattributed like when the item names no station, never log the
+     *  ICY title (or "Unknown station") as one. Mirrors the service path's raw meta.station. */
+    val station: String?,
     val streamTitle: String?,
     val artworkUrl: String?,
     val playingUrl: String,
@@ -64,6 +68,7 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
         _nowPlaying.value = NowPlaying(
             mediaId = item.mediaId,
             stationName = (meta.station ?: meta.title ?: "Unknown station").toString(),
+            station = meta.station?.toString(),
             streamTitle = streamTitleOf(meta.title?.toString(), meta.station?.toString()),
             artworkUrl = meta.artworkUri?.toString(),
             playingUrl = requested,
