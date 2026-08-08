@@ -275,6 +275,11 @@
           "mandatory": true
         },
         {
+          "action": "any claim that something exists in an external system (an issue filed, a PR merged, a file or symbol present in another repo) must be verified by running the command that would find it, at commit time. Three v0.5.1 instances of the forward-dated claim — a plan stated as fact — and the quantifier audit is structurally blind to all of them (no quantifier)",
+          "done": false,
+          "mandatory": true
+        },
+        {
           "action": "output DOCS_UPDATED with categorized list",
           "done": false,
           "mandatory": true
