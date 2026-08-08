@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Process tooling (canon closure, #31 #36): `scripts/check_enforced_by.py`,
+  run in CI, fails the build when a comment's `enforced by:` citation names
+  a renamed or deleted test row — the convention is promoted with its one
+  observed failure mode mechanized away; `scripts/mutation-run.sh` makes a
+  mutation evaluation stale-XML-proof (clears both results dirs, runs with
+  `--continue`, refuses XML older than the run start, states its verdict
+  including killed-by-build). The unverified-claim defect class gets its
+  permanent home in `docs/canon.md`; the pipeline templates cite the script
+  instead of restating the hygiene rules as prose.
+
 ### Fixed
 
 - Polish sweep (#11 #12 #18 #28): Discover's search text survives navigation
