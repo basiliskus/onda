@@ -24,7 +24,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P1** | ✅ ~~undo integrity: #25 + #24 + #30~~ | Intent flag closes the tap race structurally (the losing interleaving cannot exist); migration self-bumps; buffered channels. 4 reproductions written failing at diagnosis, all green post-fix, control unchanged | v0.5.2 |
 | **P2** | ✅ ~~polish sweep (grouped): #11 #12 #18 #28~~ | Saveable query + sheets, singleTop content routes, "Nothing to undo" on a voided tap (new row failing pre-fix), MediaIds/Resumption → core.playback, PlaylistsSource extracted, catalog version.ref. Suspend conversion declined by decision | v0.5.2 |
 | **P2** | ✅ ~~canon closure: #31 decision + #36~~ | `enforced by:` promoted with a CI dangling-reference check (26 citations resolve; injected-dangling run shown failing); mutation hygiene is `scripts/mutation-run.sh` (stale/clean/killed-by-build paths all exercised); the class's canon is `docs/canon.md`. #31 #36 closed | v0.5.2 |
-| **P0** | release v0.5.2 | Last row of its milestone per ADR-0001 | v0.5.2 |
+| **P0** | ✅ ~~release v0.5.2~~ | Shipped 2026-08-08 with #25 #24 #30, #11 #12 #18 #28, #31 #36 (PRs #60–#67). Hardware rows (PR #66's four smoke rows + R1) run against this APK, per the v0.5.1 precedent | v0.5.2 |
 
 ## Milestones
 
@@ -270,9 +270,33 @@ commit on PR #47). #31 then converts to a canon document listing the defect
 class's substrates and instruments, and closes as an issue. #36's driver
 hygiene becomes `scripts/` tooling.
 
-**release v0.5.2** — the last row, per ADR-0001.
+**release v0.5.2** — ✅ shipped 2026-08-08, the last row per ADR-0001. The
+hardware verification the milestone deferred (PR #66's four smoke rows —
+search text across rotation, double-tap back-stack, sheet survival, voided-undo
+snackbar — plus hardware row R1, fast undo under the journal watcher) runs
+against this tag's APK, the same release-first ordering v0.5.1 used for #33.
 
 ## Completed
+
+- v0.5.2 — Integrity and sweep (2026-08-08, PRs #60–#67 by commit range;
+  #60–#63 are documentation that closed out v0.5.1 — its retro, the cross-repo
+  alignment, the row-17 decision — and #64 is this milestone's own strategy
+  session, none touching `app/` or `core/`; v0.5.1's entry claims #60's content
+  while this tag ships its commit): the undo
+  token-and-feedback subsystem made honest under races (#25 #24 #30, PR #65 —
+  four reproductions written failing at diagnosis; three review rounds also
+  closed a second migration loss door and a no-op-tick token loss the original
+  diagnosis missed), the small-UI backlog (#11 #12 #18 #28, PR #66 — saveable
+  search text and sheets keyed by (group, url), singleTop content routes,
+  "Nothing to undo" feedback), and canon closure (#31 #36, PR #67 —
+  `enforced by:` promoted with a CI dangling-reference check, mutation hygiene
+  scripted, `docs/canon.md` written). `:app` 75 → 84, `:core` 132 unchanged;
+  the app-side journal writers changed, but `core/ops`, `core/capture` and
+  `core/m3u` did not, so the desktop contract is byte-identical to v0.5.1
+  (verified by an empty `git diff v0.5.1..HEAD` over those three directories).
+  Hardware rows deliberately run AFTER this
+  tag against its APK (PR #66's four smoke rows + R1).
+  Retro: `RETRO.md` (pending milestone retro).
 
 - v0.5.1 — Contract hardening (2026-08-07, PRs #54–#60): station attribution
   lines so the harvester can fill `station` for Onda likes (#51, PR #56 —

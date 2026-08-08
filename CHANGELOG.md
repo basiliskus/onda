@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-08-08
+
+Integrity and sweep: the undo subsystem stops failing silently — a tap can no
+longer lose the race with its own mutation, a migration can no longer strand a
+stale mirror, and a message emitted while nothing is collecting waits for the
+next collector instead of vanishing (up to a four-deep backlog) — plus the
+small-UI backlog that individually loses every triage, and the process canon
+that keeps claims honest. Editing debt was the whole milestone: the app-side
+journal and titles-log writers changed a great deal, but the code that decides
+their bytes did not — `core/ops`, `core/capture` and `core/m3u` are untouched
+since v0.5.1, so the desktop contract is byte-identical and the only `:core`
+production change is two playback files moved between packages. `:app` 75 → 84
+tests, `:core` 132 unchanged.
+
 ### Added
 
 - Process tooling (canon closure, #31 #36): `scripts/check_enforced_by.py`,
@@ -16,6 +30,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   including killed-by-build). The unverified-claim defect class gets its
   permanent home in `docs/canon.md`; the pipeline templates cite the script
   instead of restating the hygiene rules as prose.
+
+### Changed
+
+- Internal, behavior-preserving (#28): `MediaIds` and
+  `resolveResumptionStation` moved from `core.model` to `core.playback`,
+  `PlaylistsSource` extracted to its own file, and the version catalog's
+  last inline version now uses `version.ref`; the seam's blocking-I/O
+  methods stay non-suspend by decision (injected dispatcher + documented
+  contract).
 
 ### Fixed
 
@@ -86,15 +109,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
     collector, so its snackbar times out off-screen. Single consumer by
     design (the snackbar host); the only remaining conflated flow is the
     folder tick, where conflation is the point. `:app` 75 → 83.
-
-### Changed
-
-- Internal, behavior-preserving (#28): `MediaIds` and
-  `resolveResumptionStation` moved from `core.model` to `core.playback`,
-  `PlaylistsSource` extracted to its own file, and the version catalog's
-  last inline version now uses `version.ref`; the seam's blocking-I/O
-  methods stay non-suspend by decision (injected dispatcher + documented
-  contract).
 
 ## [0.5.1] - 2026-08-07
 
