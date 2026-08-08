@@ -7,6 +7,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Polish sweep (#11 #12 #18 #28): Discover's search text survives navigation
+  and rotation like its segment selection already did; a fast double-tap on a
+  playlist row, settings, or a Discover list no longer pushes two identical
+  screens; a voided Undo tap reports "Nothing to undo" instead of silently
+  doing nothing (the suppressed-mutation and successful-undo paths stay
+  silent, each pinned by a row); action and picker sheets survive rotation
+  and process death mid-flow. Internal, behavior-preserving: `MediaIds` and
+  `resolveResumptionStation` moved from `core.model` to `core.playback`,
+  `PlaylistsSource` extracted to its own file, and the version catalog's
+  last inline version now uses `version.ref`; the seam's blocking-I/O
+  methods stay non-suspend by decision (injected dispatcher + documented
+  contract). `:app` 83 → 84.
+
 - Undo integrity — three silent failures in the token-and-feedback subsystem
   (the v0.5.2 P1 cluster), each reproduced deterministically before the fix:
   - An undo tapped before its mutation's coroutine ran silently no-opped and
