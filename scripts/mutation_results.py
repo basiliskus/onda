@@ -12,8 +12,10 @@ the whole evaluation is rejected.
 
 Verdicts: KILLED (failing rows), KILLED-BY-BUILD (gradle failed with zero
 failing rows — a compile-error mutation kills before any row runs, including
-the one-module-compiles case), SURVIVED (clean run, zero failures).
-Exit 0 = trustworthy result; exit 1 = stale XML, discard and re-run.
+the one-module-compiles case; the per-module lines show which module's XML is
+missing), SURVIVED (clean run, zero failures), REJECTED (stale XML — the
+counts are untrustworthy, discard and re-run).
+Exit 0 = trustworthy result; exit 1 = rejected.
 """
 
 import glob
@@ -25,19 +27,29 @@ import xml.etree.ElementTree as ET
 def main():
     start = int(sys.argv[1])
     gradle_exit = int(sys.argv[2])
-    files = [f for d in sys.argv[3:] for f in glob.glob(os.path.join(d, "*.xml"))]
 
-    stale = [f for f in files if os.path.getmtime(f) < start]
+    stale = []
+    tests = failed = 0
+    for d in sys.argv[3:]:
+        files = glob.glob(os.path.join(d, "*.xml"))
+        dir_tests = dir_failed = 0
+        for f in files:
+            if os.path.getmtime(f) < start:
+                stale.append(f)
+            root = ET.parse(f).getroot()
+            dir_tests += int(root.get("tests", 0))
+            dir_failed += int(root.get("failures", 0)) + int(root.get("errors", 0))
+        suffix = "" if files else " (NO XML — module never ran)"
+        print(f"mutation-run: {d}: {dir_tests} tests, {dir_failed} failed{suffix}")
+        tests += dir_tests
+        failed += dir_failed
+
     for f in stale:
         print(f"mutation-run: STALE XML (predates this run): {f}")
 
-    tests = failed = 0
-    for f in files:
-        root = ET.parse(f).getroot()
-        tests += int(root.get("tests", 0))
-        failed += int(root.get("failures", 0)) + int(root.get("errors", 0))
-
-    if failed:
+    if stale:
+        verdict = "REJECTED (stale XML — discard and re-run)"
+    elif failed:
         verdict = "KILLED"
     elif gradle_exit != 0:
         verdict = "KILLED-BY-BUILD (no failing rows — compile error or task failure)"

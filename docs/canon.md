@@ -30,7 +30,9 @@ Each entry names the PR that caught the class on that substrate.
    harmless-for-one-caller claim outlived by a second caller, an ownership
    test passing for the wrong reason).
 2. **PR prose and review claims** — PR #57 ("filed on data" written before
-   filing; "~4 pool"; "both halves verified").
+   filing), PR #59 ("both halves verified", caught by the release reviewer),
+   PR #64's strategy doc ("~4 pool", transcribed from conversation instead
+   of derived — Action Tracker #30 collects all three).
 3. **API shapes** — a signature implying a guarantee the implementation
    scopes narrower (PR #29's `mimeFor`).
 4. **Release notes / CHANGELOG** — PR #65 (suppression scope, channel

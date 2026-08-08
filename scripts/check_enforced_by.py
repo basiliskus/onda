@@ -22,7 +22,9 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC_DIRS = ["core/src", "app/src"]
 CITATION = re.compile(r'([A-Z][A-Za-z0-9]*Test)\."([^"]+)"')
-ROW_DECL = re.compile(r"fun `([^`]+)`")
+# @Test-gated so a backticked helper fun can never satisfy the existence check;
+# every row in this repo declares as a same-line `@Test fun `row``.
+ROW_DECL = re.compile(r"@Test fun `([^`]+)`")
 
 
 def kt_files():
@@ -39,7 +41,9 @@ def main():
         name = os.path.basename(path)[:-3]
         if name.endswith("Test"):
             with open(path, encoding="utf-8") as f:
-                test_rows[name] = set(ROW_DECL.findall(f.read()))
+                # Union, not assignment: two files sharing a basename must not
+                # shadow each other's rows (would fail toward false danglings).
+                test_rows.setdefault(name, set()).update(ROW_DECL.findall(f.read()))
 
     checked = 0
     dangling = []
