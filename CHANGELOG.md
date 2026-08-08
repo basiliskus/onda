@@ -16,13 +16,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   when truly voided: a content-identical folder tick (every foreground
   resume fires one) no longer voids a live token, so Undo survives a
   lock/unlock or resume inside the snackbar window, a redundant tap after a
-  successful undo stays silent, and the suppressed-mutation path stays
-  silent too, each pinned by a row; action and picker sheets survive
-  rotation and process death mid-flow as station URLS re-derived against
-  the current playlists — a station or target playlist that vanished while
-  the app was dead dismisses or steps back its sheet instead of completing
-  a move against a stale world, and pickers wait for the first scan to
-  settle instead of rendering empty. `:app` 83 → 84.
+  successful undo stays silent, the suppressed-mutation path stays silent
+  too, and a failed undo write leaves its token retryable — the next tap
+  retries the restore instead of claiming "Nothing to undo" — each pinned
+  by a row; action and picker sheets survive rotation and process death
+  mid-flow: the playlist sheets persist the tapped row's group+url key and
+  re-derive the live station from the current playlists (a station or
+  target playlist that vanished while the app was dead dismisses or steps
+  back its sheet instead of completing a move against a stale world, and
+  the key's group half keeps a stream that sits in two groups acting on
+  the tapped copy), the Discover add picker keeps its tapped radio-browser
+  snapshot (no phone-side identity to re-derive), and pickers wait for the
+  first scan to settle instead of rendering empty. `:app` 83 → 84.
 
 - Undo integrity — three silent failures in the token-and-feedback subsystem
   (the v0.5.2 P1 cluster), each reproduced deterministically before the fix:
