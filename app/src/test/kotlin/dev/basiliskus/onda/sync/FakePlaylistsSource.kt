@@ -124,9 +124,11 @@ internal fun TestScope.repo(fake: FakePlaylistsSource): OpsRepository =
     OpsRepository(fake, repoScope(), StandardTestDispatcher(testScheduler))
 
 /** Start collecting repo errors before acting — the strictest ordering; since #30 the
- *  channel holds one message (newest wins), so a late collector still receives the latest
- *  (UndoIntegrityTest pins that). A live collector sees every error a row drains between
- *  emissions. Single-consumer: one collectErrors per repository instance. */
+ *  channel buffers a few messages (newest wins), so a late collector still receives them
+ *  (UndoIntegrityTest pins that). PRECONDITION for burst rows: drain (advanceUntilIdle)
+ *  after each expected error — emissions beyond the buffer inside one drain window evict
+ *  oldest-first, so a row asserting a deep burst without draining loses messages silently.
+ *  Single-consumer: one collectErrors per repository instance. */
 internal fun TestScope.collectErrors(repo: OpsRepository): List<String> {
     val errors = mutableListOf<String>()
     repoScope().launch(start = CoroutineStart.UNDISPATCHED) { repo.errors.collect { errors += it } }

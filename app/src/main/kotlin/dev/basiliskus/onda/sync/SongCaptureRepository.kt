@@ -31,14 +31,16 @@ internal class SongCaptureRepository(
 
     private val mutex = Mutex()
 
-    private val _messages = Channel<String>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val _messages = Channel<String>(capacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     /** Outcomes of [like] only. [capture] stays silent here so the sheet's snackbar and the
-     *  notification's toast never both fire for one tap — see [captureMessage]. Capacity-1
-     *  newest-wins channel, not a replay-less SharedFlow: a WriteFailed emitted while the
-     *  Activity is recreating waits for the next collector instead of vanishing (GitHub
-     *  #30), and a newer outcome replaces an unconsumed older one — at most one message
-     *  can carry over, so a relaunch never replays a backlog of stale outcomes. Single
+     *  notification's toast never both fire for one tap — see [captureMessage]. Small
+     *  newest-wins channel (4 slots, DROP_OLDEST), not a replay-less SharedFlow: a
+     *  WriteFailed emitted while the Activity is recreating waits for the next collector
+     *  instead of vanishing (GitHub #30). Four slots, not one: distinct outcomes in one
+     *  burst must all survive — capacity 1 let a later like's "Liked" evict an unseen
+     *  WriteFailed, reporting a failed capture as a success (PR #65 round 3) — while a
+     *  relaunch still replays at most four stale outcomes, never a backlog. Single
      *  consumer by design (the snackbar host) — a prose contract the Flow type cannot
      *  enforce. See OpsRepository.errors for the windows this does NOT cover.
      *  enforced by: UndoIntegrityTest."a capture message emitted with no collector reaches a late collector" */
@@ -72,12 +74,12 @@ internal class SongCaptureRepository(
      * completes. A capture that writes nothing is the failure this feature must not have.
      *
      * The write is guaranteed, and since GitHub #30 the message survives collector absence
-     * too: [messages] is a capacity-1 newest-wins channel (matching OpsRepository.errors),
-     * so an outcome emitted while the Activity recreates waits for the next collector
-     * instead of vanishing. Not covered: a backgrounded app keeps its LaunchedEffect
-     * collector, so its snackbar times out off-screen; delivery is at-most-once, so
-     * cancellation at the instant of handover can still lose a message; and a second like
-     * before the first outcome is consumed replaces it.
+     * too: [messages] is a small newest-wins channel (matching OpsRepository.errors), so an
+     * outcome emitted while the Activity recreates waits for the next collector instead of
+     * vanishing, and a burst of distinct outcomes survives up to four deep. Not covered: a
+     * backgrounded app keeps its LaunchedEffect collector, so its snackbar times out
+     * off-screen; delivery is at-most-once, so cancellation at the instant of handover can
+     * still lose a message; and a burst deeper than the buffer evicts the oldest outcome.
      */
     fun like(streamTitle: String?, station: String?) {
         scope.launch { _messages.trySend(captureMessage(capture(streamTitle, station))) }

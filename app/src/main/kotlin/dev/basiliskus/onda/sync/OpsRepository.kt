@@ -57,19 +57,23 @@ class OpsRepository(
         combine(playlists.state, _ops) { st, opList ->
             if (st is PlaylistsState.Ready) PlaylistsState.Ready(applyOps(st.playlists, opList)) else st
         }.stateIn(scope, SharingStarted.Eagerly, playlists.state.value)
-    /** Capacity-1 newest-wins channel, not a replay-less SharedFlow: an error emitted while
-     *  no collector exists (Activity recreating) waits for the next one instead of
-     *  vanishing — a dropped write-failure was the one report that mattered (GitHub #30).
-     *  Capacity 1 + DROP_OLDEST bounds staleness to the single latest error: a folder
-     *  outage can never queue a backlog of expired snackbars ahead of a fresh report.
+    /** Small newest-wins channel (4 slots, DROP_OLDEST), not a replay-less SharedFlow: an
+     *  error emitted while no collector exists (Activity recreating) waits for the next one
+     *  instead of vanishing — a dropped write-failure was the one report that mattered
+     *  (GitHub #30). Four slots, not one: distinct reports in one burst must all survive
+     *  (capacity 1 let a fresh error evict an unseen corruption warning — PR #65 round 3)
+     *  — yet the bound keeps an outage to seconds of stale snackbars, not the minutes a
+     *  64-slot buffer allowed, and a relaunch replays at most four messages.
      *  What this does NOT cover: delivery is at-most-once, so a collector cancelled at
      *  the instant of handover can still consume a message unseen — the recreation window
-     *  is narrowed, not closed; and a backgrounded app keeps its LaunchedEffect collector,
-     *  so a snackbar shown off-screen still times out unseen. Single consumer by design
-     *  (the snackbar host) — a prose contract; the Flow type cannot enforce it, and a
-     *  second collector would steal deliveries.
-     *  enforced by: UndoIntegrityTest."an ops error emitted with no collector reaches a late collector" */
-    private val _errors = Channel<String>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+     *  is narrowed, not closed; a backgrounded app keeps its LaunchedEffect collector,
+     *  so a snackbar shown off-screen still times out unseen; and a burst deeper than the
+     *  buffer evicts oldest-first. Single consumer by design (the snackbar host) — a prose
+     *  contract; the Flow type cannot enforce it, and a second collector would steal
+     *  deliveries.
+     *  enforced by: UndoIntegrityTest."an ops error emitted with no collector reaches a late collector"
+     *               UndoIntegrityTest."two errors emitted with no collector both reach a late collector" */
+    private val _errors = Channel<String>(capacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val errors: Flow<String> = _errors.receiveAsFlow()
     private val mutex = Mutex()
     /** Bumped (under [mutex]) on every _ops change; guards [UndoToken] validity. */
@@ -104,24 +108,24 @@ class OpsRepository(
     fun refresh() {
         scope.launch(ioDispatcher) {
             mutex.withLock {
-                // A migration must land in _ops HERE, not wait for the setOps below: the
-                // error-return between them would otherwise leave a pre-migration mirror
-                // (and its live tokens) against a post-migration journal — an undo OR any
-                // later ordinary mutation would then serialize the stale mirror over the
-                // migrated adds, whose pending.csv is already deleted (GitHub #24; the
-                // mutate door is PR #65's review). setOps's generation bump is what voids
-                // the tokens.
+                // A migration lands in _ops HERE and ends the refresh: `merged` IS the
+                // journal this mutex hold just wrote, so the re-read the rest of this
+                // function performs could only flake and emit a false unavailable report.
+                // The early return deletes the failed-re-read hazard — a stale mirror
+                // (or a live pre-migration token) against a post-migration journal, whose
+                // undo OR next ordinary mutation would overwrite the migrated adds, their
+                // pending.csv already deleted (GitHub #24; the mutate door and the false
+                // snackbar are PR #65's review). setOps's generation bump is what voids
+                // live tokens.
                 // enforced by: UndoIntegrityTest."migration voids a live undo token even when the follow-up read fails"
                 //              UndoIntegrityTest."a mutation after a migration with a failed re-read keeps the migrated adds"
-                migrateLegacyPending()?.let(::setOps)
+                migrateLegacyPending()?.let { setOps(it); return@withLock }
                 val text = playlists.readSyncedText(JOURNAL).getOrElse {
                     _errors.trySend(UNAVAILABLE_MESSAGE)
                     return@withLock
                 }
                 val parsed = text?.let(OpsJournal::parse)
-                if (parsed != null && parsed.malformed > 0) {
-                    _errors.trySend("Skipped ${parsed.malformed} malformed journal line(s)")
-                }
+                reportMalformed(parsed?.malformed ?: 0)
                 setOps(OpsJournal.compact(parsed?.ops ?: emptyList()))
             }
         }
@@ -269,6 +273,12 @@ class OpsRepository(
         _ops.value = value
     }
 
+    /** One phrasing for the skipped-lines report, wherever a parse precedes a path that
+     *  rewrites the journal (refresh, migration) — the report outlives the lines. */
+    private fun reportMalformed(count: Int) {
+        if (count > 0) _errors.trySend("Skipped $count malformed journal line(s)")
+    }
+
     /**
      * One-time pending.csv -> null-playlist add ops migration; runs (cheaply, a findFile
      * miss) at the start of every refresh, inside the mutex. A crash between journal write
@@ -276,7 +286,11 @@ class OpsRepository(
      * compaction keyed (url, null), so the journal converges and the csv is deleted on the
      * next clean pass. Returns the merged, compacted ops when it wrote the journal — the
      * caller owes them to [setOps] so the mirror can never go stale against the file —
-     * and null when there was nothing to migrate or the write did not land.
+     * and null when there was nothing to migrate or the write did not land. Malformed
+     * journal lines are reported from HERE exactly as refresh reports them: the rewrite
+     * below discards them from disk for good, and the refresh that used to report them
+     * ends at the migration, so a silent migration would erase the corruption signal
+     * together with the lines (PR #65 review).
      */
     private fun migrateLegacyPending(): List<Op>? {
         // getOrNull collapses "no csv" (normal) and "folder unreachable" (refresh's own
@@ -287,9 +301,9 @@ class OpsRepository(
             // id — uniformity is what gives an absent field its single meaning (GitHub #38).
             // Nothing is prior: every op is this write's.
             .let { OpsJournal.stamp(it, priorIds = emptySet(), batch = newId(), baseTs = Instant.now()) }
-        val existing = playlists.readSyncedText(JOURNAL).getOrElse { return null }
-            ?.let { OpsJournal.parse(it).ops } ?: emptyList()
-        val merged = OpsJournal.compact(existing + adds)
+        val existing = playlists.readSyncedText(JOURNAL).getOrElse { return null }?.let(OpsJournal::parse)
+        reportMalformed(existing?.malformed ?: 0)
+        val merged = OpsJournal.compact((existing?.ops ?: emptyList()) + adds)
         if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(merged))) return null
         playlists.deleteSyncedFile(LEGACY_CSV)
         return merged

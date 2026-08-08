@@ -80,13 +80,15 @@ class UndoIntegrityTest {
         val token = r.delete(s)
         advanceUntilIdle() // armed; journal = [delete]
 
-        // pending.csv appears (synced from the desktop), and the refresh's own journal
-        // re-read fails: this refresh reads JOURNAL (1) inside the migration, then (2)
-        // again in refresh itself — fail exactly that second one.
+        // pending.csv appears (synced from the desktop). Arm a failure where the refresh's
+        // follow-up JOURNAL re-read used to be (the migration's own read, then one more):
+        // since PR #65 round 3 the success path early-returns and never makes that second
+        // read, so the armed fault must find nothing to bite — the mirror and the voided
+        // token come from the migration's own merged ops.
         fake.files[LEGACY_CSV] = PENDING_CSV
         fake.failReadOf = JOURNAL to fake.readsOf(JOURNAL) + 2
         r.refresh()
-        advanceUntilIdle() // migration wrote the merged journal and deleted the csv; bump owed
+        advanceUntilIdle() // migration wrote the merged journal and deleted the csv
 
         r.undo(token)
         advanceUntilIdle()
@@ -111,9 +113,9 @@ class UndoIntegrityTest {
         advanceUntilIdle()
 
         fake.files[LEGACY_CSV] = PENDING_CSV
-        fake.failReadOf = JOURNAL to fake.readsOf(JOURNAL) + 2
+        fake.failReadOf = JOURNAL to fake.readsOf(JOURNAL) + 2 // same armed fault as above
         r.refresh()
-        advanceUntilIdle() // migration wrote the merged journal; refresh's own re-read failed
+        advanceUntilIdle() // migration wrote the merged journal; the fault finds no read to fail
 
         r.delete(s)
         advanceUntilIdle()
@@ -169,6 +171,55 @@ class UndoIntegrityTest {
         job.cancel()
 
         assertEquals(listOf(UNAVAILABLE_MESSAGE), seen)
+    }
+
+    /**
+     * PR #65 round 3 — distinct messages in one collector-absence window must BOTH
+     * survive: capacity 1 evicted the older one, so a later success could mask an unseen
+     * WriteFailed and a fresh error could evict a corruption report.
+     */
+    @Test fun `two errors emitted with no collector both reach a late collector`() = runTest {
+        val a = station("http://a")
+        val b = station("http://b")
+        val fake = FakePlaylistsSource(ready(a, b))
+        val r = repo(fake)
+        advanceUntilIdle()
+
+        fake.failWrites = true
+        r.delete(a)
+        advanceUntilIdle() // rollback emitted UNAVAILABLE_MESSAGE; nobody collecting
+        r.delete(b)
+        advanceUntilIdle() // second UNAVAILABLE_MESSAGE — must not evict the first
+
+        val seen = mutableListOf<String>()
+        val job = launch(start = CoroutineStart.UNDISPATCHED) { r.errors.collect { seen += it } }
+        advanceUntilIdle()
+        job.cancel()
+
+        assertEquals(listOf(UNAVAILABLE_MESSAGE, UNAVAILABLE_MESSAGE), seen)
+    }
+
+    /**
+     * PR #65 round 3 — the migration's rewrite discards malformed journal lines from disk
+     * for good, and the refresh that used to report them now sees (or, after the early
+     * return, never re-reads) the cleaned rewrite. The report must fire from the migration
+     * itself or the corruption signal vanishes with the lines.
+     */
+    @Test fun `migration reports the malformed journal lines its rewrite discards`() = runTest {
+        val s = station("http://u")
+        val fake = FakePlaylistsSource(ready(s))
+        val r = repo(fake)
+        advanceUntilIdle()
+        val errors = collectErrors(r)
+
+        fake.files[JOURNAL] = "not-json\n"
+        fake.files[LEGACY_CSV] = PENDING_CSV
+        r.refresh()
+        advanceUntilIdle()
+
+        assertEquals(listOf("Skipped 1 malformed journal line(s)"), errors)
+        val urls = fake.journalOps().filterIsInstance<Op.Add>().map { it.station.url }
+        assertEquals(listOf("https://nts.example/stream"), urls, "the rewrite keeps the parseable ops")
     }
 
     private companion object {
