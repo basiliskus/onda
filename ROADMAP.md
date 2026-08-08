@@ -17,8 +17,10 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P1** | ✅ ~~harden M3uParser against quotes in EXTINF names~~ | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
 | **P2** | ✅ ~~resumption survives move and regroup~~ | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
 | **P0** | ✅ ~~release v0.5.0~~ | v0.4.0 merged but never shipped — versionName is still 0.3.0. Unblocks #33's owed hardware rows (which now run against the release APK, not a debug build), the first real `library/onda.json`, and Onda's first real input to `basiliskus/data`. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
+| **P1** | song capture: emit `>>> Station:` lines | Onda is now the only source in the titles pipeline whose likes cannot be attributed — the harvester's station-aware pass (data PR #6) is ready and Onda discards the one name it knows. Data already in hand at the like site. GitHub #51 | v0.5.1 |
 | **P2** | ops journal: shared batch id + strictly-increasing ts | `.dotfiles#41` shipped the inference-based warning and closed, deferring exact rollback to a field only this repo can emit; contract agreed from both ends. Moved out of v0.5.0 2026-07-26 — the gap is unreachable in today's configuration and nothing is waiting on it. GitHub #38 | v0.5.1 |
-| **P0** | release v0.5.1 | Ships #38 plus whatever the v0.5.0 hardware pass (#33) surfaces. Last row of its milestone per ADR-0001 | v0.5.1 |
+| **P3** | release template: fix the Tag & Publish `git tag` command | `tag.gpgsign true` forces annotated tags, so the documented command fails as written; must land before this milestone's own release run reads the template. GitHub #52 | v0.5.1 |
+| **P0** | release v0.5.1 | Ships #51, #38, #52 plus whatever the v0.5.0 hardware pass (#33) surfaces. Last row of its milestone per ADR-0001 | v0.5.1 |
 
 ## Milestones
 
@@ -149,6 +151,29 @@ exits READY.
 
 ### Milestone: v0.5.1 — Contract hardening
 
+**song capture: emit `>>> Station:` lines**
+Emit a `>>> Station: <name>` line alongside each liked line, matching
+pyradio's shape, so the harvester's station-aware pass can attribute Onda
+likes (today: 5 entries, 0 with station — measured against the first real
+`library/onda.json`). The name is already read at the like site
+(`mediaMetadata.station`); `streamTitleOf` already takes it. Constraints from
+GitHub #51: the station name is untrusted ICY input and goes through the same
+line-boundary neutralization as the title (log-injection hole PR #29 closed
+must stay closed); decide emit-per-like vs on-change; `appendTitlesLogLine`
+takes one line, so two lines means either two appends (torn-write window) or
+one append with a controlled `\n` — the seam's no-filename property survives
+either way. Scoped 2026-08-07: added because the v0.5.0 ingestion made the
+gap visible, and the station that motivated data's parser fix is the one
+whose name Onda discards.
+
+**release template: fix the Tag & Publish `git tag` command**
+One-line fix in `.pipeline-templates/release-state.json` stage 10:
+`git tag -m "<one-line summary>" vX.Y.Z`, matching the four existing annotated
+tags. Loud failure, but it sits in the one stage ADR-0001 exists to protect,
+and a release is rare enough that the next executor rediscovers it by failing.
+Must merge before this milestone's release run copies the template. Trivial
+single-commit PR per the direct-to-main threshold. GitHub #52.
+
 **ops journal: shared batch id + strictly-increasing ts**
 `UndoToken` gains an id at construction; every op written under an armed token
 carries a `batch` field — uniform, including single-op mutations, so an absent
@@ -165,8 +190,9 @@ open issue there to receive the field. Refiling on `.dotfiles` is part of this
 task.
 
 **release v0.5.1** — the last row, per ADR-0001
-Ships #38 and anything the v0.5.0 hardware pass turns up. If every #33 row
-passes, this milestone is #38 alone and can wait for the next real need.
+Ships #51, #38, #52 and anything the v0.5.0 hardware pass turns up. #51 is
+the milestone's user-visible value; it is what makes this release worth
+cutting rather than waiting.
 
 Correction: the priority matrix and this section previously said
 `basiliskus/data` was blocked on #38. That was wrong in both places. `data` is
