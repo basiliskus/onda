@@ -134,6 +134,14 @@ directory, splits each line on `" | "`, and keeps messages ending in
   (Until v0.5.1 Onda emitted no station lines and its likes landed
   without a `station` field — GitHub #51 records why that stopped being
   tolerable once the consumer's station-aware pass shipped.)
+- **Guarded bound** (from the data agent, 2026-08-08): a stationless
+  like is unreachable from Onda's UI today, but if that ever changes,
+  the consumer's carry-forward would attribute it to the last station
+  line in the log — with **no session boundary**, since Onda writes no
+  `=== Logging` markers, so the carried name could be days stale.
+  Whoever makes stationless likes reachable must also emit either a
+  session marker on stream stop or an explicitly blank station line.
+  Contract row: "Contract with Onda", data `radio/README.md`.
 
 **Line-boundary neutralization.** An ICY `StreamTitle` — and the
 station name, which reaches the same log — is untrusted remote input
