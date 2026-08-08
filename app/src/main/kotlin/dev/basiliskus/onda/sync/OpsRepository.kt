@@ -8,9 +8,13 @@ import dev.basiliskus.onda.core.ops.OpStation
 import dev.basiliskus.onda.core.ops.OpsJournal
 import dev.basiliskus.onda.core.ops.applyOps
 import dev.basiliskus.onda.core.radiobrowser.RbStation
+import java.time.Instant
+import java.util.UUID
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -18,12 +22,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.Instant
-import java.util.UUID
 
 /**
  * Owns ops.jsonl — the append-only journal of playlist edits the desktop side consumes.
@@ -55,8 +58,13 @@ class OpsRepository(
         combine(playlists.state, _ops) { st, opList ->
             if (st is PlaylistsState.Ready) PlaylistsState.Ready(applyOps(st.playlists, opList)) else st
         }.stateIn(scope, SharingStarted.Eagerly, playlists.state.value)
-    private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
-    val errors: SharedFlow<String> = _errors
+    /** Buffered channel, not a replay-less SharedFlow: an error emitted while no collector
+     *  exists (Activity recreating, app backgrounded) waits for the next one instead of
+     *  vanishing — a dropped write-failure was the one report that mattered (GitHub #30).
+     *  Single consumer by design: the snackbar host.
+     *  enforced by: UndoIntegrityTest."an ops error emitted with no collector reaches a late collector" */
+    private val _errors = Channel<String>(Channel.BUFFERED)
+    val errors: Flow<String> = _errors.receiveAsFlow()
     private val mutex = Mutex()
     /** Bumped (under [mutex]) on every _ops change; guards [UndoToken] validity. */
     private var generation = 0L
@@ -73,6 +81,13 @@ class OpsRepository(
     class UndoToken internal constructor() {
         internal var snapshot: List<Op>? = null
         internal var generation = -1L
+
+        /** Set synchronously by [undo] on the caller's thread, read under [mutex] by
+         *  [mutate]: an undo that lands before its mutation has run suppresses the mutation
+         *  instead of silently no-oping (GitHub #25 — field-sighted 2026-08-07). Volatile:
+         *  written on the main thread, read on [ioDispatcher].
+         *  enforced by: UndoIntegrityTest."an undo tapped before the mutate runs suppresses the mutation entirely" */
+        @Volatile internal var undoRequested = false
     }
 
     init {
@@ -83,14 +98,20 @@ class OpsRepository(
     fun refresh() {
         scope.launch(ioDispatcher) {
             mutex.withLock {
-                migrateLegacyPending()
+                // A migration is a journal change, so it voids live tokens ITSELF — the
+                // setOps below also bumps, but the error-return between here and there
+                // must not leave a pre-migration token live against a post-migration
+                // journal: its undo would overwrite the migrated adds, whose pending.csv
+                // is already deleted (GitHub #24).
+                // enforced by: UndoIntegrityTest."migration voids a live undo token even when the follow-up read fails"
+                if (migrateLegacyPending()) generation++
                 val text = playlists.readSyncedText(JOURNAL).getOrElse {
-                    _errors.tryEmit(UNAVAILABLE_MESSAGE)
+                    _errors.trySend(UNAVAILABLE_MESSAGE)
                     return@withLock
                 }
                 val parsed = text?.let(OpsJournal::parse)
                 if (parsed != null && parsed.malformed > 0) {
-                    _errors.tryEmit("Skipped ${parsed.malformed} malformed journal line(s)")
+                    _errors.trySend("Skipped ${parsed.malformed} malformed journal line(s)")
                 }
                 setOps(OpsJournal.compact(parsed?.ops ?: emptyList()))
             }
@@ -152,8 +173,12 @@ class OpsRepository(
     }
 
     /** Restores the pre-delete snapshot iff no journal change intervened since [delete]
-     *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops. */
+     *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops.
+     *  The FIRST act is synchronous: recording the intent on the token, so an undo tapped
+     *  before its mutation has run suppresses the mutation in [mutate] rather than racing
+     *  it — the tap itself can never be lost (GitHub #25). */
     fun undo(token: UndoToken) {
+        token.undoRequested = true
         scope.launch(ioDispatcher) {
             mutex.withLock {
                 val snapshot = token.snapshot ?: return@withLock
@@ -162,7 +187,7 @@ class OpsRepository(
                 setOps(snapshot)
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(snapshot))) {
                     setOps(before)
-                    _errors.tryEmit(UNAVAILABLE_MESSAGE)
+                    _errors.trySend(UNAVAILABLE_MESSAGE)
                 }
             }
         }
@@ -174,6 +199,13 @@ class OpsRepository(
     ) {
         scope.launch(ioDispatcher) {
             mutex.withLock {
+                // An undo already requested for this mutation suppresses it entirely: no
+                // optimistic update, no journal write — the mutation never happened, which
+                // IS its undo, and a suppressed write is one the desktop can never consume
+                // (the 2026-08-07 field loss). Checked under the mutex, so every
+                // interleaving of the tap and this coroutine resolves the same way.
+                // enforced by: UndoIntegrityTest."an undo tapped before the mutate runs suppresses the mutation entirely"
+                if (armUndo?.undoRequested == true) return@withLock
                 val before = _ops.value
                 val transformed = transform(before)
                 // One journal write = one batch id on the ops it introduces (GitHub #38),
@@ -207,7 +239,7 @@ class OpsRepository(
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)
-                    _errors.tryEmit(UNAVAILABLE_MESSAGE)
+                    _errors.trySend(UNAVAILABLE_MESSAGE)
                 }
             }
         }
@@ -226,20 +258,22 @@ class OpsRepository(
      * compaction keyed (url, null), so the journal converges and the csv is deleted on the
      * next clean pass.
      */
-    private fun migrateLegacyPending() {
+    /** Returns whether it wrote the journal — the caller owes a generation bump if so. */
+    private fun migrateLegacyPending(): Boolean {
         // getOrNull collapses "no csv" (normal) and "folder unreachable" (refresh's own
         // journal read surfaces that error) into skip.
-        val csv = playlists.readSyncedText(LEGACY_CSV).getOrNull() ?: return
+        val csv = playlists.readSyncedText(LEGACY_CSV).getOrNull() ?: return false
         val adds = LegacyPendingMigration.toOps(csv, ids = ::newId, ts = now())
             // The migration is one journal write like any other, so its adds share one batch
             // id — uniformity is what gives an absent field its single meaning (GitHub #38).
             // Nothing is prior: every op is this write's.
             .let { OpsJournal.stamp(it, priorIds = emptySet(), batch = newId(), baseTs = Instant.now()) }
-        val existing = playlists.readSyncedText(JOURNAL).getOrElse { return }
+        val existing = playlists.readSyncedText(JOURNAL).getOrElse { return false }
             ?.let { OpsJournal.parse(it).ops } ?: emptyList()
         val merged = OpsJournal.compact(existing + adds)
-        if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(merged))) return
+        if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(merged))) return false
         playlists.deleteSyncedFile(LEGACY_CSV)
+        return true
     }
 
     private fun opStation(s: RbStation) = OpStation(

@@ -30,6 +30,10 @@ internal class FakePlaylistsSource(
     override val folderTicks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val files = mutableMapOf<String, String>()
     var failReads = false
+    /** Read calls made so far; with [readFailuresAt], lets a row fail the Nth upcoming read
+     *  (e.g. a refresh's own journal re-read while the migration's reads succeed). */
+    var reads = 0
+    var readFailuresAt: Set<Int> = emptySet()
     var failWrites = false
     var failAppends = false
     /** The seam could not reach recordings/onda-titles.log under exactly that name — in
@@ -47,9 +51,12 @@ internal class FakePlaylistsSource(
      *  a path wrote nothing by not attempting, rather than by writing identical bytes. */
     var appends = 0
 
-    override fun readSyncedText(name: String): Result<String?> =
-        if (failReads) Result.failure(IOException("synced folder unreachable"))
+    override fun readSyncedText(name: String): Result<String?> {
+        reads++
+        return if (failReads || reads in readFailuresAt)
+            Result.failure(IOException("synced folder unreachable"))
         else Result.success(files[name])
+    }
 
     override fun writeSyncedText(name: String, text: String): Boolean {
         writes++
@@ -111,8 +118,9 @@ internal fun TestScope.repoScope(): CoroutineScope =
 internal fun TestScope.repo(fake: FakePlaylistsSource): OpsRepository =
     OpsRepository(fake, repoScope(), StandardTestDispatcher(testScheduler))
 
-/** Start collecting repo errors before acting — the error flow has no replay, so a late
- *  collector would miss emissions (UNDISPATCHED subscribes before any queued coroutine runs). */
+/** Start collecting repo errors before acting — the strictest ordering; since #30 the
+ *  channel buffers, so a late collector would also receive (UndoIntegrityTest pins that).
+ *  Note the channel is single-consumer: one collectErrors per repository instance. */
 internal fun TestScope.collectErrors(repo: OpsRepository): List<String> {
     val errors = mutableListOf<String>()
     repoScope().launch(start = CoroutineStart.UNDISPATCHED) { repo.errors.collect { errors += it } }
