@@ -27,25 +27,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
     post-fix: 0). The late undo keeps its exact previous snapshot semantics,
     pinned by an unchanged control row.
   - A `pending.csv` migration lands its merged ops in the in-memory mirror
-    immediately (#24), instead of relying on the `setOps` the failed-re-read
-    path never reaches. That both voids live undo tokens (a stale token's
-    undo overwrote the migrated journal) and closes the second door PR #65's
-    review found: with a stale mirror, the next ordinary delete or move
-    serialized it over the migrated journal with no undo involved. The
-    migrated rows' csv is already deleted by then, so either loss was
-    permanent; one regression row pins each door.
+    and ends the refresh there (#24): the follow-up re-read of the journal
+    it had just written no longer exists, so a flaked re-read can neither
+    strand a stale mirror nor emit a false unavailable report. A stale
+    mirror lost data through two doors — a live pre-migration token's undo
+    overwrote the migrated journal, and (PR #65's review) the next ordinary
+    delete or move serialized the stale mirror over it with no undo
+    involved. The migrated rows' csv is already deleted by then, so either
+    loss was permanent; one regression row pins each door. The migration
+    also reports the malformed journal lines its rewrite discards, exactly
+    as a plain refresh reports them — previously the report vanished with
+    the lines.
   - Like/error messages survive collector absence (#30): both
     `SongCaptureRepository.messages` and `OpsRepository.errors` are now
-    capacity-1 newest-wins channels rather than replay-less shared flows, so
-    a WriteFailed emitted while the Activity recreates waits for the next
-    collector instead of vanishing, and at most one (the latest) message
-    carries over — a folder outage or a relaunch can never replay a backlog
-    of stale snackbars. Narrowed, not closed: delivery is at-most-once, so a
-    collector cancelled at the instant of handover can still consume a
-    message unseen, and a backgrounded app keeps its collector, so its
-    snackbar times out off-screen. Single consumer by design (the snackbar
-    host); the only remaining conflated flow is the folder tick, where
-    conflation is the point. `:app` 75 → 81.
+    small newest-wins channels (four slots, evicting oldest) rather than
+    replay-less shared flows, so a WriteFailed emitted while the Activity
+    recreates waits for the next collector instead of vanishing, distinct
+    reports in one burst all survive (a capacity-1 draft briefly let a
+    later "Liked" mask an unseen WriteFailed — caught in review), and a
+    folder outage or a relaunch replays at most four messages, never a
+    backlog of stale snackbars. Narrowed, not closed: delivery is
+    at-most-once, so a collector cancelled at the instant of handover can
+    still consume a message unseen, and a backgrounded app keeps its
+    collector, so its snackbar times out off-screen. Single consumer by
+    design (the snackbar host); the only remaining conflated flow is the
+    folder tick, where conflation is the point. `:app` 75 → 83.
 
 ## [0.5.1] - 2026-08-07
 
