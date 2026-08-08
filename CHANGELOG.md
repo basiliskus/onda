@@ -5,6 +5,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Song capture attributes likes to their station: whenever the playing item
+  names one, the liked line is preceded by a `>>> Station: <name>` line in
+  pyradio's own shape (same timestamp, no liked-line indent), so the desktop
+  harvester's station-aware
+  pass fills the `station` field for Onda entries — before this, Onda was the
+  only source in the titles pipeline whose likes could not be attributed
+  (measured: 5 entries, 0 with station in the first real `library/onda.json`).
+  The pair is written as **one** append, so it cannot tear across a failed
+  write or process death, and a station line never appears without its liked
+  line. The station name is untrusted ICY-adjacent input and passes through
+  the same ten-character line-boundary neutralization as the title, so the
+  log-injection hole closed in v0.4.0 stays closed; a name that *contains*
+  `" (LIKED)"` still classifies as a station on the desktop, because the
+  consumer checks the `Station: ` prefix before the `(LIKED)` suffix. A null
+  or blank station degrades to the liked line alone — byte-identical to the
+  previous format, so existing logs and mixed logs stay valid. Verified
+  end-to-end against the real `radio-titles-to-json.py` over a scratch log:
+  the entry comes back with the station byte-equal, and the negative control
+  (no station line) comes back without one. `:core` 117 → 123, `:app` 68 → 72.
+  Contract: `docs/spec.md`.
+
 ## [0.5.0] - 2026-07-26
 
 First release since 0.3.0, carrying two milestones: v0.4.0 (harness, song

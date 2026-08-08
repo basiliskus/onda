@@ -8,16 +8,39 @@ import java.util.Locale
  * Renders the one line Onda appends to the synced titles log for a liked track, byte-identical
  * to the `(LIKED)` lines pyradio writes into its own log in the same folder.
  *
- * The format is pinned by the desktop consumer (`music/scripts/pyradio-to-json.py`): it splits
+ * The format is pinned by the desktop consumer (`music/scripts/radio-titles-to-json.py`): it splits
  * on `" | "`, requires the message to end in `" (LIKED)"`, indents liked titles four further
  * spaces, and infers the year from the file's mtime — so the timestamp carries no year.
  */
 object TitlesLog {
     private const val PATTERN = "MMM dd (EEE) HH:mm"
 
-    /** Local wall-clock time, matching pyradio; the consumer re-reads it in the desktop's tz. */
-    fun likedLine(streamTitle: String, at: LocalDateTime): String =
+    /** Local wall-clock time, matching pyradio; the consumer re-reads it in the desktop's tz.
+     *  Internal: production reaches it only through [likedRecord]; the byte-canon rows in
+     *  TitlesLogTest are the other caller. */
+    internal fun likedLine(streamTitle: String, at: LocalDateTime): String =
         "${timestamp().format(at)} |     ${oneLine(streamTitle)} (LIKED)"
+
+    /**
+     * The full record for one like: the liked line, preceded by a `>>> Station:` line when
+     * [station] names one, joined by the `\n` the log frames records with. The consumer binds
+     * the pair by file order — the station line stays in effect until the next station or
+     * session line — so writing one per like keeps every like attributable on its own, with no
+     * writer-side state to lose across process death or log rotation. Both lines share one
+     * timestamp. A blank or absent station yields exactly [likedLine], the pre-#51 shape.
+     */
+    fun likedRecord(streamTitle: String, station: String?, at: LocalDateTime): String {
+        val liked = likedLine(streamTitle, at)
+        val name = station?.takeIf { it.isNotBlank() } ?: return liked
+        return "${stationLine(name, at)}\n$liked"
+    }
+
+    // pyradio's own shape (`>>> ` marker, no four-space indent — the indent is the title
+    // marker). The station name is ICY-adjacent untrusted input like the title and gets the
+    // same oneLine neutralization: a raw boundary character here forges records exactly as one
+    // in a title would.
+    private fun stationLine(station: String, at: LocalDateTime): String =
+        "${timestamp().format(at)} | >>> Station: ${oneLine(station)}"
 
     // Built per call rather than held in a val. This is an `object`, so <clinit> is lazy: a
     // cached formatter would be built inside whichever test first touches TitlesLog, after that

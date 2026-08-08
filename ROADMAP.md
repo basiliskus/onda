@@ -17,7 +17,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P1** | ✅ ~~harden M3uParser against quotes in EXTINF names~~ | A quote forges a `tvg-logo` (Coil fetches it) or silently drops the station from the playlist. GitHub #39 | v0.5.0 |
 | **P2** | ✅ ~~resumption survives move and regroup~~ | `MediaIds` hashes playlist+group, so a station moved by v0.4.0's own feature stops resuming after process death. GitHub #35 | v0.5.0 |
 | **P0** | ✅ ~~release v0.5.0~~ | v0.4.0 merged but never shipped — versionName is still 0.3.0. Unblocks #33's owed hardware rows (which now run against the release APK, not a debug build), the first real `library/onda.json`, and Onda's first real input to `basiliskus/data`. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
-| **P1** | song capture: emit `>>> Station:` lines | Onda is now the only source in the titles pipeline whose likes cannot be attributed — the harvester's station-aware pass (data PR #6) is ready and Onda discards the one name it knows. Data already in hand at the like site. GitHub #51 | v0.5.1 |
+| **P1** | ✅ ~~song capture: emit `>>> Station:` lines~~ | Liked lines travel with a `>>> Station:` line as one untearable append (single line when the item names no station); verified against the real harvester (attribution byte-equal + negative control). GitHub #51 | v0.5.1 |
 | **P2** | ops journal: shared batch id + strictly-increasing ts | `.dotfiles#41` shipped the inference-based warning and closed, deferring exact rollback to a field only this repo can emit; contract agreed from both ends. Moved out of v0.5.0 2026-07-26 — the gap is unreachable in today's configuration and nothing is waiting on it. GitHub #38 | v0.5.1 |
 | **P3** | release template: fix the Tag & Publish `git tag` command | `tag.gpgsign true` forces annotated tags, so the documented command fails as written; must land before this milestone's own release run reads the template. GitHub #52 | v0.5.1 |
 | **P0** | release v0.5.1 | Ships #51, #38, #52 plus whatever the v0.5.0 hardware pass (#33) surfaces. Last row of its milestone per ADR-0001 | v0.5.1 |
@@ -165,6 +165,12 @@ one append with a controlled `\n` — the seam's no-filename property survives
 either way. Scoped 2026-08-07: added because the v0.5.0 ingestion made the
 gap visible, and the station that motivated data's parser fix is the one
 whose name Onda discards.
+
+✅ Shipped 2026-08-07. Chose emit-per-like (stateless, rotation-proof) and
+one append with the `\n` controlled by `:core`'s `TitlesLog.likedRecord` —
+the pair cannot tear, and a station line never appears without its liked
+line. Verified against the real `radio-titles-to-json.py` (attribution
+byte-equal, negative control clean). Contract: `docs/spec.md`.
 
 **release template: fix the Tag & Publish `git tag` command**
 One-line fix in `.pipeline-templates/release-state.json` stage 10:

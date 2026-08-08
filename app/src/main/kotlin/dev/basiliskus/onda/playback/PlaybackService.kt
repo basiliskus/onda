@@ -278,7 +278,8 @@ class PlaybackService : MediaLibraryService() {
             val meta = session.player.mediaMetadata
             val title = streamTitleOf(meta.title?.toString(), meta.station?.toString())
             return serviceScope.future {
-                val outcome = (application as OndaApp).graph.songCapture.capture(title)
+                val outcome = (application as OndaApp).graph.songCapture
+                    .capture(title, meta.station?.toString())
                 // The notification has no Activity to host a snackbar, and a capture started
                 // here never reaches the sheet — so one outcome still yields one message.
                 Toast.makeText(this@PlaybackService, captureMessage(outcome), Toast.LENGTH_SHORT).show()
