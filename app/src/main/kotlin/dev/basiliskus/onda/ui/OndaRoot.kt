@@ -128,8 +128,11 @@ fun OndaRoot(graph: AppGraph) {
                 PlaylistsScreen(
                     playlists = ready?.playlists ?: emptyList(),
                     scanning = scanning,
-                    // launchSingleTop on every content navigate: a fast double-tap must not
-                    // push two identical entries that then need two back presses (#12).
+                    // launchSingleTop on every content navigate (#12): a fast double-tap
+                    // pushes one entry. It matches on the destination PATTERN, so tapping
+                    // row A then row B during the transition lands on B with back
+                    // returning to the list, not to A — deliberate: one tap burst, one
+                    // entry, whichever tap won.
                     onOpen = { nav.navigate("playlists/${android.net.Uri.encode(it)}") { launchSingleTop = true } },
                     onSettings = { nav.navigate("settings") { launchSingleTop = true } },
                     onRefresh = graph.playlistRepository::rescan,
@@ -204,20 +207,26 @@ fun OndaRoot(graph: AppGraph) {
                     },
                 )
                 addTarget?.let { s ->
-                    val ready = playlistsState as? PlaylistsState.Ready
-                    val playlistName = addPlaylist
+                    // Pickers render only against settled playlists: on a process-death
+                    // restore this composes while the first SAF rescan is still Loading,
+                    // and a zero-row "Add to playlist" sheet reads as broken — the sheet
+                    // waits for Ready instead (PR #66 review).
+                    val ready = playlistsState as? PlaylistsState.Ready ?: return@let
+                    // takeIf, not trust: a restored pick of a playlist that vanished
+                    // while the app was dead steps back to the playlist picker instead
+                    // of offering a vanished playlist's (empty) groups.
+                    val playlistName = addPlaylist?.takeIf { name -> ready.playlists.any { it.name == name } }
                     if (playlistName == null) {
                         GroupPickerSheet(
                             title = "Add to playlist",
-                            options = ready?.playlists?.map { it.name } ?: emptyList(),
+                            options = ready.playlists.map { it.name },
                             onPick = { addPlaylist = it },
                             onDismiss = { addTarget = null },
                         )
                     } else {
                         GroupPickerSheet(
                             title = "Add to group in $playlistName",
-                            options = ready?.playlists?.firstOrNull { it.name == playlistName }
-                                ?.groups?.map { it.title } ?: emptyList(),
+                            options = ready.playlists.first { it.name == playlistName }.groups.map { it.title },
                             onPick = { group ->
                                 graph.opsRepository.addTargeted(s, playlistName, group)
                                 addTarget = null

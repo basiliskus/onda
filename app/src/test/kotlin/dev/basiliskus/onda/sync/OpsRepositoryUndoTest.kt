@@ -205,22 +205,13 @@ class OpsRepositoryUndoTest {
         assertTrue(r.effectiveStations().none { it.url == "http://u1" }) // undo was a no-op
     }
 
-    @Test fun `refresh voids the undo token even with identical content`() = runTest {
-        val s = station("http://u")
-        val fake = FakePlaylistsSource(ready(s))
-        val r = repo(fake)
-        advanceUntilIdle()
-
-        val token = r.delete(s)
-        advanceUntilIdle()
-        r.refresh()
-        advanceUntilIdle()
-
-        r.undo(token)
-        advanceUntilIdle()
-        assertIs<Op.Delete>(fake.journalOps().single())
-        assertTrue(r.effectiveStations().none { it.url == "http://u" })
-    }
+    // The row `refresh voids the undo token even with identical content` is gone by
+    // design: it pinned the defect PR #66's review confirmed (a no-op foreground tick
+    // killing a live token, then #18's feedback calling it "Nothing to undo"). Its
+    // inversion lives in UndoIntegrityTest."a content-identical refresh does not void a
+    // live undo token"; a CHANGED refresh still voiding is pinned by
+    // UndoIntegrityTest."a voided undo reports Nothing to undo instead of silently no-oping"
+    // and by `refresh voids the move token` below.
 
     @Test fun `second undo is a no-op`() = runTest {
         val s = station("http://u")
@@ -239,12 +230,14 @@ class OpsRepositoryUndoTest {
         advanceUntilIdle()
         // The two post-undo states are identical, so only the absence of a write
         // distinguishes a no-op from a repeated restore — this is the row that pins the
-        // generation CAS against undo's own setOps bump. Since #18 the voided second
-        // tap says so instead of staying silent.
+        // generation CAS against undo's own setOps bump. And silence: a redundant
+        // dispatch after the token's own successful undo is not a lost tap, so it must
+        // NOT claim "Nothing to undo" about an undo that plainly happened (the consumed
+        // flag distinguishes it from a genuinely voided tap — PR #66 review).
         assertEquals(writesAfterFirstUndo, fake.writes)
         assertEquals(emptyList(), fake.journalOps())
         assertTrue(r.effectiveStations().any { it.url == "http://u" })
-        assertEquals(listOf(UNDO_VOIDED_MESSAGE), errors)
+        assertEquals(emptyList(), errors)
     }
 
     @Test fun `rolled-back delete auto-voids its token`() = runTest {

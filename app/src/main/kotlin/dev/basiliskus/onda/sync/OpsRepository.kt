@@ -68,7 +68,9 @@ class OpsRepository(
      *  the instant of handover can still consume a message unseen — the recreation window
      *  is narrowed, not closed; a backgrounded app keeps its LaunchedEffect collector,
      *  so a snackbar shown off-screen still times out unseen; and a burst deeper than the
-     *  buffer evicts oldest-first. Single consumer by design (the snackbar host) — a prose
+     *  buffer evicts oldest-first — UNDO_VOIDED_MESSAGE shares these slots, accepted
+     *  because it fires only on a genuine journal change under an open snackbar (PR #66
+     *  review; a no-op tick no longer voids). Single consumer by design (the snackbar host) — a prose
      *  contract; the Flow type cannot enforce it, and a second collector would steal
      *  deliveries.
      *  enforced by: UndoIntegrityTest."an ops error emitted with no collector reaches a late collector"
@@ -98,6 +100,13 @@ class OpsRepository(
          *  written on the main thread, read on [ioDispatcher].
          *  enforced by: UndoIntegrityTest."an undo tapped before the mutate runs suppresses the mutation entirely" */
         @Volatile internal var undoRequested = false
+
+        /** Set under [mutex] once this token's undo has restored successfully — a
+         *  redundant later dispatch (double-tapped snackbar action) is then a silent
+         *  no-op, not a "Nothing to undo": the mismatch it would see was caused by the
+         *  first dispatch itself (PR #66 review).
+         *  enforced by: OpsRepositoryUndoTest."second undo is a no-op" */
+        internal var consumed = false
     }
 
     init {
@@ -126,7 +135,14 @@ class OpsRepository(
                 }
                 val parsed = text?.let(OpsJournal::parse)
                 reportMalformed(parsed?.malformed ?: 0)
-                setOps(OpsJournal.compact(parsed?.ops ?: emptyList()))
+                val next = OpsJournal.compact(parsed?.ops ?: emptyList())
+                // A content-identical re-read must not bump the generation: every
+                // foreground resume ticks the folder watcher even when nothing changed,
+                // and an unconditional setOps voided live undo tokens on that no-op
+                // refresh — with #18's feedback the tap then reported "Nothing to undo"
+                // about a delete that still stood (PR #66 review).
+                // enforced by: UndoIntegrityTest."a content-identical refresh does not void a live undo token"
+                if (next != _ops.value) setOps(next)
             }
         }
     }
@@ -202,6 +218,7 @@ class OpsRepository(
         scope.launch(ioDispatcher) {
             mutex.withLock {
                 val snapshot = token.snapshot ?: return@withLock
+                if (token.consumed) return@withLock
                 if (token.generation != generation) {
                     _errors.trySend(UNDO_VOIDED_MESSAGE)
                     return@withLock
@@ -211,6 +228,8 @@ class OpsRepository(
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(snapshot))) {
                     setOps(before)
                     _errors.trySend(UNAVAILABLE_MESSAGE)
+                } else {
+                    token.consumed = true
                 }
             }
         }

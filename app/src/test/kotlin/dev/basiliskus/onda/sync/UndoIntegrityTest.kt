@@ -84,13 +84,43 @@ class UndoIntegrityTest {
 
         val token = r.delete(s)
         advanceUntilIdle() // armed; journal = [delete]
-        r.refresh() // any journal change voids the token
+        // A GENUINE journal change (the desktop appended an op) — a content-identical
+        // refresh no longer voids; see the row below.
+        fake.seedJournal(*(fake.journalOps() + addOp("http://z")).toTypedArray())
+        r.refresh()
         advanceUntilIdle()
         r.undo(token)
         advanceUntilIdle()
 
         assertEquals(listOf(UNDO_VOIDED_MESSAGE), errors)
-        assertEquals(1, fake.journalOps().size, "the voided undo must not restore anything — the delete stands")
+        assertEquals(
+            1, fake.journalOps().filterIsInstance<Op.Delete>().size,
+            "the voided undo must not restore anything — the delete stands",
+        )
+    }
+
+    /**
+     * PR #66 review — every foreground resume ticks the folder watcher even when nothing
+     * changed, and an unconditional setOps voided live tokens on that no-op refresh: with
+     * #18's feedback the tap then reported "Nothing to undo" about a delete that still
+     * stood. A content-identical re-read must leave the token live.
+     */
+    @Test fun `a content-identical refresh does not void a live undo token`() = runTest {
+        val s = station("http://u")
+        val fake = FakePlaylistsSource(ready(s))
+        val r = repo(fake)
+        advanceUntilIdle()
+        val errors = collectErrors(r)
+
+        val token = r.delete(s)
+        advanceUntilIdle()
+        r.refresh() // the same journal bytes re-read — the no-op foreground-tick shape
+        advanceUntilIdle()
+        r.undo(token)
+        advanceUntilIdle()
+
+        assertEquals(emptyList(), fake.journalOps(), "the undo restored — the token survived the no-op refresh")
+        assertEquals(emptyList(), errors)
     }
 
     /**
