@@ -15,8 +15,10 @@ import java.util.Locale
 object TitlesLog {
     private const val PATTERN = "MMM dd (EEE) HH:mm"
 
-    /** Local wall-clock time, matching pyradio; the consumer re-reads it in the desktop's tz. */
-    fun likedLine(streamTitle: String, at: LocalDateTime): String =
+    /** Local wall-clock time, matching pyradio; the consumer re-reads it in the desktop's tz.
+     *  Internal: production reaches it only through [likedRecord]; the byte-canon rows in
+     *  TitlesLogTest are the other caller. */
+    internal fun likedLine(streamTitle: String, at: LocalDateTime): String =
         "${timestamp().format(at)} |     ${oneLine(streamTitle)} (LIKED)"
 
     /**
