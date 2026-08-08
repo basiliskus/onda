@@ -15,25 +15,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
     intent synchronously on the token and `mutate()` honors it under the
     mutex, suppressing the whole mutation: no optimistic update, no journal
     write — a suppressed mutation never reaches the journal, so the desktop
-    can never consume it (a late undo keeps the pre-existing restore
-    semantics, where the eventual-consistency window is unchanged). Of the six
+    can never consume it. A late undo — including a tap that lands after
+    `mutate`'s flag check on the multi-threaded production dispatcher — keeps
+    the pre-existing restore semantics, where the eventual-consistency window
+    is unchanged; suppression narrows that window to the taps that land
+    first, it does not close it (hardware row R1 re-checks the fast-undo
+    shape end-to-end in the release pass). Of the six
     tap/mutate/undo interleavings, the only losing one is now structurally
     impossible (the flag write precedes the undo coroutine's existence), and
     the suppression is pinned by a write-count assertion (pre-fix: 2 writes,
     post-fix: 0). The late undo keeps its exact previous snapshot semantics,
     pinned by an unchanged control row.
-  - A `pending.csv` migration voids live undo tokens even when the refresh's
-    follow-up journal read fails (#24): the migration bumps the generation
-    itself instead of relying on the `setOps` the error path never reaches.
-    Before, a stale token's undo overwrote the migrated journal — and the
-    migrated rows' csv was already deleted, so they were lost permanently.
+  - A `pending.csv` migration lands its merged ops in the in-memory mirror
+    immediately (#24), instead of relying on the `setOps` the failed-re-read
+    path never reaches. That both voids live undo tokens (a stale token's
+    undo overwrote the migrated journal) and closes the second door PR #65's
+    review found: with a stale mirror, the next ordinary delete or move
+    serialized it over the migrated journal with no undo involved. The
+    migrated rows' csv is already deleted by then, so either loss was
+    permanent; one regression row pins each door.
   - Like/error messages survive collector absence (#30): both
     `SongCaptureRepository.messages` and `OpsRepository.errors` are now
-    buffered channels rather than replay-less shared flows, so a WriteFailed
-    emitted while the Activity recreates waits for the next collector instead
-    of vanishing. Single consumer by design (the snackbar host); the only
-    remaining conflated flow is the folder tick, where conflation is the
-    point. `:app` 75 → 80.
+    capacity-1 newest-wins channels rather than replay-less shared flows, so
+    a WriteFailed emitted while the Activity recreates waits for the next
+    collector instead of vanishing, and at most one (the latest) message
+    carries over — a folder outage or a relaunch can never replay a backlog
+    of stale snackbars. Narrowed, not closed: delivery is at-most-once, so a
+    collector cancelled at the instant of handover can still consume a
+    message unseen, and a backgrounded app keeps its collector, so its
+    snackbar times out off-screen. Single consumer by design (the snackbar
+    host); the only remaining conflated flow is the folder tick, where
+    conflation is the point. `:app` 75 → 81.
 
 ## [0.5.1] - 2026-08-07
 
