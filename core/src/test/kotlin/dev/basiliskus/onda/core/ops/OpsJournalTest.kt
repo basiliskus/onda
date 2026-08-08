@@ -78,7 +78,7 @@ class OpsJournalTest {
     @Test fun `stamp shares one batch across new ops with strictly increasing ts in list order`() {
         val base = java.time.Instant.parse("2026-08-07T12:00:00Z")
         val stamped = OpsJournal.stamp(
-            listOf(delete, quickAdd, move), newIds = setOf("d1", "a2", "m1"), batch = "b-7", baseTs = base,
+            listOf(delete, quickAdd, move), priorIds = emptySet(), batch = "b-7", baseTs = base,
         )
         assertEquals(listOf("d1", "a2", "m1"), stamped.map { it.id }, "order must be preserved")
         assertTrue(stamped.all { it.batch == "b-7" }, "batch not shared: $stamped")
@@ -87,15 +87,45 @@ class OpsJournalTest {
         instants.zipWithNext().forEach { (a, b) -> assertTrue(a < b, "ts not strictly increasing: $instants") }
     }
 
-    @Test fun `stamp leaves ops outside newIds untouched, batch included`() {
+    @Test fun `stamp leaves prior ops untouched, batch included`() {
         val old = delete.copy(batch = "b-old")
         val stamped = OpsJournal.stamp(
-            listOf(old, quickAdd), newIds = setOf("a2"),
+            listOf(old, quickAdd), priorIds = setOf("d1"),
             batch = "b-new", baseTs = java.time.Instant.parse("2026-08-07T12:00:00Z"),
         )
         assertSame(old, stamped[0])
         assertEquals("b-new", stamped[1].batch)
-        assertEquals("2026-08-07T12:00:00Z", stamped[1].ts)
+        assertEquals("2026-08-07T12:00:00.000Z", stamped[1].ts)
+    }
+
+    @Test fun `stamp floors its base above every parseable prior ts`() {
+        // A write landing inside an earlier batch's +index span (or after a clock step-back)
+        // must still sort after it — chronologically, and byte-wise among stamped ts.
+        val prior = delete.copy(ts = "2026-08-07T12:00:05Z", batch = "b-old")
+        val stamped = OpsJournal.stamp(
+            listOf(prior, quickAdd), priorIds = setOf("d1"),
+            batch = "b-new", baseTs = java.time.Instant.parse("2026-08-07T12:00:00Z"),
+        )
+        assertEquals("2026-08-07T12:00:05.001Z", stamped[1].ts, "base not floored above the prior ts")
+        val garbage = delete.copy(ts = "not-a-timestamp")
+        val stampedPastGarbage = OpsJournal.stamp(
+            listOf(garbage, quickAdd), priorIds = setOf("d1"),
+            batch = "b-new", baseTs = java.time.Instant.parse("2026-08-07T12:00:00Z"),
+        )
+        assertEquals("2026-08-07T12:00:00.000Z", stampedPastGarbage[1].ts, "unparseable prior ts must be ignored")
+    }
+
+    @Test fun `stamped ts is fixed-width millis, byte-order consistent with its siblings`() {
+        // Instant.toString drops a zero fraction ("…:00Z"), which sorts lexicographically
+        // AFTER "…:00.001Z" — so an exact-second base must still emit .000.
+        val stamped = OpsJournal.stamp(
+            listOf(delete, quickAdd), priorIds = emptySet(),
+            batch = "b-7", baseTs = java.time.Instant.parse("2026-08-07T12:00:00Z"),
+        )
+        val pattern = Regex("""^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$""")
+        stamped.forEach { assertTrue(pattern.matches(it.ts), "ts not fixed-width: ${it.ts}") }
+        assertEquals(listOf("2026-08-07T12:00:00.000Z", "2026-08-07T12:00:00.001Z"), stamped.map { it.ts })
+        assertTrue(stamped[0].ts < stamped[1].ts, "stamped ts not byte-order increasing")
     }
 
     @Test fun `compaction keeps a surviving op's batch`() {
