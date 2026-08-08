@@ -20,7 +20,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P1** | ✅ ~~song capture: emit `>>> Station:` lines~~ | Liked lines travel with a `>>> Station:` line as one untearable append (single line when the item names no station); verified against the real harvester (attribution byte-equal + negative control). GitHub #51 | v0.5.1 |
 | **P2** | ✅ ~~ops journal: shared batch id + strictly-increasing ts~~ | Every op of one journal write shares the write's uuid with strictly-increasing ts, stamped at the single write point; verified against the real desktop merge (3 applied, 0 rejected, pair order kept). GitHub #38 | v0.5.1 |
 | **P3** | ✅ ~~release template: fix the Tag & Publish `git tag` command~~ | Stage 10 now documents `git tag -m` with the one-line-summary convention. GitHub #52 | v0.5.1 |
-| **P0** | release v0.5.1 | Ships #51, #38, #52 plus whatever the v0.5.0 hardware pass (#33) surfaces. Last row of its milestone per ADR-0001 | v0.5.1 |
+| **P0** | ✅ ~~release v0.5.1~~ | Shipped 2026-08-07 with #51, #38, #52. The #33 hardware pass runs against this APK (release-first per ADR-0001 precedent — unverified is not known-broken) | v0.5.1 |
 
 ## Milestones
 
@@ -223,6 +223,15 @@ capture, which shipped — `data#4` is closed and PRs #5 and #6 are merged. The
 ops journal is consumed by `stations-merge-ops.py` in `.dotfiles`.
 
 ## Completed
+
+- v0.5.1 — Contract hardening (2026-08-07, PRs #54–#58): station attribution
+  lines so the harvester can fill `station` for Onda likes (#51, PR #56 —
+  emission and ingestion verified against the real consumer with a negative
+  control; the on-phone half is #33's), shared batch id + monotone
+  fixed-width ts on journal ops (#38, PR #57, desktop drop-batch half filed as
+  data#16), and the release-template tag fix (#52, PR #58). `:core` 117 → 132,
+  `:app` 68 → 75. Hardware rows (#33) deliberately run AFTER this tag, against
+  this APK. Retro: `RETRO.md` (pending milestone retro).
 
 - v0.5.0 — Correct, then ship (2026-07-26, PRs #21–#49): first tag since v0.3.0,
   carrying the never-released v0.4.0 milestone (`:app` test harness, song capture,
