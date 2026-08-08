@@ -30,7 +30,7 @@ issue or be explicitly closed with a reason.
 | 21 | Harden `M3uParser` against quotes in EXTINF names | .dotfiles#40 | #39 | Closed | Shipped in PR #43: attributes parsed only before the first quote-depth-zero comma; hostile names kept verbatim. Three bugs fixed (silent drop, forged `tvg-logo`, forged `group-title` — the third unreported until diagnosis reproduced it). `:core` 89 → 107 |
 | 22 | Song capture: emit `>>> Station:` lines so likes can be attributed | Retro v0.5.0 | #51 | Closed | Shipped in PR #56 (v0.5.1); field-verified end-to-end 2026-08-07: real like attributed byte-equal through a station switch, negative control clean |
 | 23 | Release template's Tag & Publish documents a `git tag` command that fails | PR #50 | #52 | Closed | Fixed in PR #58 and consumed the same day by the v0.5.1 release run — the tag step worked first try for the first time |
-| 24 | Titles-harvester defects: artist/title split reversed, entity anomaly | Retro v0.5.0 | data#8 | OUT-OF-REPO | basiliskus/data — `radio-titles-to-json.py` splits `Artist - Title` into the wrong fields (fix exists as an UNCOMMITTED working-tree edit, no issue tracks it); `library/onda.json` needs regenerating after it lands. data#8 tracks the `&amp;`/`&` anomaly with evidence, no diagnosis |
+| 24 | Titles-harvester defects: artist/title split reversed, entity anomaly | Retro v0.5.0 | data#8 | Closed | All resolved data-side by 2026-08-08: `_fields` fix committed, KCRW no-space layout pinned with a real-line doctest (`cfa` cfc6aa89), data#8 closed, `library/onda.json` regenerated (5/5 entries carry `raw_title`). Verified from this side by inspection |
 | 25 | Prose-diff verification: quantifier audit, derive-not-transcribe, cross-repo claims cite sha+command | PR #43, PR #50 | — | Closed | Applied to the Documentation stage of all three templates at the v0.5.0 retro. Catches 100% of the milestone's eight #31-class prose defects by two mechanical rules |
 | 26 | Review stages declare their instrument; a re-review must change it | PR #43, PR #47 | — | Closed | Applied to the Code Review stage of all three templates at the v0.5.0 retro. `lastOrNull` survived five suite-measuring stages; the write-path defect was reachable only by reading the type |
 | 27 | Diagnosis prototypes run on discriminating inputs; key changes count collisions in real data | PR #43, PR #47 | — | Closed | Applied to the bugfix Diagnosis stage at the v0.5.0 retro. PR #43 prototyped on the one input where all candidate rules agree and paid with three rewrites; PR #47's collision count (21/205) killed the obvious fix before it was written |
@@ -165,9 +165,11 @@ preamble).
   triage priority)
 - [ ] Row 17 creation half (fresh-folder SAF ladder) — standing checklist row,
   not owed debt
-- [ ] Verify data's drop-batch implementation against data#16's caveats
-  (Action Tracker #24 sibling; the commits landed but were not reviewed from
-  this side)
+- [x] Verify data's drop-batch implementation against data#16's caveats —
+  verified 2026-08-08 by reading `merge()`: torn-line batch poisoning,
+  membership-based abort (drop the members present, never expect N),
+  split-batch partner awareness, batch-value hygiene in `is_wellformed`.
+  All caveats honored; data#16 and data#19 both closed
 - [ ] Remaining tech debt: GitHub #11, #12, #18, #24, #26, #27, #28, #30, #31,
   #36
 
