@@ -387,7 +387,7 @@
           "done": false
         },
         {
-          "action": "mutation-test the claims: for any row naming a production mechanism as its subject, delete or invert that mechanism and confirm the row FAILS. A mutation table must mark each entry APPLIED (executed, with observed failures) or PREDICTED (a claim) — PR #34 found two uncovered branches hiding in the PREDICTED column. Execute a sample of the PREDICTED entries; one that kills nothing is a coverage gap or an equivalent mutant, and you must say which. Driver hygiene: pass --continue AND clear the per-module test-results dirs between runs, or a failing early module leaves stale XML that is misattributed to the current mutation (#36).",
+          "action": "mutation-test the claims: for any row naming a production mechanism as its subject, delete or invert that mechanism and confirm the row FAILS. A mutation table must mark each entry APPLIED (executed, with observed failures) or PREDICTED (a claim) — PR #34 found two uncovered branches hiding in the PREDICTED column. Execute a sample of the PREDICTED entries; one that kills nothing is a coverage gap or an equivalent mutant, and you must say which. Driver hygiene: run every evaluation through scripts/mutation-run.sh (#36) — it clears both results dirs, passes --continue, and refuses XML older than the run; do not hand-roll the gradle invocation. Full defect-class canon: docs/canon.md.",
           "done": false,
           "mandatory": true
         },
