@@ -5,6 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Undo integrity — three silent failures in the token-and-feedback subsystem
+  (the v0.5.2 P1 cluster), each reproduced deterministically before the fix:
+  - An undo tapped before its mutation's coroutine ran silently no-opped and
+    the mutation stood — field-sighted 2026-08-07 by journal forensics, since
+    no JVM row could reorder the coroutines (#25). `undo()` now records the
+    intent synchronously on the token and `mutate()` honors it under the
+    mutex, suppressing the whole mutation: no optimistic update, no journal
+    write — a suppressed mutation never reaches the journal, so the desktop
+    can never consume it (a late undo keeps the pre-existing restore
+    semantics, where the eventual-consistency window is unchanged). Of the six
+    tap/mutate/undo interleavings, the only losing one is now structurally
+    impossible (the flag write precedes the undo coroutine's existence), and
+    the suppression is pinned by a write-count assertion (pre-fix: 2 writes,
+    post-fix: 0). The late undo keeps its exact previous snapshot semantics,
+    pinned by an unchanged control row.
+  - A `pending.csv` migration voids live undo tokens even when the refresh's
+    follow-up journal read fails (#24): the migration bumps the generation
+    itself instead of relying on the `setOps` the error path never reaches.
+    Before, a stale token's undo overwrote the migrated journal — and the
+    migrated rows' csv was already deleted, so they were lost permanently.
+  - Like/error messages survive collector absence (#30): both
+    `SongCaptureRepository.messages` and `OpsRepository.errors` are now
+    buffered channels rather than replay-less shared flows, so a WriteFailed
+    emitted while the Activity recreates waits for the next collector instead
+    of vanishing. Single consumer by design (the snackbar host); the only
+    remaining conflated flow is the folder tick, where conflation is the
+    point. `:app` 75 → 80.
+
 ## [0.5.1] - 2026-08-07
 
 Contract hardening: both of Onda's outbound files gain the field their desktop

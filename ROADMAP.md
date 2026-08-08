@@ -21,7 +21,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P2** | ✅ ~~ops journal: shared batch id + strictly-increasing ts~~ | Every op of one journal write shares the write's uuid with strictly-increasing ts, stamped at the single write point; verified against the real desktop merge (3 applied, 0 rejected, pair order kept). GitHub #38 | v0.5.1 |
 | **P3** | ✅ ~~release template: fix the Tag & Publish `git tag` command~~ | Stage 10 now documents `git tag -m` with the one-line-summary convention. GitHub #52 | v0.5.1 |
 | **P0** | ✅ ~~release v0.5.1~~ | Shipped 2026-08-07 with #51, #38, #52. The #33 hardware pass runs against this APK (release-first per ADR-0001 precedent — unverified is not known-broken) | v0.5.1 |
-| **P1** | undo integrity: #25 + #24 + #30 | One subsystem, three silent failures: the undo-vs-mutate token race is field-sighted (byte-proven on #25, 2026-08-07); #24's skipped generation bump leaves stale tokens live; #30's replay-less messages drop the one report that matters (a lost WriteFailed). Chosen at the 2026-08-08 strategy session | v0.5.2 |
+| **P1** | ✅ ~~undo integrity: #25 + #24 + #30~~ | Intent flag closes the tap race structurally (the losing interleaving cannot exist); migration self-bumps; buffered channels. 4 reproductions written failing at diagnosis, all green post-fix, control unchanged | v0.5.2 |
 | **P2** | polish sweep (grouped): #11 #12 #18 #28 | Four tiny items that individually lose every triage; one `--group` pipeline run, one PR. Undo-feedback half of #18 lands after the P1 row settles token semantics | v0.5.2 |
 | **P2** | canon closure: #31 decision + #36 | Decide `enforced by:` promote-or-drop (one negative data point on record), reframe #31 as a canon doc so it stops absorbing scope; #36's stale-XML guard becomes a script, not vigilance | v0.5.2 |
 | **P0** | release v0.5.2 | Last row of its milestone per ADR-0001 | v0.5.2 |
@@ -247,6 +247,15 @@ case that matters — `Channel(BUFFERED).receiveAsFlow()` is the named primitive
 for both repositories at once. Design constraint: whatever token semantics
 land, the desktop contract is untouched (journal writes stay whole-file,
 batch-stamped).
+
+✅ Shipped 2026-08-08. The intent-flag design closes #25 structurally — the
+losing interleaving cannot exist, and a suppressed mutation never reaches the
+journal, so the desktop can never consume it (the field-loss shape; a late
+undo keeps the unchanged restore semantics). Migration self-bumps (#24); both feedback flows became buffered
+channels (#30). Four deterministic reproductions written failing at
+diagnosis, all green post-fix; the late-undo control row unchanged. Desktop
+contract untouched, as constrained. Hardware row R1 (fast-undo with the
+journal watcher) carries to the v0.5.2 release pass.
 
 **polish sweep (grouped): #11 #12 #18 #28**
 One `--group` run: Discover `query` rememberSaveable (#11), `launchSingleTop`
