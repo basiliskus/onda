@@ -45,7 +45,8 @@ issue or be explicitly closed with a reason.
 **Forward link**: v0.5.2 planned in a deep `/pipeline-strategy` session on
 2026-08-08 — see `docs/strategy-sessions/2026-08-08-v0.5.2.md`. Chosen path:
 debt burn (undo-integrity cluster led by the field-sighted #25, grouped polish
-sweep, canon closure), retiring the 2026-07-24/25 issue cohort.
+sweep, canon closure), retiring the 2026-07-24/25 issue cohort except its
+coverage tail (#26, #27), which the P1 row's test seams partially absorb.
 
 **Date**: 2026-08-08
 **Scope**: Both outbound files gained the field their desktop consumer was

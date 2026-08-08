@@ -265,14 +265,15 @@ hygiene becomes `scripts/` tooling.
 
 ## Completed
 
-- v0.5.1 — Contract hardening (2026-08-07, PRs #54–#58): station attribution
+- v0.5.1 — Contract hardening (2026-08-07, PRs #54–#60): station attribution
   lines so the harvester can fill `station` for Onda likes (#51, PR #56 —
   emission and ingestion verified against the real consumer with a negative
   control; the on-phone half is #33's), shared batch id + monotone
   fixed-width ts on journal ops (#38, PR #57, desktop drop-batch half filed as
   data#16), and the release-template tag fix (#52, PR #58). `:core` 117 → 132,
   `:app` 68 → 75. Hardware rows (#33) deliberately run AFTER this tag, against
-  this APK. Retro: `RETRO.md` (pending milestone retro).
+  this APK — and were fully discharged 2026-08-07/08 (#33 closed).
+  Retro: `RETRO.md` (PR #61); smoke row 17 rewritten by PR #60.
 
 - v0.5.0 — Correct, then ship (2026-07-26, PRs #21–#49): first tag since v0.3.0,
   carrying the never-released v0.4.0 milestone (`:app` test harness, song capture,
