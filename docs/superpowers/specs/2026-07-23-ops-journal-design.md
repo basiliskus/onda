@@ -173,9 +173,15 @@ group, uniform including single-op writes and the pending.csv
 migration. An **absent** key (never `"batch":null` — unlike
 playlist/group, whose explicit nulls the sample above pins) means
 exactly one thing: the op predates the field. Within a batch, `ts` is
-strictly increasing in write order (base + index ms); across batches
+strictly increasing in write order (base + index ms, fixed-width
+`.SSS` millis), and the write's base is floored strictly above every
+parseable `ts` already in the journal — so ops the phone stamps are
+monotone in file order even when a write lands inside an earlier
+batch's synthesized span or the wall clock steps back. Across batches
 `ts` stays informational and file order authoritative on-phone, as
-above. This is what lets the desktop merge treat a group (e.g. the
+above; consumers must compare parsed instants, not raw strings, while
+pre-batch lines exist (mixed-width ISO strings are not byte-order
+consistent). This is what lets the desktop merge treat a group (e.g. the
 cross-playlist Delete+Add pair) as all-or-nothing instead of inferring
 pairs by url. Two caveats the desktop's drop-batch must honor,
 established at review: phone-side compaction can leave a pair spanning

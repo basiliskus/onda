@@ -204,8 +204,7 @@ only the launchd wrapper), so the receiving issue belongs to
 compaction — uniform across call sites, migration included — with
 `@EncodeDefault(NEVER)` so absence is the only spelling of "pre-#38".
 Verified against the real merge script over a scratch corpus (3 applied,
-0 rejected, order ledger-verified). The desktop drop-batch half is filed on
-`data`; contract amendments (two compaction caveats) in
+0 rejected, order ledger-verified). The desktop drop-batch half is data#16; contract amendments (two compaction caveats) in
 `docs/superpowers/specs/2026-07-23-ops-journal-design.md`.
 
 **release v0.5.1** — the last row, per ADR-0001

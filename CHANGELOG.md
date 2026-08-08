@@ -16,13 +16,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
   Delete would open. Stamping happens where the writes happen — `mutate()`,
   which every mutation flows through, plus the one-time migration — so no
   call site can forget it; `undo` restores a snapshot and introduces no ops,
-  so it stamps nothing and preserves every op's original batch. A null batch is **absent** from the JSON — a pre-#38
-  line and a batchless op are the same bytes — while `playlist`/`group` keep
+  so it stamps nothing and preserves every op's original batch. A null batch
+  is **absent** from the JSON — a pre-#38 line and a batchless op are the same
+  bytes — while `playlist`/`group` keep
   their contract-pinned explicit nulls. Verified against the real desktop
   merge over a scratch corpus of the six real CSVs: a batch pair plus a
   batchless control, 3 applied, 0 rejected, pair order preserved through the
   ts sort. The desktop-side drop-batch enforcement is the data repo's half of
-  the contract. `:core` 123 → 130, `:app` 72 → 75. Contract:
+  the contract (data#16). Stamped `ts` are fixed-width millis with the write's
+  base floored above the journal's existing timestamps, so the ops Onda stamps
+  stay monotone in file order under clock step-backs too. `:core` 123 → 132,
+  `:app` 72 → 75. Contract:
   `docs/superpowers/specs/2026-07-23-ops-journal-design.md`.
 
 - Song capture attributes likes to their station: whenever the playing item
