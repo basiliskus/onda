@@ -180,6 +180,9 @@ class OpsRepository(
                 // stamped here — the single write point — so no call site can forget it.
                 // Stamp precedes compact: compaction may rewrite or drop ops, and the ops
                 // it keeps carry the batch of the write that introduced them.
+                // enforced by: OpsRepositoryMoveTest."cross-playlist pair shares one batch id with strictly increasing ts"
+                //              OpsRepositoryMoveTest."separate mutates mint distinct batch ids and a single-op mutate still carries one"
+                //              OpsJournalTest."compaction's move-rewrites-add keeps the add's batch and takes the move's ts"
                 val beforeIds = before.mapTo(HashSet()) { it.id }
                 val newIds = transformed.filter { it.id !in beforeIds }.mapTo(HashSet()) { it.id }
                 val updated = OpsJournal.compact(OpsJournal.stamp(transformed, newIds, newId(), Instant.now()))

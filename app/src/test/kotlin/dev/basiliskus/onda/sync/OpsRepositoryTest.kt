@@ -120,18 +120,23 @@ class OpsRepositoryTest {
 
     @Test fun `pending csv migrates to journal adds and csv is deleted`() = runTest {
         val fake = FakePlaylistsSource(ready())
-        fake.files[LEGACY_CSV] = "$pendingCsvHeader\n$pendingCsvRow\n"
+        val secondRow = "KEXP,https://kexp.example/stream,,,,,,,,,uuid-2,eclectic,USA,42"
+        fake.files[LEGACY_CSV] = "$pendingCsvHeader\n$pendingCsvRow\n$secondRow\n"
         val r = repo(fake)
         advanceUntilIdle()
 
         assertFalse(LEGACY_CSV in fake.files)
-        val add = fake.journalOps().single() as Op.Add
-        assertNull(add.playlist)
-        assertNull(add.group)
-        assertEquals("https://nts.example/stream", add.station.url)
-        assertEquals(setOf("https://nts.example/stream"), r.starredUrls.value)
-        // The migration is one journal write, so its adds are one batch (GitHub #38).
-        assertNotNull(add.batch, "migrated add carries no batch id")
+        val adds = fake.journalOps().map { it as Op.Add }
+        assertEquals(
+            listOf("https://nts.example/stream", "https://kexp.example/stream"),
+            adds.map { it.station.url },
+        )
+        adds.forEach { assertNull(it.playlist); assertNull(it.group) }
+        assertEquals(setOf("https://nts.example/stream", "https://kexp.example/stream"), r.starredUrls.value)
+        // The migration is one journal write, so its adds SHARE one batch (GitHub #38) —
+        // per-add uuids would pass a non-null check and still break the uniformity rule.
+        assertNotNull(adds[0].batch, "migrated add carries no batch id")
+        assertEquals(adds[0].batch, adds[1].batch, "migration adds do not share the write's batch")
     }
 
     @Test fun `pending csv migration aborts on write failure keeping the csv`() = runTest {

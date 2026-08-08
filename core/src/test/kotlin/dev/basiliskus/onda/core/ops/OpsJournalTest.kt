@@ -97,6 +97,23 @@ class OpsJournalTest {
         assertEquals(listOf("b-3", "b-4"), kept.map { it.batch })
     }
 
+    @Test fun `compaction's move-rewrites-add keeps the add's batch and takes the move's ts`() {
+        // The one rewrite branch that mixes writes: a pending add from write 1 group-moved in
+        // write 2 survives as ONE add carrying its introducing write's batch with the move's
+        // ts — "ops compaction keeps carry the batch of the write that introduced them"
+        // (OpsRepository.mutate) is exactly this claim.
+        val pendingAdd = add.copy(batch = "b-w1")
+        val groupMove = Op.Move(
+            id = "m9", ts = "2026-08-07T13:00:00.001Z",
+            url = add.station.url, playlist = add.playlist!!, toGroup = "Jazz",
+            batch = "b-w2",
+        )
+        val survivor = OpsJournal.compact(listOf(pendingAdd, groupMove)).single() as Op.Add
+        assertEquals("Jazz", survivor.group)
+        assertEquals("b-w1", survivor.batch, "rewrite lost the introducing write's batch")
+        assertEquals("2026-08-07T13:00:00.001Z", survivor.ts, "rewrite must take the move's ts")
+    }
+
     @Test fun `serialize emits one line per op with trailing newline`() {
         val text = OpsJournal.serialize(listOf(add, delete))
         assertTrue(text.endsWith("\n"))
