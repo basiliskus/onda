@@ -5,6 +5,20 @@ import androidx.compose.runtime.saveable.listSaver
 import dev.basiliskus.onda.core.radiobrowser.RbStation
 
 /**
+ * Identity of one playlist row for sheet state: url alone is not unique within a playlist
+ * (the same stream can sit in two groups — the detail screen's LazyColumn key is built to
+ * tolerate exactly that), so the pair pins the tapped instance and its sheet acts on the
+ * right copy (PR #66 round 3). Saved as two strings — group titles may contain any
+ * delimiter, so no single-string encoding is safe.
+ */
+internal data class StationKey(val group: String, val url: String)
+
+internal val StationKeySaver: Saver<StationKey?, Any> = listSaver(
+    save = { k -> if (k == null) emptyList() else listOf(k.group, k.url) },
+    restore = { l -> StationKey(group = l[0] as String, url = l[1] as String) },
+)
+
+/**
  * Saver for the Discover targeted-add sheet's nullable [RbStation]
  * (`rememberSaveable(stateSaver = …)`), so the picker survives rotation and process death
  * mid-flow (GitHub #18). A Discover station has no phone-side identity to re-derive after

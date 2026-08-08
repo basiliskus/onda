@@ -211,7 +211,7 @@ class OpsRepositoryUndoTest {
     // inversion lives in UndoIntegrityTest."a content-identical refresh does not void a
     // live undo token"; a CHANGED refresh still voiding is pinned by
     // UndoIntegrityTest."a voided undo reports Nothing to undo instead of silently no-oping"
-    // and by `refresh voids the move token` below.
+    // and by OpsRepositoryMoveTest."refresh voids the move token".
 
     @Test fun `second undo is a no-op`() = runTest {
         val s = station("http://u")
@@ -280,5 +280,15 @@ class OpsRepositoryUndoTest {
         assertIs<Op.Delete>(fake.journalOps().single()) // file still holds the delete
         assertTrue(r.effectiveStations().none { it.url == "http://u" }) // ops rolled back
         assertEquals(listOf(UNAVAILABLE_MESSAGE), errors)
+
+        // A failed undo leaves the token RETRYABLE: the rollback's own bumps must not
+        // void it, or the retry tap would claim "Nothing to undo" about a delete that
+        // plainly stands (PR #66 round 3). Once the folder is back, the retry restores.
+        fake.failWrites = false
+        r.undo(token)
+        advanceUntilIdle()
+        assertEquals(emptyList(), fake.journalOps(), "the retry must restore the pre-delete journal")
+        assertTrue(r.effectiveStations().any { it.url == "http://u" })
+        assertEquals(listOf(UNAVAILABLE_MESSAGE), errors, "a successful retry has nothing further to report")
     }
 }

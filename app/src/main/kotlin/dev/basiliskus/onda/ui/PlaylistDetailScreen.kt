@@ -38,27 +38,36 @@ fun PlaylistDetailScreen(
     groupsOf: (String) -> List<String>,
     onMoveToPlaylist: (Station, String, String) -> Unit,
 ) {
-    // Sheet state survives rotation and process death as station URLS, never snapshots
-    // (GitHub #18; PR #66 review): the live Station is re-derived from the current
-    // playlist on every composition, so a station that vanished while the app was dead
-    // dismisses its sheet instead of completing a move against a stale world — url is
-    // station identity within one playlist, the same key delete/move ops use.
-    var actionsForUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    var movingUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    // Sheet state survives rotation and process death as (group, url) keys, never
+    // Station snapshots (GitHub #18; PR #66 review): the live Station is re-derived from
+    // the current playlist on every composition, so a station that vanished while the
+    // app was dead dismisses its sheet instead of completing a move against a stale
+    // world, and the key's group half pins the exact tapped copy of a stream that sits
+    // in two groups (round 3 — url alone resolved to the wrong one).
+    var actionsForKey by rememberSaveable(stateSaver = StationKeySaver) { mutableStateOf<StationKey?>(null) }
+    var movingKey by rememberSaveable(stateSaver = StationKeySaver) { mutableStateOf<StationKey?>(null) }
     // Two-step cross-playlist flow: pick the playlist, then a group inside it.
-    var crossMoveUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var crossMoveKey by rememberSaveable(stateSaver = StationKeySaver) { mutableStateOf<StationKey?>(null) }
     var crossMoveTarget by rememberSaveable { mutableStateOf<String?>(null) }
-    fun stationOf(url: String?): Station? = url?.let { u -> playlist.stations.firstOrNull { it.url == u } }
-    val actionsFor = stationOf(actionsForUrl)
-    val movingStation = stationOf(movingUrl)
-    val crossMoveStation = stationOf(crossMoveUrl)
-    // A url whose station is gone (or a target playlist that vanished) is cleared, not
+    fun stationOf(key: StationKey?): Station? = key?.let { k ->
+        playlist.groups.firstOrNull { it.title == k.group }?.stations?.firstOrNull { it.url == k.url }
+    }
+    val actionsFor = stationOf(actionsForKey)
+    val movingStation = stationOf(movingKey)
+    val crossMoveStation = stationOf(crossMoveKey)
+    // A key whose station is gone (or a target playlist that vanished) is cleared, not
     // merely hidden — leaving it set would pop the sheet back open if a later sync
-    // re-created the station under the same url.
+    // re-created the station under the same key. Every read here is live snapshot state
+    // (derivations recomputed in the effect body), so a key written after this effect
+    // launched is never judged against an older composition's derivation. Known, accepted
+    // residual: a first Ready computed before the journal loads lacks ops-overlaid
+    // pending rows and would clear their restored sheet — the journal is one small file
+    // read at construction while Ready waits on the multi-file SAF scan, and the loser
+    // is one restored sheet, not data (PR #66 round 3).
     LaunchedEffect(playlist, playlistNames) {
-        if (actionsForUrl != null && actionsFor == null) actionsForUrl = null
-        if (movingUrl != null && movingStation == null) movingUrl = null
-        if (crossMoveUrl != null && crossMoveStation == null) { crossMoveUrl = null; crossMoveTarget = null }
+        if (actionsForKey != null && stationOf(actionsForKey) == null) actionsForKey = null
+        if (movingKey != null && stationOf(movingKey) == null) movingKey = null
+        if (crossMoveKey != null && stationOf(crossMoveKey) == null) { crossMoveKey = null; crossMoveTarget = null }
         if (crossMoveTarget != null && crossMoveTarget !in playlistNames) crossMoveTarget = null
     }
     Column {
@@ -79,7 +88,10 @@ fun PlaylistDetailScreen(
                     )
                 }
                 itemsIndexed(group.stations, key = { i, s -> "$i:${group.title}|${s.url}" }) { _, s ->
-                    DismissibleStationRow(s, playingUrl, onPlayStation, onDeleteStation, onLongPress = { actionsForUrl = s.url })
+                    DismissibleStationRow(
+                        s, playingUrl, onPlayStation, onDeleteStation,
+                        onLongPress = { actionsForKey = StationKey(group.title, s.url) },
+                    )
                 }
             }
         }
@@ -87,10 +99,10 @@ fun PlaylistDetailScreen(
     actionsFor?.let { s ->
         StationActionsSheet(
             stationName = s.name,
-            onMove = { actionsForUrl = null; movingUrl = s.url },
-            onMoveToPlaylist = { actionsForUrl = null; crossMoveUrl = s.url },
-            onRemove = { actionsForUrl = null; onDeleteStation(s) },
-            onDismiss = { actionsForUrl = null },
+            onMove = { movingKey = actionsForKey; actionsForKey = null },
+            onMoveToPlaylist = { crossMoveKey = actionsForKey; actionsForKey = null },
+            onRemove = { actionsForKey = null; onDeleteStation(s) },
+            onDismiss = { actionsForKey = null },
         )
     }
     movingStation?.let { s ->
@@ -100,10 +112,10 @@ fun PlaylistDetailScreen(
             // Same callback as the cross-playlist flow, with the station's own playlist as the
             // target: one entry point, so a group move gets the same Undo affordance.
             onPick = { group ->
-                movingUrl = null
+                movingKey = null
                 if (group != s.group) onMoveToPlaylist(s, s.playlist, group)
             },
-            onDismiss = { movingUrl = null },
+            onDismiss = { movingKey = null },
             newOptionLabel = "New group",
         )
     }
@@ -117,7 +129,7 @@ fun PlaylistDetailScreen(
                 // No newOptionLabel: playlists are files the app cannot create.
                 options = playlistNames,
                 onPick = { crossMoveTarget = it },
-                onDismiss = { crossMoveUrl = null; crossMoveTarget = null },
+                onDismiss = { crossMoveKey = null; crossMoveTarget = null },
             )
         } else {
             GroupPickerSheet(
@@ -125,11 +137,11 @@ fun PlaylistDetailScreen(
                 options = groupsOf(target),
                 onPick = { group ->
                     // Clear before the callback: the snackbar draws where the sheet sits.
-                    crossMoveUrl = null
+                    crossMoveKey = null
                     crossMoveTarget = null
                     if (target != s.playlist || group != s.group) onMoveToPlaylist(s, target, group)
                 },
-                onDismiss = { crossMoveUrl = null; crossMoveTarget = null },
+                onDismiss = { crossMoveKey = null; crossMoveTarget = null },
                 newOptionLabel = "New group",
             )
         }

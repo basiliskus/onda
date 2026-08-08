@@ -175,6 +175,14 @@ fun OndaRoot(graph: AppGraph) {
                 // (GitHub #18, RbStationSaver — same treatment as the detail screen's sheets).
                 var addTarget by rememberSaveable(stateSaver = RbStationSaver) { mutableStateOf<RbStation?>(null) }
                 var addPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
+                // A pick whose playlist vanished is cleared, not merely hidden — the same
+                // invariant as the detail screen's clearing effect: hidden-only state
+                // pops the group sheet back open over the picker if a sync re-creates
+                // the name (PR #66 round 3).
+                LaunchedEffect(playlistsState) {
+                    val ready = playlistsState as? PlaylistsState.Ready ?: return@LaunchedEffect
+                    if (addPlaylist != null && ready.playlists.none { it.name == addPlaylist }) addPlaylist = null
+                }
                 StationListScreen(
                     title = if (kind == "top") "Top voted" else value,
                     vm = discoverVm,
