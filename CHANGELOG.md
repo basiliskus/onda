@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-07
+
+Contract hardening: both of Onda's outbound files gain the field their desktop
+consumer was waiting for — likes get station attribution, journal ops get batch
+atomicity — plus the release-template fix the v0.5.0 run surfaced.
+
 ### Added
 
 - Journal ops carry a shared `batch` id: every op introduced by one journal
