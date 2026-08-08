@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,12 +37,13 @@ fun PlaylistDetailScreen(
     groupsOf: (String) -> List<String>,
     onMoveToPlaylist: (Station, String, String) -> Unit,
 ) {
-    var actionsFor by remember { mutableStateOf<Station?>(null) }
-    var movingStation by remember { mutableStateOf<Station?>(null) }
-    // Two-step cross-playlist flow: pick the playlist, then a group inside it. Plain
-    // remember like the three sibling flows, so rotation drops it the same way (GitHub #18).
-    var crossMoveStation by remember { mutableStateOf<Station?>(null) }
-    var crossMoveTarget by remember { mutableStateOf<String?>(null) }
+    // rememberSaveable across all four sheet flows: a sheet open mid-flow survives
+    // rotation and process death instead of vanishing (GitHub #18, StationSaver).
+    var actionsFor by rememberSaveable(stateSaver = StationSaver) { mutableStateOf<Station?>(null) }
+    var movingStation by rememberSaveable(stateSaver = StationSaver) { mutableStateOf<Station?>(null) }
+    // Two-step cross-playlist flow: pick the playlist, then a group inside it.
+    var crossMoveStation by rememberSaveable(stateSaver = StationSaver) { mutableStateOf<Station?>(null) }
+    var crossMoveTarget by rememberSaveable { mutableStateOf<String?>(null) }
     Column {
         TopAppBar(
             title = { Text(playlist.name) },

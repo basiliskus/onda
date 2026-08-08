@@ -112,6 +112,7 @@ internal class FakePlaylistsSource(
 internal const val JOURNAL = "ops.jsonl"
 internal const val LEGACY_CSV = "pending.csv"
 internal const val UNAVAILABLE_MESSAGE = "Playlist edits unavailable — synced folder unreachable"
+internal const val UNDO_VOIDED_MESSAGE = "Nothing to undo"
 internal const val TITLES_LOG_PATH = "recordings/onda-titles.log"
 
 /** Scope for the repo's never-completing flows, auto-cancelled at test end via the

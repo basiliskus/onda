@@ -523,7 +523,8 @@ class OpsRepositoryMoveTest {
         advanceUntilIdle()
         assertEquals(1, fake.writes) // the rollback's own bump voided the token
         assertNull(fake.files[JOURNAL])
-        assertEquals(1, errors.size)
+        // The failed write's report, then the voided tap's own (#18).
+        assertEquals(listOf(UNAVAILABLE_MESSAGE, UNDO_VOIDED_MESSAGE), errors)
     }
 
     @Test fun `quick-star add survives a cross-playlist move of the same url`() = runTest {

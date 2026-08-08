@@ -1,5 +1,7 @@
-package dev.basiliskus.onda.core.model
+package dev.basiliskus.onda.core.playback
 
+import dev.basiliskus.onda.core.model.PlaylistsState
+import dev.basiliskus.onda.core.model.Station
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout

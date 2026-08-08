@@ -186,19 +186,26 @@ class OpsRepository(
     }
 
     /** Restores the pre-delete snapshot iff no journal change intervened since [delete]
-     *  (compare-and-swap on [generation] under the mutex); otherwise silently no-ops
-     *  (the missing feedback on that path is GitHub #18). The FIRST act is synchronous:
-     *  recording the intent on the token, so an undo tapped before its mutation has run
-     *  suppresses the mutation in [mutate] rather than racing it — the tap can no longer
-     *  lose to its own mutation's coroutine (GitHub #25). A tap [mutate]'s flag check has
-     *  already passed takes the snapshot path here, and an intervening journal change
-     *  still voids the token. */
+     *  (compare-and-swap on [generation] under the mutex); a voided tap reports
+     *  "Nothing to undo" through [errors] instead of silently no-oping (GitHub #18).
+     *  The unarmed-token path stays silent deliberately: snapshot == null means the
+     *  mutation has not run yet, so this tap's intent flag suppresses it in [mutate] —
+     *  the suppression IS the undo, and there is nothing to report. The FIRST act is
+     *  synchronous: recording the intent on the token, so an undo tapped before its
+     *  mutation has run suppresses the mutation rather than racing it — the tap can no
+     *  longer lose to its own mutation's coroutine (GitHub #25). A tap [mutate]'s flag
+     *  check has already passed takes the snapshot path here, and an intervening journal
+     *  change still voids the token.
+     *  enforced by: UndoIntegrityTest."a voided undo reports Nothing to undo instead of silently no-oping" */
     fun undo(token: UndoToken) {
         token.undoRequested = true
         scope.launch(ioDispatcher) {
             mutex.withLock {
                 val snapshot = token.snapshot ?: return@withLock
-                if (token.generation != generation) return@withLock
+                if (token.generation != generation) {
+                    _errors.trySend(UNDO_VOIDED_MESSAGE)
+                    return@withLock
+                }
                 val before = _ops.value
                 setOps(snapshot)
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(snapshot))) {
@@ -257,7 +264,7 @@ class OpsRepository(
                 // the armed snapshot below. The tap can no longer lose the race against
                 // its own mutation; an unrelated journal change (a folder-tick refresh,
                 // another mutation) can still void the token first, and that voided undo
-                // no-ops silently today (the feedback gap is GitHub #18).
+                // reports "Nothing to undo" (GitHub #18).
                 armUndo?.let { it.snapshot = before; it.generation = generation }
                 if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(updated))) {
                     setOps(before)
@@ -332,5 +339,6 @@ class OpsRepository(
         const val JOURNAL = "ops.jsonl"
         const val LEGACY_CSV = "pending.csv"
         const val UNAVAILABLE_MESSAGE = "Playlist edits unavailable — synced folder unreachable"
+        const val UNDO_VOIDED_MESSAGE = "Nothing to undo"
     }
 }

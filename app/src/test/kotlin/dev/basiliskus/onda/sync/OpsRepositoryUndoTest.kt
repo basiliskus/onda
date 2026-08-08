@@ -239,11 +239,12 @@ class OpsRepositoryUndoTest {
         advanceUntilIdle()
         // The two post-undo states are identical, so only the absence of a write
         // distinguishes a no-op from a repeated restore — this is the row that pins the
-        // generation CAS against undo's own setOps bump.
+        // generation CAS against undo's own setOps bump. Since #18 the voided second
+        // tap says so instead of staying silent.
         assertEquals(writesAfterFirstUndo, fake.writes)
         assertEquals(emptyList(), fake.journalOps())
         assertTrue(r.effectiveStations().any { it.url == "http://u" })
-        assertTrue(errors.isEmpty())
+        assertEquals(listOf(UNDO_VOIDED_MESSAGE), errors)
     }
 
     @Test fun `rolled-back delete auto-voids its token`() = runTest {
@@ -267,7 +268,8 @@ class OpsRepositoryUndoTest {
         assertEquals(writesAfterRollback, fake.writes) // token voided: undo never reached the write
         assertNull(fake.files[JOURNAL])
         assertTrue(r.effectiveStations().any { it.url == "http://u" })
-        assertEquals(1, errors.size)
+        // The failed write's report, then the voided tap's own (#18).
+        assertEquals(listOf(UNAVAILABLE_MESSAGE, UNDO_VOIDED_MESSAGE), errors)
     }
 
     @Test fun `failed undo write rolls back to post-delete ops`() = runTest {

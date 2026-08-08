@@ -1,5 +1,8 @@
-package dev.basiliskus.onda.core.model
+package dev.basiliskus.onda.core.playback
 
+import dev.basiliskus.onda.core.model.Group
+import dev.basiliskus.onda.core.model.Playlist
+import dev.basiliskus.onda.core.model.Station
 import dev.basiliskus.onda.core.m3u.M3uParser
 import kotlin.test.*
 

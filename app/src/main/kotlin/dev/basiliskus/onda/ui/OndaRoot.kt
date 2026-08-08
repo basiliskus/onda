@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,8 +69,8 @@ fun OndaRoot(graph: AppGraph) {
     val uiScope = rememberCoroutineScope()
     val onDeleteStation: (Station) -> Unit = { s ->
         // delete() hands back an undo token synchronously, so the snackbar can show
-        // immediately; undo() restores the pre-delete journal snapshot (and no-ops if a
-        // later journal change already voided it).
+        // immediately; undo() restores the pre-delete journal snapshot (and reports
+        // "Nothing to undo" if a later journal change already voided it — #18).
         val undoToken = graph.opsRepository.delete(s)
         uiScope.launch {
             val result = snackbarHostState.showSnackbar(
@@ -79,8 +80,8 @@ fun OndaRoot(graph: AppGraph) {
         }
     }
     // Same shape as onDeleteStation: one token covers the Delete+Add pair, so a single
-    // Undo takes the station back to where it was — and no-ops if a later journal change
-    // already voided it.
+    // Undo takes the station back to where it was — and reports "Nothing to undo" if a
+    // later journal change already voided it (#18).
     val onMoveToPlaylist: (Station, String, String) -> Unit = { s, toPlaylist, toGroup ->
         val undoToken = graph.opsRepository.moveToPlaylist(s, toPlaylist, toGroup)
         uiScope.launch {
@@ -127,8 +128,10 @@ fun OndaRoot(graph: AppGraph) {
                 PlaylistsScreen(
                     playlists = ready?.playlists ?: emptyList(),
                     scanning = scanning,
-                    onOpen = { nav.navigate("playlists/${android.net.Uri.encode(it)}") },
-                    onSettings = { nav.navigate("settings") },
+                    // launchSingleTop on every content navigate: a fast double-tap must not
+                    // push two identical entries that then need two back presses (#12).
+                    onOpen = { nav.navigate("playlists/${android.net.Uri.encode(it)}") { launchSingleTop = true } },
+                    onSettings = { nav.navigate("settings") { launchSingleTop = true } },
                     onRefresh = graph.playlistRepository::rescan,
                 )
             }
@@ -157,7 +160,7 @@ fun OndaRoot(graph: AppGraph) {
             composable("settings") { SettingsScreen(graph, onBack = { nav.popBackStack() }) }
             composable("discover") {
                 DiscoverScreen(discoverVm) { kind, value ->
-                    nav.navigate("discover/stations/$kind/${android.net.Uri.encode(value)}")
+                    nav.navigate("discover/stations/$kind/${android.net.Uri.encode(value)}") { launchSingleTop = true }
                 }
             }
             composable("discover/stations/{kind}/{value}") { entry ->
@@ -165,8 +168,10 @@ fun OndaRoot(graph: AppGraph) {
                 val value = entry.arguments?.getString("value")!!
                 LaunchedEffect(kind, value) { discoverVm.openList(kind, value) }
                 val starredUrls by graph.opsRepository.starredUrls.collectAsStateWithLifecycle()
-                var addTarget by remember { mutableStateOf<RbStation?>(null) }
-                var addPlaylist by remember { mutableStateOf<String?>(null) }
+                // Saveable so the targeted-add picker survives rotation mid-flow
+                // (GitHub #18, RbStationSaver — same treatment as the detail screen's sheets).
+                var addTarget by rememberSaveable(stateSaver = RbStationSaver) { mutableStateOf<RbStation?>(null) }
+                var addPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
                 StationListScreen(
                     title = if (kind == "top") "Top voted" else value,
                     vm = discoverVm,
