@@ -47,6 +47,21 @@ Each entry names the PR that caught the class on that substrate.
 7. **Instrument self-corruption** — the verification tool lying: a
    comparison script clobbering its own input (v0.5.1 release, Action
    Tracker #32), a mutation driver reading stale XML (PR #34, GitHub #36).
+   v0.5.2 added two recurring sub-shapes, four instances in one milestone:
+   a harness reporting someone else's exit code (`cmd | tail` twice — the
+   canon-closure run and the release gate), and a value used as a
+   discriminator that cannot discriminate (file mtime twice — the release
+   template's freshness check, where the suite necessarily predates the
+   commit, and hardware row R1, where `stations.m3u` proved the timestamp
+   was a sync touch). Both fail toward *confident* false verification,
+   which is worse than no check.
+
+8. **The fix diff** — the code written in response to a finding, which is
+   simultaneously the least-reviewed code in a branch and the most
+   defect-dense. PR #65's round-2 fix introduced the regressions round 3
+   caught; PR #66's round-2 fix carried four bugs; PR #67's re-review
+   refuted a claim its own fix commit had just added. Reviewing the fix
+   delta with a rotated instrument is now a Code Review checklist item.
 
 ## Instruments
 
@@ -60,6 +75,9 @@ Each entry names the PR that caught the class on that substrate.
 | External-existence check (AT #30) | claims that a filed/shipped/verified thing exists | template checklists |
 | Contradiction rule + fresh paths + XML mtime (AT #32) | an instrument's output contradicting an already-passed check | release template |
 | Instrument declaration | re-review rounds re-measuring with the same blind spot | Code Review / Re-Review |
+| Fix-delta re-review | defects introduced by a previous round's own fixes | Code Review (all three templates) |
+| Sibling sweep | a shape fixed at one call site / consumer / exit path but not its twins | Fix / Implementation / Refactor Execution |
+| Instrument verification | harnesses reporting the wrong exit code; discriminators that cannot discriminate | Test Execution / Regression Check |
 | Doc sweep after factual corrections | a corrected claim's copies surviving in docs/CHANGELOG | template checklists |
 
 ## Boundaries, stated plainly

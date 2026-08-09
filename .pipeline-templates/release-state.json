@@ -329,12 +329,17 @@
           "mandatory": true
         },
         {
-          "action": "verify the JUnit XML used for the release counts was written AFTER the release commit's tree existed (mtime vs commit time) — the suite must have run on the tree being released, not a replay",
+          "action": "establish that the suite ran on the tree being released, not a replay. Prefer CI on the exact commit (gh run list --workflow=ci.yml, match headSha to the tagged commit) — it is the only evidence branch checkouts cannot perturb. If using local JUnit XML, compare its mtime against the newest SOURCE file mtime, NOT against the commit time: the suite necessarily runs before the commit exists, so a commit-time comparison fails on every correct release and trains the executor to wave it through (v0.5.2: failed by 854s on a perfectly good release)",
           "done": false,
           "mandatory": true
         },
         {
           "action": "output RELEASE_PUBLISHED <url> or RELEASE_FAILED",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "manual-matrix rows must be executable BY A HUMAN with the tools at hand — a row that asks a person to win a sub-millisecond race, or whose discriminating observation is unavailable from the side doing the observing, is not a test. Close it as not-hardware-observable, naming the automated row that does pin the behavior, rather than carrying it forward forever (v0.5.2 row R1: both correct paths coalesce to the same synced bytes, and the suppression it targeted is already pinned by a JVM write-count assertion)",
           "done": false,
           "mandatory": true
         }

@@ -37,8 +37,160 @@ issue or be explicitly closed with a reason.
 | 28 | Bugfix Fix stage said "update CHANGELOG.md"; Gate 1 forbids it | PR #47 | — | Closed | Contradictory item removed from the bugfix template at the v0.5.0 retro; CHANGELOG belongs to the Documentation stage (Gate 2) |
 | 29 | Run `/pipeline-roadmap-audit` at strategy time, not one task at a time | PR #42, PR #43 | — | Closed | Applied to pipeline-strategy's survey stage (`~/.claude/skills/pipeline-strategy/SKILL.md`) at the v0.5.0 retro. Two stale-premise closures were both caught downstream by `/pipeline-next` |
 | 30 | External-existence claims ("filed on X", "exists in Y") verified by command at commit time | PR #57, PR #59, Retro v0.5.1 | — | Closed | Applied to the Documentation stage of all three templates at the v0.5.1 retro. Three forward-dated claims in one milestone; the quantifier audit is structurally blind to the shape |
-| 31 | Undo silent no-op — field-sighted, byte-proven | Retro v0.5.1 | #25 | Open | First field evidence posted on #25 (mixed-batch journal pair, 2026-08-07). Unreproduced under controlled re-runs; v0.5.2 triage priority — user-visible and data-affecting |
+| 31 | Undo silent no-op — field-sighted, byte-proven | Retro v0.5.1 | #25 | Closed | Fixed in PR #65 (v0.5.2): `undo()` records intent synchronously and `mutate()` suppresses under the mutex, so the tap cannot lose to its own mutation; pinned by a write-count assertion (pre-fix 2, post-fix 0). Field scenario re-confirmed on the v0.5.2 APK — the move+undo left no journal residue |
 | 32 | Release verification: fresh download paths, contradiction rule, XML-mtime check | PR #59 | — | Closed | Applied to the release template's Release Verification stage at the v0.5.1 retro. The stage-11 near-miss compared the old release against itself after the comparison script clobbered its own input |
+| 33 | Programmatic artifact-existence gate for ticked mandatory checklist items | Retro v0.5.2 (PR #67, PR #68) | #69 | Open | Stage records are prose asserting work happened; PR #67 ticked Planning/Implementation while `-plan.md`/`-changes.txt` did not exist — inside the run that shipped `docs/canon.md`. Same class as #31 one level up |
+| 34 | Sibling sweep: a shape fixed at one consumer / call site / exit path must be enumerated across its twins | Retro v0.5.2 (PR #65, PR #66) | — | Closed | Applied as a mandatory Fix / Implementation / Refactor Execution item in all three templates at the v0.5.2 retro. Three instances shipped this milestone, each caught a review round later |
+| 35 | Re-review the FIX DELTA with a rotated instrument, not the whole PR | Retro v0.5.2 (PR #65, PR #66, PR #67) | — | Closed | Applied as a mandatory Code Review item in all three templates at the v0.5.2 retro; recorded as substrate 8 in `docs/canon.md`. Paid for itself three times — a scoped round found four real bugs at a third of a full round's cost |
+| 36 | Verify the instrument before believing its verdict (exit codes from the command under test; discriminators validated against a known case) | Retro v0.5.2 (PR #67, PR #68) | — | Closed | Applied as a mandatory Test Execution / Regression Check item in all three templates at the v0.5.2 retro; `docs/canon.md` substrate 7 extended. Four instances in one milestone: `\| tail` twice, mtime-as-discriminator twice |
+| 37 | Release checks that cannot pass (XML mtime vs commit time) or cannot be executed by a human (R1) | Retro v0.5.2 (PR #68) | — | Closed | Freshness item reworded to prefer CI-on-the-exact-commit and otherwise compare against source mtimes; manual-matrix executability item added to Release Verification at the v0.5.2 retro. R1 closed as not hardware-observable |
+
+## v0.5.2 — Integrity and sweep (PRs #64–#68)
+
+**Date**: 2026-08-08
+**Scope**: The undo token-and-feedback subsystem made honest under races
+(#25 #24 #30), the small-UI backlog that individually loses every triage
+(#11 #12 #18 #28), and canon closure turning two process conventions into
+CI-enforced artifacts (#31 #36). Shipped as v0.5.2 on 2026-08-08.
+**Tests at close**: 216 (`:core` 132, `:app` 84 — `:app` 75 → 84 this milestone)
+
+### What We Learned
+
+**1. Every substantive fix this milestone had a second door.**
+Three times, a fix addressed one instance of a shape and left its twin
+untouched, and three times a later review round found the twin. #24's stale
+mirror was guarded for the undo consumer while the mutate consumer could still
+serialize it over the migrated journal (PR #65, round 2). `crossMoveTarget` was
+cleared-not-hidden while `addPlaylist` — the same shape ten lines away — was
+only hidden (PR #66, round 3). A fresh KDoc claiming a message "fires only on a
+genuine journal change" missed the rollback exit path that fires it with no
+journal change at all (PR #66, round 3). The common error is fixing the *known
+readers* of a bad value instead of the value, or the *known paths* into a claim
+instead of enumerating them.
+
+**Action taken**: Added a mandatory "sibling sweep" item to the Fix /
+Implementation / Refactor Execution stages of all three project templates
+(`.pipeline-templates/{bugfix,feature,refactor}-state.json`) requiring the
+executor to enumerate every other instance of the root-cause shape and state
+per instance whether it needs the same fix.
+
+**2. The fix diff is the densest defect site in the pipeline, and the least reviewed.**
+Code written in response to a finding is framed by that finding rather than by
+the problem, and it lands after the review that would have caught it. PR #65's
+round-2 fix introduced the capacity-1 message-eviction regressions that round 3
+caught — regressions of the exact loss class the PR existed to fix. PR #66's
+round-2 fix contained four real bugs, found by a round 3 deliberately scoped to
+*only* the fix delta, at roughly a third of a full round's cost and noise.
+PR #67's re-review refuted a claim its own fix commit had introduced one commit
+earlier. The scoped-delta review has now paid for itself three times.
+
+**Action taken**: Added a mandatory "re-review the FIX DELTA, not the whole PR"
+item to the Code Review stage of all three project templates, requiring
+`git diff <pre-fix-sha>..HEAD` to be reviewed with a rotated instrument after
+any round whose fixes changed behavior. Also recorded as substrate 8 in
+`docs/canon.md`.
+
+**3. Four instruments lied inside their own verification runs.**
+Twice a harness reported someone else's exit code (`cmd | tail` — once while
+verifying the mutation script that exists to refuse stale results, once while
+reading the release gate's verdict), and twice a value was used as a
+discriminator that could not discriminate (file mtime: the release template's
+freshness check compares against commit time, which the suite necessarily
+predates, so it fails on every correct release; and R1's write-vs-sync question,
+where `stations.m3u` — a file the phone never writes — carried the identical
+timestamp, proving the mtime was a sync touch). Every one of these fails toward
+*confident false verification*, which is strictly worse than having no check.
+
+**Action taken**: Added a mandatory "verify the INSTRUMENT before believing its
+verdict" item to the Test Execution / Regression Check stages of all three
+templates (exit codes must come from the command under test; a discriminator
+must be validated against a case with a known answer), and extended
+`docs/canon.md` substrate 7 with both sub-shapes plus an Instrument
+verification row in its instruments table.
+
+**4. A check that fails on every correct run, and a manual row no human can execute.**
+Two verification items were found to be structurally unrunnable rather than
+merely inconvenient. The release template's XML-freshness check (mtime vs
+*commit* time) must fail whenever the release is done properly — it failed by
+854 seconds on this one — and an item that always fails trains its executor to
+wave it through. Hardware row R1 asked a human to win a sub-millisecond race:
+suppression only fires when the Undo tap beats its own mutate coroutine on
+`Dispatchers.IO`, so a ~500ms human tap takes the late-undo restore path
+instead, and both paths coalesce to identical synced bytes.
+
+**Action taken**: Reworded the release template's freshness item to prefer CI
+on the exact commit and, failing that, to compare XML mtime against newest
+*source* mtime; added a mandatory manual-matrix executability item to the same
+stage. R1 closed as "field scenario confirmed, suppression path not
+hardware-observable", naming the JVM write-count assertion that does pin it.
+
+**5. Meta-work is not exempt from the discipline it ships.**
+PR #67 ticked mandatory Planning and Implementation items whose artifacts
+(`-plan.md`, `-changes.txt`) did not exist — inside the very run that shipped
+`docs/canon.md`, the document about claims with nothing checking them. The
+reviewer discovered it by being unable to perform its own first step. Days
+earlier the same milestone nearly published an unverified quantifier ("no
+journal code touched at all" — false at the app layer) in the release notes of
+the milestone that wrote the canon. Self-discipline is not the control; a check
+is.
+
+**Action taken**: Open — tracked in Action Tracker #33 (GitHub #69).
+
+### Insights
+
+- **32 CI runs since the v0.5.1 tag, zero failures.** Not one red build across
+  eight PRs, three of them multi-round. The cost of this milestone was paid in
+  review rounds, not in broken builds.
+- **Layered review found what the suite structurally could not.** 216 passing
+  tests and a six-ordering interleaving enumeration did not surface #24's
+  second door; a workflow reviewer reading for stale state did. The suite
+  proves what it pins; review is what discovers what should be pinned.
+- **Root-causing under review pressure produced simpler code, not more patched
+  code.** PR #65's round-3 early-return *deleted* the failed-re-read hazard the
+  original fix was engineered to survive; PR #66's URL-derivation made stale
+  snapshots structurally impossible instead of validating them; the `consumed`
+  flag was replaced by nulling a field that already existed.
+- **A "polish" label set the wrong review posture.** #11/#12/#28 were genuinely
+  tiny; #18 was a state machine wearing their clothes, and the batch framing is
+  what let three successive designs ship with bugs. Per-item risk triage inside
+  a grouped run would have caught it — worth watching next time a `--group`
+  run mixes sizes.
+
+### Review Stats
+
+| Metric | PR #65 | PR #66 | PR #67 | PR #68 | Total |
+|--------|--------|--------|--------|--------|-------|
+| Review rounds | 3 | 3 | 2 | 1 | 9 |
+| Findings reported | 15 | 24 | 7 | 4 | 50 |
+| Findings fixed | 14 | 21 | 7 | 4 | 46 |
+| Findings accepted-with-rationale | 1 | 3 | 0 | 0 | 4 |
+| Tests added | +8 | +1 | 0 | 0 | +9 |
+| CI failures | 0 | 0 | 0 | 0 | 0 |
+
+### Process Improvements Applied
+
+**CLAUDE.md**: none this milestone.
+**Pipeline templates**: sibling sweep (Fix / Implementation / Refactor
+Execution, all three templates); fix-delta re-review (Code Review, all three);
+instrument verification (Test Execution / Regression Check, all three);
+release template's XML-freshness item reworded and a manual-matrix
+executability item added; mutation driver hygiene now cites
+`scripts/mutation-run.sh` instead of restating rules as prose (PR #67).
+**Repo tooling**: `scripts/check_enforced_by.py` wired into CI;
+`scripts/mutation-run.sh` + `scripts/mutation_results.py`; `docs/canon.md`
+created and extended here with substrate 8 and three instrument rows.
+**Skills**: none.
+
+### Open Items
+
+- [ ] Programmatic artifact-existence gate for ticked mandatory items —
+      Action Tracker #33 (GitHub #69)
+- [ ] Coverage tail deferred by the strategy session: GitHub #26 (Discover
+      pagination coverage), #27 (harness fault injection gaps)
+- [ ] v0.5.2 smoke rows 1–4 (rotation search text, double-tap back-stack,
+      sheet survival, voided-undo snackbar) and playback unrun on hardware;
+      the published APK installs, launches, loads the synced folder and edits
+      playlists correctly
 
 ## v0.5.1 — Contract hardening (PRs #54–#60)
 
@@ -167,8 +319,10 @@ preamble).
 
 ### Open Items
 
-- [ ] #25 undo silent no-op — now field-sighted, Action Tracker #31 (v0.5.2
-  triage priority)
+- [x] #25 undo silent no-op — now field-sighted, Action Tracker #31 (v0.5.2
+  triage priority) — **resolved in v0.5.2 (PR #65)**: intent flag recorded
+  synchronously, mutation suppressed under the mutex; write-count assertion
+  pre-fix 2 / post-fix 0, field scenario re-confirmed on the v0.5.2 APK
 - [ ] Row 17 creation half (fresh-folder SAF ladder) — standing checklist row,
   not owed debt
 - [x] Verify data's drop-batch implementation against data#16's caveats —
@@ -176,8 +330,10 @@ preamble).
   membership-based abort (drop the members present, never expect N),
   split-batch partner awareness, batch-value hygiene in `is_wellformed`.
   All caveats honored; data#16 and data#19 both closed
-- [ ] Remaining tech debt: GitHub #11, #12, #18, #24, #26, #27, #28, #30, #31,
-  #36
+- [x] Remaining tech debt: GitHub #11, #12, #18, #24, #26, #27, #28, #30, #31,
+  #36 — **all but #26 and #27 closed in v0.5.2** (#24 #25 #30 by PR #65;
+  #11 #12 #18 #28 by PR #66; #31 #36 by PR #67). #26 and #27 are the
+  coverage tail the strategy session deliberately deferred
 
 ## v0.5.0 — Correct, then ship (PRs #40–#50)
 
