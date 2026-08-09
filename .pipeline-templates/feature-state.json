@@ -178,6 +178,11 @@
           "action": "write list of all changed files to .pipeline-state/<branch>-changes.txt (git diff --name-only HEAD)",
           "done": false,
           "mandatory": true
+        },
+        {
+          "action": "sibling sweep — when the root cause is a SHAPE (a stale value read by more than one consumer, a guard applied at one call site, a claim about one exit path), enumerate every other instance of that shape and state for each whether it needs the same fix. v0.5.2 shipped this defect three times: #24's stale mirror was guarded for the undo consumer but not the mutate consumer; crossMoveTarget was cleared while addPlaylist ten lines away was only hidden; a 'fires only on X' KDoc missed the rollback exit path. Each was caught a review round later, in the fix's own diff.",
+          "done": false,
+          "mandatory": true
         }
       ]
     },
@@ -219,6 +224,11 @@
         },
         {
           "action": "output TESTS_PASSED or TESTS_FAILED",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "verify the INSTRUMENT before believing its verdict — a harness that reports someone else's exit code, or a discriminator that cannot actually discriminate, produces confident false verification. Check: exit codes come from the command under test (never from a pipeline's last element — `cmd | tail` reports tail's status); a value used to tell two cases apart is validated against a case where the answer is known. v0.5.2 lost this four times in its own verification runs: `| tail` twice, file mtime as a write-vs-sync discriminator twice.",
           "done": false,
           "mandatory": true
         }
@@ -527,6 +537,11 @@
         },
         {
           "action": "output APPROVE/REQUEST_CHANGES/COMMENT",
+          "done": false,
+          "mandatory": true
+        },
+        {
+          "action": "re-review the FIX DELTA, not the whole PR — after any round whose fixes changed behavior, review `git diff <pre-fix-sha>..HEAD` alone with a DIFFERENT instrument. The fix diff is the densest defect site in the pipeline: it is written under the framing of the finding rather than fresh, and it is the least-reviewed code in the branch. v0.5.2 evidence: PR #65's round-2 fix introduced the capacity-1 regressions round 3 caught; PR #66's round-2 fix contained four real bugs found by a scoped round 3 at a third of a full round's cost; PR #67's re-review refuted a claim its own fix commit had just introduced.",
           "done": false,
           "mandatory": true
         }
