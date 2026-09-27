@@ -25,11 +25,11 @@ class DiscoverViewModel(private val client: RadioBrowserApi) : ViewModel() {
     private val _list = MutableStateFlow(StationListState())
     val list: StateFlow<StationListState> = _list
     private var filter = StationFilter()
-    // Bumped per openList; a page fetch writes only if its list is still current.
-    // Coroutine cancellation does not reliably stop the underlying blocking network
-    // request, so a late result must be dropped.
+    // Bumped per openList. A previous list's requests remain active; a page fetch
+    // writes its result only if its generation is still current.
     // enforced by: DiscoverViewModelTest."late success from the previous list does not overwrite the new one"
     // enforced by: DiscoverViewModelTest."late failure from the previous list does not leak its banner into the new one"
+    // enforced by: DiscoverViewModelTest."late next page from the previous list does not change the new one"
     private var listGeneration = 0
 
     // In-flight guards: re-entering the screen mid-fetch must not launch a

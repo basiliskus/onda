@@ -8,13 +8,11 @@ import dev.basiliskus.onda.core.radiobrowser.StationFilter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Before
 import java.io.IOException
@@ -37,15 +35,13 @@ class DiscoverViewModelTest {
 
         val searchResults = ArrayDeque<Result<List<RbStation>>>()
         val searchCalls = mutableListOf<Pair<StationFilter, Int>>()
-        /** When set, the next searchStations call holds on it and completes even if cancelled —
-         *  the real client's blocking OkHttp call is not interrupted by cancellation either. */
+        /** When set, the next searchStations call holds its response until the test releases it. */
         var searchGate: CompletableDeferred<Unit>? = null
 
         override suspend fun searchStations(filter: StationFilter, offset: Int, limit: Int): List<RbStation> {
             searchCalls += filter to offset
             val result = searchResults.removeFirst()
-            val gate = searchGate.also { searchGate = null }
-            if (gate != null) withContext(NonCancellable) { gate.await() }
+            searchGate.also { searchGate = null }?.await()
             return result.getOrThrow()
         }
 
@@ -208,7 +204,7 @@ class DiscoverViewModelTest {
         client.searchResults += Result.success(stations("b", PAGE_SIZE))
         client.searchResults += Result.success(stations("c", PAGE_SIZE))
         vm.loadMore()
-        vm.loadMore() // second scroll callback before the first coroutine runs
+        vm.loadMore() // second call while the first launch is still queued on the dispatcher
         advanceUntilIdle()
         assertEquals(listOf(0, PAGE_SIZE), client.searchCalls.map { it.second })
         assertEquals(2 * PAGE_SIZE, vm.list.value.stations.size)
@@ -250,5 +246,29 @@ class DiscoverViewModelTest {
         assertEquals(listB, vm.list.value.stations)
         assertNull(vm.list.value.error)
         assertFalse(vm.list.value.loading)
+    }
+
+    @Test fun `late next page from the previous list does not change the new one`() = runTest {
+        client.searchResults += Result.success(stations("a", PAGE_SIZE))
+        vm.openList("tag", "jazz")
+        advanceUntilIdle()
+
+        val gate = CompletableDeferred<Unit>()
+        client.searchGate = gate
+        client.searchResults += Result.success(stations("a2-", PAGE_SIZE))
+        vm.loadMore()
+        advanceUntilIdle() // list A's next page held in flight
+        assertEquals(listOf(0, PAGE_SIZE), client.searchCalls.map { it.second })
+
+        val listB = stations("b", 3)
+        client.searchResults += Result.success(listB)
+        vm.openList("tag", "rock")
+        advanceUntilIdle()
+        val listBState = vm.list.value
+        assertEquals(StationListState(stations = listB, endReached = true), listBState)
+
+        gate.complete(Unit) // A's next page lands after the switch
+        advanceUntilIdle()
+        assertEquals(listBState, vm.list.value)
     }
 }
