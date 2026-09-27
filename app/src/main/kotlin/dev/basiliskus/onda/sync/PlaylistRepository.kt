@@ -259,28 +259,6 @@ class PlaylistRepository(
     }
 
     /**
-     * Blocking I/O — call from Dispatchers.IO. Deletes [name] plus any .tmp/.bak artifacts
-     * the write choreography may have left for it. Returns true once [name] no longer
-     * exists in the folder.
-     */
-    override fun deleteSyncedFile(name: String): Boolean {
-        val tree = prefs.treeUri ?: return false
-        return try {
-            val dir = DocumentFile.fromTreeUri(context, tree) ?: return false
-            dir.listFiles().forEach { f ->
-                val n = f.name ?: return@forEach
-                if (n == name || (n.startsWith("$name.") && (n.contains(".tmp") || n.contains(".bak")))) {
-                    f.delete()
-                }
-            }
-            dir.findFile(name) == null
-        } catch (e: Exception) {
-            Log.w("Onda", "deleteSyncedFile($name): failed", e)
-            false
-        }
-    }
-
-    /**
      * Blocking I/O — call from Dispatchers.IO. Appends one record in a single write, in SAF
      * append mode ("wa" -> O_APPEND), rather than through the tmp/bak rewrite above: a
      * whole-file rewrite would race the desktop harvester (which reads and rotates this file

@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Removed
+
+- The first-launch `pending.csv` → `ops.jsonl` migration (#27). If deleting
+  `pending.csv` failed, the migration re-ran on every refresh and re-starred
+  stations the user had since unstarred. A leftover `pending.csv` is now
+  ignored: the app neither reads nor deletes it. Upgrading straight from
+  v0.2.0 or earlier no longer carries its `pending.csv` stars into the
+  journal.
+
 ### Fixed
 
 - Discover pagination (#26): a late page or failure banner from a previously

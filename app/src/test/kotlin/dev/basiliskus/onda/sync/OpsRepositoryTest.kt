@@ -1,21 +1,15 @@
 package dev.basiliskus.onda.sync
 
-import dev.basiliskus.onda.core.ops.Op
 import dev.basiliskus.onda.core.ops.OpsJournal
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.*
 
-/** Overlay, refresh, SAF write-failure injection, and pending.csv migration choreography —
- *  the orchestration around :core's ops algebra (compaction/apply are canon there). */
+/** Overlay, refresh, and SAF write-failure injection — the orchestration around :core's
+ *  ops algebra (compaction/apply are canon there). */
 @OptIn(ExperimentalCoroutinesApi::class)
 class OpsRepositoryTest {
-    private val pendingCsvHeader =
-        "# name,url,encoding,icon,profile,buffering,force-http,volume,referer,player,stationuuid,tags,country,votes"
-    private val pendingCsvRow =
-        "NTS,https://nts.example/stream,,https://nts.example/icon.png,,,,,,,uuid-1,eclectic,United Kingdom,812"
-
     @Test fun `effectivePlaylists overlays targeted add as pending row`() = runTest {
         val fake = FakePlaylistsSource(ready(station("http://synced")))
         val r = repo(fake)
@@ -118,36 +112,37 @@ class OpsRepositoryTest {
         assertEquals("http://u", r.effectiveStations().single().url)
     }
 
-    @Test fun `pending csv migrates to journal adds and csv is deleted`() = runTest {
+    /**
+     * GitHub #27 — the one-time pending.csv migration re-ran on every refresh whenever its
+     * csv delete failed, re-starring stations the user had since unstarred. It is removed:
+     * a leftover pending.csv is not Onda's file and must be neither read nor deleted.
+     * The shape is the field one: the station was migrated long ago (already starred in the
+     * journal), the csv still lists it, and the user unstars it.
+     */
+    @Test fun `a leftover pending csv is ignored across refreshes`() = runTest {
+        val csv = "# name,url,encoding,icon,profile,buffering,force-http,volume,referer,player,stationuuid,tags,country,votes\n" +
+            "NTS,http://q,,,,,,,,,uuid-1,eclectic,United Kingdom,812\n"
         val fake = FakePlaylistsSource(ready())
-        val secondRow = "KEXP,https://kexp.example/stream,,,,,,,,,uuid-2,eclectic,USA,42"
-        fake.files[LEGACY_CSV] = "$pendingCsvHeader\n$pendingCsvRow\n$secondRow\n"
+        fake.seedJournal(addOp("http://q"))
+        fake.files[LEGACY_CSV] = csv
         val r = repo(fake)
         advanceUntilIdle()
 
-        assertFalse(LEGACY_CSV in fake.files)
-        val adds = fake.journalOps().map { it as Op.Add }
-        assertEquals(
-            listOf("https://nts.example/stream", "https://kexp.example/stream"),
-            adds.map { it.station.url },
-        )
-        adds.forEach { assertNull(it.playlist); assertNull(it.group) }
-        assertEquals(setOf("https://nts.example/stream", "https://kexp.example/stream"), r.starredUrls.value)
-        // The migration is one journal write, so its adds SHARE one batch (GitHub #38) —
-        // per-add uuids would pass a non-null check and still break the uniformity rule.
-        assertNotNull(adds[0].batch, "migrated add carries no batch id")
-        assertEquals(adds[0].batch, adds[1].batch, "migration adds do not share the write's batch")
+        r.toggle(rbStation("http://q")) // unstar — the csv still lists it
+        advanceUntilIdle()
+        r.refresh()
+        advanceUntilIdle()
+        r.refresh()
+        advanceUntilIdle()
+
+        assertEquals(emptyList(), fake.journalOps(), "a refresh re-added the unstarred station")
+        assertEquals(emptySet(), r.starredUrls.value)
+        assertEquals(csv, fake.files[LEGACY_CSV], "pending.csv was modified or deleted")
+        assertEquals(0, fake.readsOf(LEGACY_CSV), "pending.csv was read")
     }
 
-    @Test fun `pending csv migration aborts on write failure keeping the csv`() = runTest {
-        val fake = FakePlaylistsSource(ready())
-        fake.files[LEGACY_CSV] = "$pendingCsvHeader\n$pendingCsvRow\n"
-        fake.failWrites = true
-        val r = repo(fake)
-        advanceUntilIdle()
-
-        assertTrue(LEGACY_CSV in fake.files)
-        assertNull(fake.files[JOURNAL])
-        assertEquals(emptySet(), r.starredUrls.value)
+    private companion object {
+        /** The retired favorites file — written by v0.1.0–v0.2.0, replaced by ops.jsonl in v0.3.0. */
+        const val LEGACY_CSV = "pending.csv"
     }
 }

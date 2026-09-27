@@ -30,11 +30,6 @@ internal class FakePlaylistsSource(
     override val folderTicks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val files = mutableMapOf<String, String>()
     var failReads = false
-    /** Fail the Nth read (1-based, counted per name over the fake's lifetime) of the named
-     *  file — e.g. a refresh's own journal re-read while the migration's reads succeed.
-     *  Name-scoped so reads of other files never shift the target; [readsOf] anchors the
-     *  count at the call site. */
-    var failReadOf: Pair<String, Int>? = null
     private val readsByName = mutableMapOf<String, Int>()
     var failWrites = false
     var failAppends = false
@@ -53,12 +48,13 @@ internal class FakePlaylistsSource(
      *  a path wrote nothing by not attempting, rather than by writing identical bytes. */
     var appends = 0
 
-    /** Reads of [name] so far — the anchor for a relative [failReadOf] target. */
+    /** Read attempts of [name] over the fake's lifetime, failed ones included — lets a row
+     *  assert a file was never read at all, not merely that its content went unused. */
     fun readsOf(name: String): Int = readsByName[name] ?: 0
 
     override fun readSyncedText(name: String): Result<String?> {
-        val nth = readsByName.merge(name, 1, Int::plus)!!
-        return if (failReads || failReadOf == name to nth)
+        readsByName.merge(name, 1, Int::plus)
+        return if (failReads)
             Result.failure(IOException("synced folder unreachable"))
         else Result.success(files[name])
     }
@@ -67,11 +63,6 @@ internal class FakePlaylistsSource(
         writes++
         if (failWrites) return false
         files[name] = text
-        return true
-    }
-
-    override fun deleteSyncedFile(name: String): Boolean {
-        files.remove(name)
         return true
     }
 
@@ -100,9 +91,9 @@ internal class FakePlaylistsSource(
  * filename or a user-visible string there must fail these tests rather than silently follow
  * along. How each one bites differs, so neither claim is broader than its mechanism:
  *
- * - [JOURNAL] and [LEGACY_CSV] are enforced by construction: OpsRepository passes its own
- *   constant to `writeSyncedText(name, …)`/`readSyncedText(name)`, which is the very key this
- *   fake stores under, so renaming there misses every row that asserts on these.
+ * - [JOURNAL] is enforced by construction: OpsRepository passes its own constant to
+ *   `writeSyncedText(name, …)`/`readSyncedText(name)`, which is the very key this fake stores
+ *   under, so renaming there misses every row that asserts on it.
  * - [TITLES_LOG_PATH] cannot bite that way — `appendTitlesLogLine` deliberately takes no
  *   filename, so this is only the fake's own storage key. It is pinned instead by the explicit
  *   equality row in SongCaptureRepositoryTest, which reads PlaylistRepository's constants
@@ -110,7 +101,6 @@ internal class FakePlaylistsSource(
  *   synced folder is observable only on a device (smoke checklist row 17).
  */
 internal const val JOURNAL = "ops.jsonl"
-internal const val LEGACY_CSV = "pending.csv"
 internal const val UNAVAILABLE_MESSAGE = "Playlist edits unavailable — synced folder unreachable"
 internal const val UNDO_VOIDED_MESSAGE = "Nothing to undo"
 internal const val TITLES_LOG_PATH = "recordings/onda-titles.log"
