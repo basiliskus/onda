@@ -25,6 +25,12 @@ class DiscoverViewModel(private val client: RadioBrowserApi) : ViewModel() {
     private val _list = MutableStateFlow(StationListState())
     val list: StateFlow<StationListState> = _list
     private var filter = StationFilter()
+    // Bumped per openList; a page fetch writes only if its list is still current.
+    // Coroutine cancellation does not reliably stop the underlying blocking network
+    // request, so a late result must be dropped.
+    // enforced by: DiscoverViewModelTest."late success from the previous list does not overwrite the new one"
+    // enforced by: DiscoverViewModelTest."late failure from the previous list does not leak its banner into the new one"
+    private var listGeneration = 0
 
     // In-flight guards: re-entering the screen mid-fetch must not launch a
     // duplicate whose late failure could set a banner no retry would clear.
@@ -71,6 +77,7 @@ class DiscoverViewModel(private val client: RadioBrowserApi) : ViewModel() {
         }
         if (newFilter == filter && _list.value.stations.isNotEmpty()) return
         filter = newFilter
+        listGeneration++
         _list.value = StationListState(loading = true)
         loadMore(reset = true)
     }
@@ -78,18 +85,22 @@ class DiscoverViewModel(private val client: RadioBrowserApi) : ViewModel() {
     fun loadMore(reset: Boolean = false) {
         val cur = _list.value
         if (!reset && (cur.loading || cur.endReached)) return
+        // Set synchronously so a second call in the same frame sees the guard.
+        // enforced by: DiscoverViewModelTest."two loadMore calls in the same frame fetch the page once"
+        _list.value = cur.copy(loading = true, error = null)
+        val generation = listGeneration
         viewModelScope.launch {
-            _list.value = cur.copy(loading = true, error = null)
-            try {
+            val next = try {
                 val offset = if (reset) 0 else cur.stations.size
                 val page = client.searchStations(filter, offset = offset, limit = PAGE_SIZE)
-                _list.value = StationListState(
+                StationListState(
                     stations = (if (reset) emptyList() else cur.stations) + page,
                     endReached = page.size < PAGE_SIZE,
                 )
             } catch (e: IOException) {
-                _list.value = cur.copy(loading = false, error = "radio-browser unreachable")
+                cur.copy(loading = false, error = "radio-browser unreachable")
             }
+            if (generation == listGeneration) _list.value = next
         }
     }
 }
