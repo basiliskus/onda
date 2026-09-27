@@ -33,7 +33,7 @@ pyradio writes, for the desktop music harvester to pick up. Those
 three — playlists in, ops journal out, titles log appended — are
 everything the app touches in that folder. Full contract and
 stream-quirk knowledge:
-`CLAUDE.md` and `docs/spec.md`.
+`AGENTS.md` and `docs/spec.md`.
 
 ## Contributing
 

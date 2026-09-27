@@ -1,5 +1,9 @@
 # Pipeline templates
 
+Since 2026-09-27 these templates serve as task checklists for coordinated agent
+work, without the pipeline-* skills; see `AGENTS.md`. The history below explains
+their origin.
+
 Project-local state templates for the pipeline-* skill family. These OVERRIDE the
 skill-default templates in the pipeline-skill's `templates/` directory (resolved via
 `PIPELINE_SKILL_DIR` or the directory containing `pipeline.py`); `pipeline-next`

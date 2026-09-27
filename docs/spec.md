@@ -4,7 +4,7 @@ Migrated from the dotfiles wishlist (researched 2026-07-22/23 during
 the TuneIn → pyradio migration). This is the input for the
 superpowers:brainstorming design phase, not its output — the design
 sessions may refine anything here except the "decisions already made"
-in CLAUDE.md.
+in AGENTS.md.
 
 ## Why this app exists
 
@@ -24,7 +24,7 @@ Tried and rejected:
 1. **Watched playlists, no importing.** Reads every `.m3u` in the
    Synology-Drive-synced folder (SAF document tree the user picks
    once), hot-reloads on change, renders each playlist with its groups
-   as real sections. See CLAUDE.md "Data contract".
+   as real sections. See AGENTS.md "Data contract".
 2. **radio-browser.info discovery.** Browse by tag/country/votes trees
    (not just search — this is what RadioDroid has and Transistor
    lacks). The API is friendly JSON, no auth
