@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Discover pagination (#26): a late page or failure banner from a previously
+  opened list no longer lands in the list now on screen. Hardening: the
+  load-more in-flight guard is now set before launching the fetch, so it no
+  longer depends on dispatcher timing.
+
 ## [0.5.2] - 2026-08-08
 
 Integrity and sweep: the undo subsystem stops failing silently — a tap can no
