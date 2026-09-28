@@ -2,7 +2,6 @@ package dev.basiliskus.onda.sync
 
 import dev.basiliskus.onda.core.model.PlaylistsState
 import dev.basiliskus.onda.core.model.Station
-import dev.basiliskus.onda.core.ops.LegacyPendingMigration
 import dev.basiliskus.onda.core.ops.Op
 import dev.basiliskus.onda.core.ops.OpStation
 import dev.basiliskus.onda.core.ops.OpsJournal
@@ -86,7 +85,7 @@ class OpsRepository(
      * consume the emitted ops themselves (deleting a pending add, or moving a just-added
      * row), so undo is snapshot-based rather than op-based: the token captures the
      * pre-mutation ops list plus the generation of that mutation's optimistic update, and
-     * any later journal change (mutation, refresh, migration) voids it — a failed write's
+     * any later journal change (mutation, refresh) voids it — a failed write's
      * rollback bumps the generation too, so a rolled-back mutation auto-voids its token.
      * One token covers a whole mutation regardless of how many ops it emitted.
      */
@@ -111,24 +110,13 @@ class OpsRepository(
     fun refresh() {
         scope.launch(ioDispatcher) {
             mutex.withLock {
-                // A migration lands in _ops HERE and ends the refresh: `merged` IS the
-                // journal this mutex hold just wrote, so the re-read the rest of this
-                // function performs could only flake and emit a false unavailable report.
-                // The early return deletes the failed-re-read hazard — a stale mirror
-                // (or a live pre-migration token) against a post-migration journal, whose
-                // undo OR next ordinary mutation would overwrite the migrated adds, their
-                // pending.csv already deleted (GitHub #24; the mutate door and the false
-                // snackbar are PR #65's review). setOps's generation bump is what voids
-                // live tokens.
-                // enforced by: UndoIntegrityTest."migration voids a live undo token even when the follow-up read fails"
-                //              UndoIntegrityTest."a mutation after a migration with a failed re-read keeps the migrated adds"
-                migrateLegacyPending()?.let { setOps(it); return@withLock }
                 val text = playlists.readSyncedText(JOURNAL).getOrElse {
                     _errors.trySend(UNAVAILABLE_MESSAGE)
                     return@withLock
                 }
                 val parsed = text?.let(OpsJournal::parse)
-                reportMalformed(parsed?.malformed ?: 0)
+                val malformed = parsed?.malformed ?: 0
+                if (malformed > 0) _errors.trySend("Skipped $malformed malformed journal line(s)")
                 val next = OpsJournal.compact(parsed?.ops ?: emptyList())
                 // A content-identical re-read must not bump the generation: every
                 // foreground resume ticks the folder watcher even when nothing changed,
@@ -311,42 +299,6 @@ class OpsRepository(
         _ops.value = value
     }
 
-    /** One phrasing for the skipped-lines report, wherever a parse precedes a path that
-     *  rewrites the journal (refresh, migration) — the report outlives the lines. */
-    private fun reportMalformed(count: Int) {
-        if (count > 0) _errors.trySend("Skipped $count malformed journal line(s)")
-    }
-
-    /**
-     * One-time pending.csv -> null-playlist add ops migration; runs (cheaply, a findFile
-     * miss) at the start of every refresh, inside the mutex. A crash between journal write
-     * and csv delete re-runs it next refresh: the re-appended adds collapse via dup-add
-     * compaction keyed (url, null), so the journal converges and the csv is deleted on the
-     * next clean pass. Returns the merged, compacted ops when it wrote the journal — the
-     * caller owes them to [setOps] so the mirror can never go stale against the file —
-     * and null when there was nothing to migrate or the write did not land. Malformed
-     * journal lines are reported from HERE exactly as refresh reports them: the rewrite
-     * below discards them from disk for good, and the refresh that used to report them
-     * ends at the migration, so a silent migration would erase the corruption signal
-     * together with the lines (PR #65 review).
-     */
-    private fun migrateLegacyPending(): List<Op>? {
-        // getOrNull collapses "no csv" (normal) and "folder unreachable" (refresh's own
-        // journal read surfaces that error) into skip.
-        val csv = playlists.readSyncedText(LEGACY_CSV).getOrNull() ?: return null
-        val adds = LegacyPendingMigration.toOps(csv, ids = ::newId, ts = now())
-            // The migration is one journal write like any other, so its adds share one batch
-            // id — uniformity is what gives an absent field its single meaning (GitHub #38).
-            // Nothing is prior: every op is this write's.
-            .let { OpsJournal.stamp(it, priorIds = emptySet(), batch = newId(), baseTs = Instant.now()) }
-        val existing = playlists.readSyncedText(JOURNAL).getOrElse { return null }?.let(OpsJournal::parse)
-        reportMalformed(existing?.malformed ?: 0)
-        val merged = OpsJournal.compact((existing?.ops ?: emptyList()) + adds)
-        if (!playlists.writeSyncedText(JOURNAL, OpsJournal.serialize(merged))) return null
-        playlists.deleteSyncedFile(LEGACY_CSV)
-        return merged
-    }
-
     private fun opStation(s: RbStation) = OpStation(
         name = s.name, url = s.url, icon = s.favicon,
         stationuuid = s.stationuuid, tags = s.tags, country = s.country, votes = s.votes,
@@ -361,14 +313,13 @@ class OpsRepository(
     private fun newId() = UUID.randomUUID().toString()
 
     /** Construction-site ts only: the write path re-mints every new op's ts in
-     *  [OpsJournal.stamp] (mutate and the migration both), so these values never reach the
-     *  journal — kept as an honest placeholder rather than a sentinel a stamp bypass would
-     *  serialize as garbage. */
+     *  [OpsJournal.stamp] in [mutate], so these values never reach the journal — kept as
+     *  an honest placeholder rather than a sentinel a stamp bypass would serialize as
+     *  garbage. */
     private fun now() = Instant.now().toString()
 
     private companion object {
         const val JOURNAL = "ops.jsonl"
-        const val LEGACY_CSV = "pending.csv"
         const val UNAVAILABLE_MESSAGE = "Playlist edits unavailable — synced folder unreachable"
         const val UNDO_VOIDED_MESSAGE = "Nothing to undo"
     }

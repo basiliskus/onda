@@ -16,7 +16,8 @@ import kotlin.test.*
  * The undo-integrity cluster (v0.5.2 P1 — GitHub #25, #24, #30): the token and feedback
  * subsystem made honest under races. Each row here is the deterministic observation that
  * separates the broken path from the fixed one — written at Diagnosis, failing against the
- * pre-fix code, and kept as the regression suite.
+ * pre-fix code, and kept as the regression suite. #24's rows were removed together with the
+ * pending.csv migration they pinned (GitHub #27).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class UndoIntegrityTest {
@@ -124,68 +125,6 @@ class UndoIntegrityTest {
     }
 
     /**
-     * #24 — a migration is a journal change, so it must void live tokens even when the
-     * refresh's own follow-up read fails before setOps can bump the generation. Pre-fix, the
-     * stale token stays live and its undo overwrites the migrated journal — the pending.csv
-     * rows are already deleted, so the migrated adds are lost permanently.
-     */
-    @Test fun `migration voids a live undo token even when the follow-up read fails`() = runTest {
-        val s = station("http://u")
-        val fake = FakePlaylistsSource(ready(s))
-        val r = repo(fake)
-        advanceUntilIdle()
-
-        val token = r.delete(s)
-        advanceUntilIdle() // armed; journal = [delete]
-
-        // pending.csv appears (synced from the desktop). Arm a failure where the refresh's
-        // follow-up JOURNAL re-read used to be (the migration's own read, then one more):
-        // since PR #65 round 3 the success path early-returns and never makes that second
-        // read, so the armed fault must find nothing to bite — the mirror and the voided
-        // token come from the migration's own merged ops.
-        fake.files[LEGACY_CSV] = PENDING_CSV
-        fake.failReadOf = JOURNAL to fake.readsOf(JOURNAL) + 2
-        r.refresh()
-        advanceUntilIdle() // migration wrote the merged journal and deleted the csv
-
-        r.undo(token)
-        advanceUntilIdle()
-
-        val urls = fake.journalOps().filterIsInstance<Op.Add>().map { it.station.url }
-        assertTrue(
-            "https://nts.example/stream" in urls,
-            "undo after a migration clobbered the migrated add — the csv is already deleted, so it is lost permanently",
-        )
-    }
-
-    /**
-     * PR #65 review — the #24 loss shape through the OTHER door: a failed follow-up read
-     * also leaves the in-memory mirror stale, and the next ORDINARY mutation (no undo
-     * involved) serializes that stale mirror over the migrated journal. The migration's
-     * merged ops must land in the mirror itself, not merely void tokens.
-     */
-    @Test fun `a mutation after a migration with a failed re-read keeps the migrated adds`() = runTest {
-        val s = station("http://u")
-        val fake = FakePlaylistsSource(ready(s))
-        val r = repo(fake)
-        advanceUntilIdle()
-
-        fake.files[LEGACY_CSV] = PENDING_CSV
-        fake.failReadOf = JOURNAL to fake.readsOf(JOURNAL) + 2 // same armed fault as above
-        r.refresh()
-        advanceUntilIdle() // migration wrote the merged journal; the fault finds no read to fail
-
-        r.delete(s)
-        advanceUntilIdle()
-
-        val urls = fake.journalOps().filterIsInstance<Op.Add>().map { it.station.url }
-        assertTrue(
-            "https://nts.example/stream" in urls,
-            "a mutation from a stale mirror clobbered the migrated add — the csv is already deleted, so it is lost permanently",
-        )
-    }
-
-    /**
      * #30 — a message emitted with no collector must survive until one arrives: the app
      * scope outlives the Activity, so a WriteFailed emitted during recreation was dropped
      * by the replay-less SharedFlow and the failed like reported nothing.
@@ -255,35 +194,5 @@ class UndoIntegrityTest {
         job.cancel()
 
         assertEquals(listOf(UNAVAILABLE_MESSAGE, UNAVAILABLE_MESSAGE), seen)
-    }
-
-    /**
-     * PR #65 round 3 — the migration's rewrite discards malformed journal lines from disk
-     * for good, and the refresh that used to report them now sees (or, after the early
-     * return, never re-reads) the cleaned rewrite. The report must fire from the migration
-     * itself or the corruption signal vanishes with the lines.
-     */
-    @Test fun `migration reports the malformed journal lines its rewrite discards`() = runTest {
-        val s = station("http://u")
-        val fake = FakePlaylistsSource(ready(s))
-        val r = repo(fake)
-        advanceUntilIdle()
-        val errors = collectErrors(r)
-
-        fake.files[JOURNAL] = "not-json\n"
-        fake.files[LEGACY_CSV] = PENDING_CSV
-        r.refresh()
-        advanceUntilIdle()
-
-        assertEquals(listOf("Skipped 1 malformed journal line(s)"), errors)
-        val urls = fake.journalOps().filterIsInstance<Op.Add>().map { it.station.url }
-        assertEquals(listOf("https://nts.example/stream"), urls, "the rewrite keeps the parseable ops")
-    }
-
-    private companion object {
-        /** One desktop-synced pending row — the migrated add whose loss the #24 rows watch for. */
-        const val PENDING_CSV =
-            "# name,url,encoding,icon,profile,buffering,force-http,volume,referer,player,stationuuid,tags,country,votes\n" +
-            "NTS,https://nts.example/stream,,,,,,,,,uuid-1,eclectic,United Kingdom,812\n"
     }
 }

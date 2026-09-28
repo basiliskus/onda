@@ -15,8 +15,6 @@ interface PlaylistsSource {
     fun readSyncedText(name: String): Result<String?>
     /** Blocking I/O — call from an IO dispatcher. */
     fun writeSyncedText(name: String, text: String): Boolean
-    /** Blocking I/O — call from an IO dispatcher. */
-    fun deleteSyncedFile(name: String): Boolean
     /**
      * Blocking I/O — call from an IO dispatcher. Appends [line] — one record of one or more
      * complete, already-neutralized lines (TitlesLog joins a multi-line record with the `\n`

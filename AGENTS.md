@@ -84,7 +84,8 @@ file and that section disagree, that section wins.
 Phone-side edits flow back through `ops.jsonl` in the same folder
 (identity-anchored add/delete/move ops; optimistic overlay until the
 desktop merge script consumes-and-clears; the phone owns the journal).
-Replaced `pending.csv` in v0.3.0 (first launch migrates). Contract:
+Replaced `pending.csv` in v0.3.0; the one-time migration was removed
+(#27) and a leftover `pending.csv` is ignored. Contract:
 `docs/superpowers/specs/2026-07-23-ops-journal-design.md`.
 
 ## Checks

@@ -190,3 +190,11 @@ while the replacing add carries the newer one), and a batch's members
 can be non-contiguous with non-monotone ts after a rewrite transfers a
 later write's ts onto a surviving op. Batch is a grouping hint with
 one writer, not a completeness proof.
+
+2026-09-27 (GitHub #27): the first-launch `pending.csv` migration
+(§6 Rollout) is removed. No production code names `pending.csv` any more, so
+a leftover copy in the synced folder is neither read nor deleted
+(pinned by `OpsRepositoryTest`). Pre-removal, a failed delete
+left the file in place, so the migration re-ran on every refresh and
+re-starred stations the user had unstarred. The batch amendment's
+mention of the migration as a write site is historical.
