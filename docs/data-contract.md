@@ -19,7 +19,8 @@ https://example.com/stream.mp3
 
 - `group-title` is the group a station renders under (`""` for none);
   `tvg-logo="<url>"` is an optional icon.
-- Never put a `"` inside an attribute value or station name (see
+- Avoid double quotes inside attribute values — they have no escaping.
+  The maintainer's exporter also replaces quotes in station names (see
   [M3U export](#m3u-export)).
 - Onda writes two files next to the playlists: `ops.jsonl` (your
   phone-side edits) and `recordings/onda-titles.log` (liked tracks).

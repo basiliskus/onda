@@ -28,13 +28,14 @@ Onda isn't on the Play Store. Install it via
    [`core/src/test/resources/playlists/`](core/src/test/resources/playlists/)
    work as a starting set.
 2. Open Onda and choose that folder. Every `*.m3u` file in it becomes a
-   playlist; edits on the desktop hot-reload on the phone.
+   playlist. After the folder syncs, return to Onda or pull to refresh
+   to pick up desktop edits.
 
 ## Data contract
 
 Onda doesn't own the playlists it renders — it reads `*.m3u` files from
-the folder you pick and hot-reloads on change; there's no in-app
-import. Edits (star, targeted add, delete, move between groups or
+the folder you pick and rescans it whenever the app returns to the
+foreground or you pull to refresh; there's no in-app import. Edits (star, targeted add, delete, move between groups or
 playlists) append ops to an `ops.jsonl` journal in that folder for a
 desktop consumer to merge, rather than mutating the M3Us directly.
 Liking a track appends one line to `recordings/onda-titles.log` there,
