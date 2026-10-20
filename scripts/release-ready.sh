@@ -66,8 +66,7 @@ echo
 
 # ------------------------------------------------- 1. release blockers
 # The only severity signal this repo has. Anything that must not ship gets
-# the label at file time, so a bug found today blocks today rather than
-# waiting for a strategy session to roadmap it.
+# the label when filed, so a known must-not-ship bug blocks immediately.
 #
 # Deliberately NOT `gh issue list --label`: that reads GitHub's search index,
 # which was measured lagging ~60s behind a freshly applied label — the gate

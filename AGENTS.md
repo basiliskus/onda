@@ -32,7 +32,7 @@ This repo owns the release step:
 - **Is it time?** `scripts/release-ready.sh` answers, with evidence.
   Never decide by reading the ROADMAP.
 - **What blocks a tag:** any open issue labeled `release-blocker`.
-  Label it when you file it, not at the next strategy session.
+  Label it when you file it.
 - **The release is the last row of its milestone**, always.
 - **How:** on a `release-vX.Y.Z` branch, walk
   [docs/release.md](docs/release.md). Get user approval before merge and

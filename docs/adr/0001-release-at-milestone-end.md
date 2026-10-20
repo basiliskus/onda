@@ -95,12 +95,15 @@ on-device behavior have been checked.
 
 **Amended 2026-10-19 — retire pipeline-skills artifacts.** The maintained
 [development](../development.md) and [release](../release.md) checklists replace
-the JSON stage templates and retrospective tracker. This changes the process
-format, not the release policy: the executable gate remains mandatory, the
-release remains the last milestone row, and open `release-blocker` issues still
-block a tag. Outstanding device checks live in [the smoke checklist](../smoke-checklist.md).
-The original alternatives below explain the 2026-07-26 decision; a manual
-checklist without the executable gate remains rejected.
+the JSON stage templates and retrospective tracker. The readiness policy is
+unchanged: the executable gate remains mandatory, the release remains the last
+milestone row, and open `release-blocker` issues still block a tag. The checklist
+also makes APK signature, certificate continuity and version checks mandatory;
+these were not explicit template items. Outstanding device checks live in
+[the smoke checklist](../smoke-checklist.md). The original alternatives below
+explain the 2026-07-26 decision; a manual checklist without the executable gate
+remains rejected. `docs/release.md` now explicitly owns the tag and artifact
+steps whose omission motivated the rejection of a gate without a template.
 
 ## Consequences
 

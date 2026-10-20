@@ -7,7 +7,8 @@ and fails when one names a test class or row that does not exist — a renamed
 or deleted row then breaks CI instead of leaving a lying comment (the shape
 PR #47 hit: the citation map went stale inside a single commit).
 
-Scope is the src trees only, deliberately: prose history (roadmaps and PR discussions) cites rows as they were at the time and must not rot the build.
+Scope is the src trees only, deliberately: prose history (roadmaps and PR
+discussions) cites rows as they were at the time and must not rot the build.
 Citations must sit on one line — a wrapped citation is invisible here, which
 is why the convention keeps them unwrapped however long the line gets.
 

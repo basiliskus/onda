@@ -44,7 +44,7 @@ states per sync, not intermediate ones.
 | 26 | Discover search rotation | enter search text, then rotate | text survives rotation |
 | 27 | Double-tap navigation | double-tap a playlist or group, then press Back | one destination is pushed; Back returns to the preceding screen without a duplicate destination |
 | 28 | Sheet survival | rotate with station actions, move or add-to-playlist sheet open | the active sheet survives and its actions still target the intended station; row 23 covers the cross-playlist picker steps |
-| 29 | Voided undo feedback | swipe-delete one station, then a second while the first snackbar remains; tap Undo on the first snackbar | snackbar eventually says "Nothing to undo"; the two deletes remain applied |
+| 29 | Voided undo feedback | swipe-delete station A and wait for its row to disappear, then delete B while A's snackbar remains; once B's row disappears, tap Undo on A's snackbar before it expires. Let B's queued snackbar expire without tapping its Undo | a subsequent snackbar says "Nothing to undo"; both rows remain deleted |
 
 ## Outstanding verification carried from v0.5.2
 

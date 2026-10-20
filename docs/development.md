@@ -11,7 +11,8 @@ Use the checked-in Gradle wrapper.
 - [ ] Fetch `origin`, verify the task against current code, and record the base
   SHA. Use one branch and worktree per task. Write down the diagnosis or plan,
   affected files, risks, and verification before implementation; new features
-  also need a design conversation and a written design doc.
+  also need a design conversation and a written design doc. State planned
+  omissions as open review questions, not settled rationale.
 - [ ] For bugs, reproduce the user-visible failure before fixing its root cause
   and add a regression test where feasible. For refactors, preserve behavior
   and account for the plan's tests. Map each enumerated rule or case to a test.
@@ -69,7 +70,8 @@ Use the checked-in Gradle wrapper.
 ## Review and hand off
 
 - [ ] Compare the final diff with the plan and account for every deliverable and
-  planned test. Commit on the task branch. Give a fresh reviewer from a different
+  planned test. Commit on the task branch with an appropriate conventional
+  prefix (`feat:`, `fix:`, `refactor:` or `chore:`). Give a fresh reviewer from a different
   model family the base/head SHAs, changed files, raw check output and known gaps.
 - [ ] Reviewers declare their method (for example mutation, differential execution
   or driving the real consumer). For tests claiming a production mechanism is
