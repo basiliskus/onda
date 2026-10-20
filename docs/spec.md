@@ -141,7 +141,7 @@ directory, splits each line on `" | "`, and keeps messages ending in
   `=== Logging` markers, so the carried name could be days stale.
   Whoever makes stationless likes reachable must also emit either a
   session marker on stream stop or an explicitly blank station line.
-  Contract row: "Contract with Onda", data `radio/README.md`.
+  Contract row: `docs/data-contract.md`.
 
 **Line-boundary neutralization.** An ICY `StreamTitle` — and the
 station name, which reaches the same log — is untrusted remote input

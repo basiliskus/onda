@@ -26,7 +26,7 @@ fun OnboardingScreen(onFolderPicked: (android.net.Uri) -> Unit) {
             Text("Onda", style = MaterialTheme.typography.displaySmall)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Pick your synced Radio folder — the one Synology Drive keeps up to date with your .m3u playlists.",
+                "Pick the folder that holds your .m3u playlists — on this phone, or one a sync app keeps up to date.",
                 style = MaterialTheme.typography.bodyLarge,
             )
             Spacer(Modifier.height(24.dp))
