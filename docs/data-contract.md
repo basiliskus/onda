@@ -133,18 +133,22 @@ license to regress the writer-side guarantee.
 - Data pins: `test_quotes_never_reach_the_exported_m3u`,
   `test_icon_cannot_forge_m3u_attributes`.
 
-## ~/Sync/Radio file ownership
+## Playlist folder: file ownership
+
+Files in the folder picked in Onda (the maintainer's is
+`~/Sync/Radio`, synced by Synology Drive):
 
 | File | Writer | The other side |
 |---|---|---|
 | `ops.jsonl` | phone appends; compacts the **whole** journal on its own mutations (it has no consumed/unconsumed concept — the consumed-ids ledger is desktop-local and invisible to it) | desktop's only write is the all-or-nothing clear, guarded by a byte compare — a journal grown mid-run is left alone |
 | `*.m3u` | desktop (stations-to-m3u.py) | phone reads |
-| `ops-rejected.jsonl` | desktop appends | record only — Drive-synced, so it can be lost; stdout in `~/Library/Logs` is the durable copy |
+| `ops-rejected.jsonl` | desktop appends | record only — synced, so it can be lost; the merge script's stdout log on the maintainer's desktop (`~/Library/Logs`) is the durable copy |
 | `recordings/onda-titles.log` | phone appends (Onda) | desktop ingest reads |
 | `recordings/pyradio-titles.log` | desktop appends (pyradio) | ingest reads |
 
-The consumed-ids ledger (`~/.local/state/onda/applied-ids`) is
-desktop-owned and machine-local — deliberately outside `~/Sync`.
+The consumed-ids ledger (on the maintainer's desktop,
+`~/.local/state/onda/applied-ids`) is desktop-owned and machine-local —
+deliberately outside the synced folder.
 The journal-restraint half of this table is the desktop's to pin — Onda
 cannot test desktop behavior; its matching guarantee is tolerance of
 the clear. The titles log's rotation/trim is likewise desktop-owned
@@ -162,7 +166,7 @@ write that wakes the next desktop run is itself the hazard, so the
 window persisted until it struck. The desktop therefore clears the
 journal **immediately after the ledger is complete, before the export**;
 a failed export's retry rides the machine-local `needs-export` marker
-beside the ledger (no new `~/Sync` surface — the clear's own journal
+beside the ledger (nothing new in the synced folder — the clear's own journal
 write re-fires the watcher for the retry). Two residuals, both
 irreducible from here: a crash inside the consumed-visible span — from
 the FIRST per-playlist ledger append, through the remaining CSV writes
