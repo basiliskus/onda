@@ -8,7 +8,6 @@ implementation work.
 ## Development process
 
 **Phase: OWNERSHIP — coordinated agent work (Paseo, since 2026-09-27).**
-Replaces the pipeline-skills runs used through v0.5.2.
 
 - Work queue: `ROADMAP.md` for milestones; GitHub issues for bugs and
   tech debt. Verify an item against current code before starting it —
@@ -16,10 +15,8 @@ Replaces the pipeline-skills runs used through v0.5.2.
 - One task = one branch = one worktree. A coordinator delegates
   implementation to one agent and review to a fresh agent from a
   different model family; nobody reviews their own work.
-- Use the matching `.pipeline-templates/{feature,bugfix,refactor}-state.json`
-  as the task checklist. Its stages hold lessons graduated from past
-  retrospectives; reading them needs no pipeline skill. Template changes
-  stay deliberate.
+- Follow [docs/development.md](docs/development.md) for planning, verification
+  and review.
 - Report the raw output of every check in **Checks**. A completion claim
   without output isn't evidence.
 - New features start with a design conversation and a written design
@@ -38,8 +35,8 @@ This repo owns the release step:
   Label it when you file it, not at the next strategy session.
 - **The release is the last row of its milestone**, always.
 - **How:** on a `release-vX.Y.Z` branch, walk
-  `.pipeline-templates/release-state.json` as a checklist with
-  `target_version` set. Tagging is the only manual act; CI does the rest.
+  [docs/release.md](docs/release.md). Get user approval before merge and
+  tagging; CI builds and publishes the APK, then verify that artifact.
 
 Policy and the reasoning behind it:
 `docs/adr/0001-release-at-milestone-end.md`.

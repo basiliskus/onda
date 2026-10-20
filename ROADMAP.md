@@ -9,7 +9,7 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 
 | Priority | Feature | Why | Milestone |
 |----------|---------|-----|-----------|
-| **P2** | ✅ ~~app-module test harness~~ | :app state machines (async bridge, banner VM, undo/compaction) shipped untested three milestones running; the v0.3.0 🔴 was a five-line test away. Action Tracker #1, GitHub #9 | v0.4.0 |
+| **P2** | ✅ ~~app-module test harness~~ | :app state machines (async bridge, banner VM, undo/compaction) shipped untested three milestones running; the v0.3.0 🔴 was a five-line test away. GitHub #9 | v0.4.0 |
 | **P2** | ✅ ~~song capture~~ | Like the playing track from the Now Playing sheet or the media notification; feeds the existing desktop titles-log → catalog pipeline. Contract pinned 2026-07-23 | v0.4.0 |
 | **P3** | ✅ ~~cross-playlist move~~ | "Move to playlist…" in the long-press sheet via the existing delete + targeted-add op pair; closes the only phone-side gap for stations not on radio-browser | v0.4.0 |
 
@@ -19,320 +19,52 @@ Policy: `docs/adr/0001-release-at-milestone-end.md`.
 | **P0** | ✅ ~~release v0.5.0~~ | v0.4.0 merged but never shipped — versionName is still 0.3.0. Unblocks #33's owed hardware rows (which now run against the release APK, not a debug build), the first real `library/onda.json`, and Onda's first real input to `basiliskus/data`. Moved from mid-milestone to last row 2026-07-26 per ADR-0001 | v0.5.0 |
 | **P1** | ✅ ~~song capture: emit `>>> Station:` lines~~ | Liked lines travel with a `>>> Station:` line as one untearable append (single line when the item names no station); verified against the real harvester (attribution byte-equal + negative control). GitHub #51 | v0.5.1 |
 | **P2** | ✅ ~~ops journal: shared batch id + strictly-increasing ts~~ | Every op of one journal write shares the write's uuid with strictly-increasing ts, stamped at the single write point; verified against the real desktop merge (3 applied, 0 rejected, pair order kept). GitHub #38 | v0.5.1 |
-| **P3** | ✅ ~~release template: fix the Tag & Publish `git tag` command~~ | Stage 10 now documents `git tag -m` with the one-line-summary convention. GitHub #52 | v0.5.1 |
+| **P3** | ✅ ~~annotated release tag instructions~~ | Documented `git tag -m` with the one-line-summary convention. GitHub #52 | v0.5.1 |
 | **P0** | ✅ ~~release v0.5.1~~ | Shipped 2026-08-07 with #51, #38, #52. The #33 hardware pass runs against this APK (release-first per ADR-0001 precedent — unverified is not known-broken) | v0.5.1 |
 | **P1** | ✅ ~~undo integrity: #25 + #24 + #30~~ | Intent flag closes the tap race structurally (the losing interleaving cannot exist); migration self-bumps; buffered channels. 4 reproductions written failing at diagnosis, all green post-fix, control unchanged | v0.5.2 |
 | **P2** | ✅ ~~polish sweep (grouped): #11 #12 #18 #28~~ | Saveable query + sheets, singleTop content routes, "Nothing to undo" on a voided tap (new row failing pre-fix), MediaIds/Resumption → core.playback, PlaylistsSource extracted, catalog version.ref. Suspend conversion declined by decision | v0.5.2 |
 | **P2** | ✅ ~~canon closure: #31 decision + #36~~ | `enforced by:` promoted with a CI dangling-reference check (26 citations resolve; injected-dangling run shown failing); mutation hygiene is `scripts/mutation-run.sh` (stale/clean/killed-by-build paths all exercised); the class's canon is `docs/canon.md`. #31 #36 closed | v0.5.2 |
-| **P0** | ✅ ~~release v0.5.2~~ | Shipped 2026-08-08 with #25 #24 #30, #11 #12 #18 #28, #31 #36 (PRs #60–#67). Hardware rows (PR #66's four smoke rows + R1) run against this APK, per the v0.5.1 precedent | v0.5.2 |
+| **P0** | ✅ ~~release v0.5.2~~ | Shipped 2026-08-08 with #25 #24 #30, #11 #12 #18 #28, #31 #36 (PRs #60–#67). Outstanding PR #66 device checks and playback are tracked in docs/smoke-checklist.md; R1 is closed as not hardware-observable | v0.5.2 |
 
 ## Milestones
 
 ### Milestone: v0.4.0 — Harness and capture
 
-**app-module test harness**
-Stand up `app/src/test` (JUnit + kotlinx-coroutines-test + a fake
-`PlaylistRepository`). First targets, in order: `OpsRepository` undo/compaction
-semantics (delete-pending-then-undo, delete-after-move-then-undo, generation-CAS
-voiding — the PR #17 🔴 class), the browse-banner state machine in
-`DiscoverViewModel` (load, partial failure keeps banner, clear-on-both-loaded,
-in-flight guards — the PR #8 🟡 class), and the resumption wait-and-resolve logic
-(extract the :core seam per GitHub #10 or test in place — decide at plan time).
-SAF write-failure rollback becomes testable here (fake repository failure
-injection), retiring the standing matrix skip. (Action Tracker #1, GitHub #9;
-third-occurrence escalation from the v0.3.0 retro.) Runs FIRST in the milestone
-so the two features below get harness coverage from day one.
-✅ Shipped 2026-07-25: 29 :app tests + 6 :core, every compaction-algebra rule
-covered under undo; resumption extracted to :core (closes GitHub #10); SAF
-fault injection retires the manual-matrix skip; CI runs `:app:testDebugUnitTest`.
-
-**song capture**
-Like the currently playing track from the ICY `streamTitle` already surfaced in
-`NowPlaying`. Reach: a like button in the Now Playing sheet AND a custom action on
-the media notification (Android Auto custom action deferred — Future). Disabled
-when no `streamTitle` is available (no-metadata stations like FIP cannot capture —
-shown disabled, never a silent no-op). Appends liked-only lines to a SIBLING file
-`~/Sync/Radio/recordings/onda-titles.log` (never pyradio's own log — single writer
-per file), formatted exactly `MMM d (EEE) HH:mm |     <raw streamTitle> (LIKED)`:
-English locale explicitly (device locale would break the parse), no year in the
-timestamp, four spaces after the pipe, raw title never parsed (contract pinned
-2026-07-23 from pyradio 0.9.3 `log.py`). Capture logic gets harness tests
-(formatter is :core-able; writer uses the synced-file choreography). Cross-repo:
-the data-repo harvester needs its one-line `*-titles.log` glob change — hand off
-when this lands.
-✅ Shipped 2026-07-25 (PR #29): 13 formatter + 16 capture rows. Two corrections
-from reading the real consumer — the day is zero-padded (`MMM dd`, matching
-pyradio's `%b %d`), and the pipe separator is `" | "` plus a 4-space liked
-indent. The title is untrusted ICY input, so all ten characters Python's
-`splitlines()` splits on are neutralized; the 4-space indent is what makes a
-forged `Station:` line unreachable. **Still owed: the harvester glob change —
-until it widens, nothing Onda writes is ingested.**
-
-**cross-playlist move**
-"Move to playlist…" entry in the existing long-press station sheet: playlist
-picker → group picker (existing + free-text, reusing `GroupPickerSheet`), emitting
-the already-supported delete + targeted-add op pair — no new op type, no journal
-contract change, no desktop work (`stations-merge-ops.py` handles both ops
-today). Undo must restore the pair atomically (snapshot undo already covers
-multi-op restoration — verify with a harness test). Playlist-origin stations
-carry empty extras (stationuuid/tags/country/votes) in the add op; the desktop
-drops them anyway. Closes the gap for stations not on radio-browser, which
-currently have no phone-side path between playlists.
-✅ Shipped 2026-07-25 (PR #34): the pair emits from one `mutate` — one compaction,
-one generation bump, one journal write, one undo token; splitting it reddens 8 of
-68 rows. A same-playlist target routes to a single `Op.Move`, and the group-move
-sheet now shares that one entry point, so `OpsRepository.move()` is gone and a
-group move gained Undo. Desktop round-trip verified live against the real
-`stations-merge-ops.py`. Known loss: an add rebuilds the row from name/url/icon,
-blanking `encoding` and dropping later columns (one live row: KALX, `volume=100`).
+Completed the app-module test harness, song capture and cross-playlist moves.
+These changes shipped with v0.5.0; no v0.4.0 tag was published. Product contracts
+live in [the spec](docs/spec.md) and [data contract](docs/data-contract.md).
 
 ### Milestone: v0.5.0 — Correct, then ship
 
-Chosen at the v0.4.0 boundary via `/pipeline-strategy` (deep mode). The
-recommendation was to release first; the chosen path fixes first so the
-release carries the fixes. Session record:
-`docs/strategy-sessions/2026-07-26-v0.5.0.md`.
-
-~~The release sits in the middle of this milestone, not at the end.~~
-Overridden 2026-07-26 by ADR-0001: the release is now the **last** row, after
-#38. The strategy session's reasoning — that the tag should carry the
-correctness fixes — survives intact; putting the release last satisfies it
-strictly harder, and makes "milestone complete" and "ready to tag" the same
-condition instead of two the reader has to keep apart.
-
-**browse fetch catches only IOException** — ✅ already fixed, no work needed
-Struck 2026-07-26 by `/pipeline-next`'s staleness check before any code was
-written. `RadioBrowserClient` converts both `SerializationException` and
-`IllegalArgumentException` into `IOException` before rethrowing
-(`RadioBrowserClient.kt:91-95`), so the crash is unreachable; `469aaf3` also made
-a garbage-serving mirror fail over rather than surface an error, and refuses to
-let it become the sticky preferred mirror. Pinned by two rows in
-`RadioBrowserClientTest`. The strategy session that scheduled this scored it from
-the issue title without checking the code — see the v0.5.0 session record.
-
-**harden M3uParser against quotes in EXTINF names**
-The attribute regex has no escape syntax, and `parseExtinf` matches attributes
-over the whole line, so a `word="value"` substring inside a station name forges
-an attribute or shifts the comma index until the entry parses empty and is
-dropped with no log line. Station names come from radio-browser — third-party
-data. Not exploitable today (the desktop sanitizes at the writer, and
-`IndirectionParser` never reaches this parser), but the safety property lives in
-another repository with nothing enforcing it here. GitHub #39.
-
-✅ Shipped 2026-07-26 (PR #43): three bugs, not the two the issue described —
-diagnosis also found a forged `group-title` producing a phantom group in the UI
-list, reachable without an attacker. Attributes are now matched only left of the
-first comma at quote-depth zero; an unbalanced quote falls back to the pre-fix
-anchor so those lines parse as they always did. `:core` 89 → 107.
-
-**resumption survives move and regroup**
-`MediaIds` hashes playlist + group into the media id, and the last-played id is
-persisted for `onPlaybackResumption`. Moving a station — now a two-tap gesture —
-changes both components, so it stops resuming. Testable in the `:core` harness
-via `resolveResumptionStation`. GitHub #35.
-
-**release v0.5.0** — the last row, per ADR-0001
-One tag carrying the unreleased v0.4.0 milestone AND these fixes. Nothing from
-v0.4.0 has ever been installed, so a v0.4.0 tag would be superseded within
-minutes. Unblocks the eleven owed hardware rows (#33), Onda's first real input
-to `basiliskus/data`, and with it the first real `library/onda.json`.
-
-**The hardware rows run after the tag, not before.** ~~#33 gates the tag.~~
-Reversed 2026-07-26. `release-blocker` means *known must-not-ship*; #33 is
-**unverified**, which is a different state — nothing in it is known broken, and
-M1, M5 and M11 have been owed precisely because no build was ever installed to
-run them against. Labeling it a blocker made the dependency circular and would
-have devalued the label for real defects. The rows now run against the release
-APK from Obtainium, which is strictly better evidence than a sideloaded debug
-build: `minifyEnabled` and release signing are exercised, and no uninstall or
-SAF re-grant is needed. If a row fails, what it surfaces gets `release-blocker`
-and v0.5.1 fixes it.
-
-Runs as its own pipeline: copy `.pipeline-templates/release-state.json` to
-`.pipeline-state/release-v0.5.0.json`, set `target_version`, then
-`/pipeline-run`. Stage 1 refuses to start unless `scripts/release-ready.sh`
-exits READY.
+Shipped 2026-07-26: M3U attribute parsing hardening (#39), resumption after moves
+and regrouping (#35), and the v0.4.0 work. #13's premise was already fixed.
+Added the executable release gate and [ADR-0001](docs/adr/0001-release-at-milestone-end.md).
 
 ### Milestone: v0.5.1 — Contract hardening
 
-**song capture: emit `>>> Station:` lines**
-Emit a `>>> Station: <name>` line alongside each liked line, matching
-pyradio's shape, so the harvester's station-aware pass can attribute Onda
-likes (today: 5 entries, 0 with station — measured against the first real
-`library/onda.json`). The name is already read at the like site
-(`mediaMetadata.station`); `streamTitleOf` already takes it. Constraints from
-GitHub #51: the station name is untrusted ICY input and goes through the same
-line-boundary neutralization as the title (log-injection hole PR #29 closed
-must stay closed); decide emit-per-like vs on-change; `appendTitlesLogLine`
-takes one line, so two lines means either two appends (torn-write window) or
-one append with a controlled `\n` — the seam's no-filename property survives
-either way. Scoped 2026-08-07: added because the v0.5.0 ingestion made the
-gap visible, and the station that motivated data's parser fix is the one
-whose name Onda discards.
-
-✅ Shipped 2026-08-07. Chose emit-per-like (stateless, rotation-proof) and
-one append with the `\n` controlled by `:core`'s `TitlesLog.likedRecord` —
-the pair cannot tear, and a station line never appears without its liked
-line. Verified against the real `radio-titles-to-json.py` (attribution
-byte-equal, negative control clean). Contract: `docs/spec.md`.
-
-**release template: fix the Tag & Publish `git tag` command**
-One-line fix in `.pipeline-templates/release-state.json` stage 10:
-`git tag -m "<one-line summary>" vX.Y.Z`, matching the four existing annotated
-tags. Loud failure, but it sits in the one stage ADR-0001 exists to protect,
-and a release is rare enough that the next executor rediscovers it by failing.
-Must merge before this milestone's release run copies the template. Trivial
-single-commit PR per the direct-to-main threshold. GitHub #52.
-
-✅ Shipped 2026-08-07: stage 10 documents `git tag -m "<one-line summary>"`
-with the existing tags' style (`git tag -n1`) and records why the bare form
-fails.
-
-**ops journal: shared batch id + strictly-increasing ts**
-`UndoToken` gains an id at construction; every op written under an armed token
-carries a `batch` field — uniform, including single-op mutations, so an absent
-field has exactly one meaning. Plus strictly-increasing `ts` within a batch,
-since the pair currently shares a millisecond and same-key ordering is
-load-bearing on the desktop. Contract agreed on GitHub #38.
-
-Moved out of v0.5.0 on 2026-07-26. Two reasons, both checked rather than
-assumed: #38 itself records that the gap is "currently unreachable, because the
-phone builds its playlist list from the same set the desktop allows", and
-`.dotfiles#41` closed as done-as-far-as-it-should-go after shipping the
-inference-based warning — so no desktop consumer is waiting, and there is no
-open issue there to receive the field. Refiling on `.dotfiles` is part of this
-task.
-
-*Topology correction, found at plan time 2026-08-07:* the merge script moved
-to `data/radio/scripts/stations-merge-ops.py` (dotfiles#35; `.dotfiles` keeps
-only the launchd wrapper), so the receiving issue belongs to
-**basiliskus/data**, not `.dotfiles`.
-
-✅ Shipped 2026-08-07. `batch` stamped centrally in `mutate()` before
-compaction — uniform across call sites, migration included — with
-`@EncodeDefault(NEVER)` so absence is the only spelling of "pre-#38".
-Verified against the real merge script over a scratch corpus (3 applied,
-0 rejected, order ledger-verified). The desktop drop-batch half is data#16; contract amendments (two compaction caveats) in
-`docs/superpowers/specs/2026-07-23-ops-journal-design.md`.
-
-**release v0.5.1** — the last row, per ADR-0001
-Ships #51, #38, #52 and anything the v0.5.0 hardware pass turns up. #51 is
-the milestone's user-visible value; it is what makes this release worth
-cutting rather than waiting.
-
-Correction: the priority matrix and this section previously said
-`basiliskus/data` was blocked on #38. That was wrong in both places. `data` is
-the music harvester (titles log to JSON catalog); its Onda dependency was song
-capture, which shipped — `data#4` is closed and PRs #5 and #6 are merged. The
-ops journal is consumed by `stations-merge-ops.py` in `.dotfiles`.
+Shipped 2026-08-07: station attribution for liked tracks (#51), shared batch IDs
+and strictly increasing timestamps for journal writes (#38), and annotated-tag
+instructions (#52). The hardware pass tracked in #33 was completed.
 
 ### Milestone: v0.5.2 — Integrity and sweep
 
-Chosen at the 2026-08-08 strategy session (deep mode, three paths presented;
-session record: `docs/strategy-sessions/2026-08-08-v0.5.2.md`). The debt-burn
-path: the issue pool is 11 items all dated 2026-07-24/25, and this milestone
-retires everything except the coverage/process tail (#26, #27), which the P1
-row's own test seams partially absorb.
-
-**undo integrity: #25 + #24 + #30**
-The token-and-feedback subsystem made honest under races. #25: an undo tap can
-beat the mutate coroutine and silently no-op — field-sighted 2026-08-07 with
-byte-proof on the issue; the fix must close the arm-before-tap window (or make
-the no-op loud), and the design decides between arming the token synchronously
-and giving undo a pending-intent semantics. #24: a refresh can skip the
-generation bump after migration, leaving a stale token live — the inverse
-failure (undo fires when it must not). #30: like/error messages are
-best-effort with a replay-less one-slot buffer; a dropped WriteFailed is the
-case that matters — `Channel(BUFFERED).receiveAsFlow()` is the named primitive,
-for both repositories at once. Design constraint: whatever token semantics
-land, the desktop contract is untouched (journal writes stay whole-file,
-batch-stamped).
-
-✅ Shipped 2026-08-08. The intent-flag design closes #25 structurally — the
-losing interleaving cannot exist, and a suppressed mutation never reaches the
-journal, so the desktop can never consume it (the field-loss shape; a late
-undo keeps the unchanged restore semantics). Migration self-bumps (#24); both feedback flows became buffered
-channels (#30). Four deterministic reproductions written failing at
-diagnosis, all green post-fix; the late-undo control row unchanged. Desktop
-contract untouched, as constrained. Hardware row R1 (fast-undo with the
-journal watcher) carries to the v0.5.2 release pass.
-
-**polish sweep (grouped): #11 #12 #18 #28**
-One `--group` run: Discover `query` rememberSaveable (#11), `launchSingleTop`
-on the stations route (#12), ops-journal UX polish (#18 — voided-undo
-feedback rides the P1 row's semantics, sheet rotation survival stays), PR #23
-style follow-ups (#28).
-
-**canon closure: #31 decision + #36**
-The `enforced by:` trial gets its verdict (promote with a dangling-reference
-check, or drop — one negative data point: the map went stale inside a single
-commit on PR #47). #31 then converts to a canon document listing the defect
-class's substrates and instruments, and closes as an issue. #36's driver
-hygiene becomes `scripts/` tooling.
-
-**release v0.5.2** — ✅ shipped 2026-08-08, the last row per ADR-0001. The
-hardware verification the milestone deferred (PR #66's four smoke rows —
-search text across rotation, double-tap back-stack, sheet survival, voided-undo
-snackbar — plus hardware row R1, fast undo under the journal watcher) runs
-against this tag's APK, the same release-first ordering v0.5.1 used for #33.
+Shipped 2026-08-08: undo integrity and feedback (#25, #24, #30), search and sheet
+state survival, singleTop navigation and voided-undo feedback (#11, #12, #18,
+#28), and verification tooling (#31, #36). The remaining device checks are
+tracked in [the smoke checklist](docs/smoke-checklist.md#outstanding-verification-carried-from-v052).
 
 ## Completed
 
-- v0.5.2 — Integrity and sweep (2026-08-08, PRs #60–#67 by commit range;
-  #60–#63 are documentation that closed out v0.5.1 — its retro, the cross-repo
-  alignment, the row-17 decision — and #64 is this milestone's own strategy
-  session, none touching `app/` or `core/`; v0.5.1's entry claims #60's content
-  while this tag ships its commit): the undo
-  token-and-feedback subsystem made honest under races (#25 #24 #30, PR #65 —
-  four reproductions written failing at diagnosis; three review rounds also
-  closed a second migration loss door and a no-op-tick token loss the original
-  diagnosis missed), the small-UI backlog (#11 #12 #18 #28, PR #66 — saveable
-  search text and sheets keyed by (group, url), singleTop content routes,
-  "Nothing to undo" feedback), and canon closure (#31 #36, PR #67 —
-  `enforced by:` promoted with a CI dangling-reference check, mutation hygiene
-  scripted, `docs/canon.md` written). `:app` 75 → 84, `:core` 132 unchanged;
-  the app-side journal writers changed, but `core/ops`, `core/capture` and
-  `core/m3u` did not, so the desktop contract is byte-identical to v0.5.1
-  (verified by an empty `git diff v0.5.1..HEAD` over those three directories).
-  Hardware rows deliberately run AFTER this
-  tag against its APK (PR #66's four smoke rows + R1).
-  Retro: `RETRO.md` (pending milestone retro).
-
-- v0.5.1 — Contract hardening (2026-08-07, PRs #54–#60): station attribution
-  lines so the harvester can fill `station` for Onda likes (#51, PR #56 —
-  emission and ingestion verified against the real consumer with a negative
-  control; the on-phone half is #33's), shared batch id + monotone
-  fixed-width ts on journal ops (#38, PR #57, desktop drop-batch half filed as
-  data#16), and the release-template tag fix (#52, PR #58). `:core` 117 → 132,
-  `:app` 68 → 75. Hardware rows (#33) deliberately run AFTER this tag, against
-  this APK — and were fully discharged 2026-08-07/08 (#33 closed).
-  Retro: `RETRO.md` (PR #61); smoke row 17 rewritten by PR #60.
-
-- v0.5.0 — Correct, then ship (2026-07-26, PRs #21–#49): first tag since v0.3.0,
-  carrying the never-released v0.4.0 milestone (`:app` test harness, song capture,
-  cross-playlist move) plus two correctness fixes — `M3uParser` attribute parsing
-  (#39, PR #43) and resumption surviving a move or regroup (#35, PR #47). Also
-  landed the release machinery itself: `scripts/release-ready.sh`, the release
-  pipeline template, and ADR-0001. `:core` 68 → 117; `:app` 0 → 68, the module
-  having had no test source at all at v0.3.0. The eleven owed
-  hardware rows (#33) run against this APK, not before it. Retro: `RETRO.md`.
-
-- v0.3.0 — Playlist editing round-trip (2026-07-24, PR #17): ops.jsonl journal with
-  compaction algebra and optimistic overlay in :core, OpsRepository with
-  snapshot/generation-CAS undo, swipe-delete + move sheet + targeted adds,
-  pending.csv migration, single derived flow feeding UI/media session/Auto.
-  Desktop consumer (`stations-merge-ops.py` + watcher) landed in parallel in the
-  dotfiles repo — round-trip live end to end. Retro: `RETRO.md`.
-
-- v0.2.0 — Daily-driver polish (2026-07-24, PRs #6–#8): playback resumption after
-  process death (`onPlaybackResumption` + persisted last-played id +
-  `MediaButtonReceiver`), release pipeline guards (tag↔versionName check, post-merge
-  main builds), discover polish (self-healing error banner, segment selection
-  survives back-navigation). Retro: `RETRO.md`.
-- v0.1.0 — MVP (2026-07-23, PR #3): watched playlists with hot reload, Media3
-  playback with quirk-aware data sources, radio-browser discovery, pending.csv
-  favorites round-trip, Android Auto browse tree, Catppuccin theme, signed-release
-  pipeline for Obtainium. Spec: `docs/superpowers/specs/2026-07-23-onda-design.md`.
+- v0.5.2 — Integrity and sweep (2026-08-08). See the milestone above.
+- v0.5.1 — Contract hardening (2026-08-07). See the milestone above.
+- v0.5.0 — Correct, then ship (2026-07-26), including the untagged v0.4.0 work.
+- v0.3.0 — Playlist editing round-trip (2026-07-24): ops journal, optimistic
+  overlay, snapshot undo, moves and targeted adds; desktop consumer coordinated
+  in parallel. [Design](docs/superpowers/specs/2026-07-23-ops-journal-design.md).
+- v0.2.0 — Daily-driver polish (2026-07-24): playback resumption, release
+  workflow guards and Discover state handling.
+- v0.1.0 — MVP (2026-07-23): watched playlists, playback, discovery, Android Auto
+  and signed releases. [Design](docs/superpowers/specs/2026-07-23-onda-design.md).
 
 ## Future
 
@@ -355,5 +87,5 @@ against this tag's APK, the same release-first ordering v0.5.1 used for #33.
 ## Contributing
 
 Personal project; not accepting external contributions. Roadmap entries follow the
-pipeline format: matrix row + byte-identical `**bold**` milestone entry, greppable
-hooks in spec text, no bold lead-ins inside specs.
+[release gate format](docs/release.md#readiness-gate): priority-matrix row and
+versioned milestone heading. Keep the release row last and strike shipped work.

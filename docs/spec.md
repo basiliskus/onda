@@ -194,8 +194,8 @@ absorbs the service/notification/Auto layer; the killer features
 (watched folder, groups, radio-browser trees) are each a few hundred
 lines. Agent-driven MVP playing all six playlists ≈ a weekend;
 daily-driver polish ≈ 2–3 weekends; the long tail is stream quirks and
-yearly SDK-target bumps — which is why the OWNERSHIP phase runs on
-pipeline-skills with retro→canon compounding.
+yearly SDK-target bumps. Use the maintained [development checklist](development.md)
+for implementation and verification.
 
 ## Name
 

@@ -8,9 +8,9 @@ names a class or row that no longer exists. This converts the convention's
 one observed failure — the citation map going stale inside a single commit
 on PR #47 — from a vigilance failure into a build failure.
 
-This document is #31's permanent form. The issue closes with it; new
-instances of the class get filed against their own PRs and, when they earn
-a new instrument, extend this file.
+This document records the verification rules from #31. Apply them through
+the [development checklist](development.md) and [release checklist](release.md);
+add new instruments here when evidence warrants them.
 
 ## The class
 
@@ -41,17 +41,17 @@ Each entry names the PR that caught the class on that substrate.
    semantics — corrected across three review rounds), PR #66 ("all sheets
    URL-derived" while one is a snapshot by design).
 5. **Forward-dated claims** — plans stated as completed facts (PR #57;
-   canonized as the external-existence check, Action Tracker #30).
+   now covered by the external-existence check).
 6. **Comments asserting the just-fixed bug** — prose describing the pre-fix
-   world surviving the fix commit (PR #65's stage-11 review).
+   world surviving the fix commit (PR #65's review).
 7. **Instrument self-corruption** — the verification tool lying: a
-   comparison script clobbering its own input (v0.5.1 release, Action
-   Tracker #32), a mutation driver reading stale XML (PR #34, GitHub #36).
+   comparison script clobbering its own input (v0.5.1 release), a mutation
+   driver reading stale XML (PR #34, GitHub #36).
    v0.5.2 added two recurring sub-shapes, four instances in one milestone:
    a harness reporting someone else's exit code (`cmd | tail` twice — the
    canon-closure run and the release gate), and a value used as a
    discriminator that cannot discriminate (file mtime twice — the release
-   template's freshness check, where the suite necessarily predates the
+   checklist's freshness check, where the suite necessarily predates the
    commit, and hardware row R1, where `stations.m3u` proved the timestamp
    was a sync touch). Both fail toward *confident* false verification,
    which is worse than no check.
@@ -61,29 +61,26 @@ Each entry names the PR that caught the class on that substrate.
    defect-dense. PR #65's round-2 fix introduced the regressions round 3
    caught; PR #66's round-2 fix carried four bugs; PR #67's re-review
    refuted a claim its own fix commit had just added. Reviewing the fix
-   delta with a rotated instrument is now a Code Review checklist item.
+   delta with a rotated instrument is now a development checklist item.
 
 ## Instruments
 
-| Instrument | Catches | Lives in |
+| Instrument | Catches | Procedure |
 |---|---|---|
-| `enforced by:` citation + `scripts/check_enforced_by.py` | renamed/deleted rows behind a guarantee comment | CI + templates |
-| Quantifier audit on prose diffs | "never/always/every/only" broader than any test pins | template checklists |
-| Derive-never-transcribe | numbers in prose that no command reproduces | template checklists |
-| Mutation testing, APPLIED vs PREDICTED, table persisted | rows not enforcing what their names claim | Code Review stage |
-| `scripts/mutation-run.sh` | the driver itself misattributing stale results (#36) | Code Review stage |
-| External-existence check (AT #30) | claims that a filed/shipped/verified thing exists | template checklists |
-| Contradiction rule + fresh paths + XML mtime (AT #32) | an instrument's output contradicting an already-passed check | release template |
-| Instrument declaration | re-review rounds re-measuring with the same blind spot | Code Review / Re-Review |
-| Fix-delta re-review | defects introduced by a previous round's own fixes | Code Review (all three templates) |
-| Sibling sweep | a shape fixed at one call site / consumer / exit path but not its twins | Fix / Implementation / Refactor Execution |
-| Instrument verification | harnesses reporting the wrong exit code; discriminators that cannot discriminate | Test Execution / Regression Check |
-| Doc sweep after factual corrections | a corrected claim's copies surviving in docs/CHANGELOG | template checklists |
+| `enforced by:` citation + `scripts/check_enforced_by.py` | renamed/deleted rows behind a guarantee comment | CI and [development](development.md) |
+| Prose audit and derived counts | quantifiers broader than tests; numbers no command reproduces | [development](development.md) |
+| Mutation testing with `scripts/mutation-run.sh` | tests that don't enforce their claims; stale XML | [development review](development.md#review-and-hand-off) |
+| External-existence check | claims that a filed/shipped/verified thing exists | [development](development.md) |
+| Fresh downloads and contradiction stop | an artifact check contradicting an earlier result | [release verification](release.md#publish-and-verify) |
+| Different review method and fix-delta review | repeated blind spots; defects introduced by fixes | [development review](development.md#review-and-hand-off) |
+| Sibling sweep | a fix missing another consumer or exit path | [development](development.md) |
+| Harness verification | wrong exit code; observations that can't distinguish cases | [development](development.md) |
+| Doc sweep after factual corrections | stale copies in docs or changelog | [development](development.md) |
 
 ## Boundaries, stated plainly
 
 - The dangling-reference check covers the src trees only; prose history
-  (ROADMAP, RETRO, PR feedback) cites rows as they were at the time.
+  (roadmaps and PR discussions) cites rows as they were at the time.
 - A citation wrapped across lines is invisible to the checker — citations
   stay on one line, however long.
 - The check proves a cited row *exists*, not that it *enforces* the claim;

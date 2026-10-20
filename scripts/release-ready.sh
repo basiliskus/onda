@@ -2,14 +2,14 @@
 #
 # Answers one question: is it time to tag a release?
 #
-#   scripts/release-ready.sh            # target = newest milestone in ROADMAP.md
+#   scripts/release-ready.sh            # target = oldest pending release; last milestone fallback
 #   scripts/release-ready.sh v0.5.0     # target = an explicit version
 #
 # Exit 0 = READY, 1 = BLOCKED, 2 = the script could not decide.
 #
 # READY means every check below passed. It does NOT mean "release now" — it
-# means nothing known is in the way, so the release pipeline
-# (.pipeline-templates/release-state.json) may start. Policy: docs/adr/0001.
+# means nothing known is in the way, so release preparation may start.
+# Checklist: docs/release.md. Policy: docs/adr/0001-release-at-milestone-end.md.
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
@@ -152,7 +152,7 @@ current=$(sed -n 's/^[[:space:]]*versionName = "\(.*\)"/\1/p' "$GRADLE")
 if [ "$current" = "$BARE" ]; then
     note "versionName is already $BARE — the bump has landed"
 else
-    note "versionName is $current; the release pipeline bumps it to $BARE"
+    note "versionName is $current; the release checklist bumps it to $BARE"
 fi
 
 branch=$(git rev-parse --abbrev-ref HEAD)
@@ -174,7 +174,7 @@ fi
 echo
 if [ "$blocked" -eq 0 ]; then
     printf '\033[32mREADY\033[0m — nothing known blocks %s.\n' "$TARGET"
-    printf 'Start the release pipeline: /pipeline-run (release template).\n\n'
+    printf 'Follow the release checklist: docs/release.md.\n\n'
     exit 0
 fi
 printf '\033[31mBLOCKED\033[0m — resolve the ✗ rows above before tagging %s.\n\n' "$TARGET"

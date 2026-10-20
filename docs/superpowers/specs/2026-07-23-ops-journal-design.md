@@ -5,7 +5,7 @@ round-trip into full phone-side playlist editing (add / delete /
 move-between-groups) while preserving the architecture's core property:
 single writer per file, desktop `stations.csv` as source of truth, the
 app never mutates M3Us. Targeted as milestone v0.3.0 ("Playlist editing
-round-trip"), run as a pipeline feature run plus a parallel dotfiles-side
+round-trip"), implemented alongside a parallel dotfiles-side
 deliverable.
 
 ## Decisions made in session
@@ -150,8 +150,7 @@ Semantics:
   CLAUDE.md's data-contract section to ops.jsonl.
 - Roadmap: milestone v0.3.0 "Playlist editing round-trip" — after the
   v0.2.0 polish queue unless reprioritized.
-- Runs as Onda's first pipeline feature run; dotfiles spec handed off
-  in parallel so both halves land close together.
+- Coordinate the phone and desktop changes so both halves land close together.
 
 ## Out of scope (this design)
 
