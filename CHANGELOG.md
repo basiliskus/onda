@@ -7,10 +7,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Removed
 
-- Retired pipeline-skills templates and historical process records; maintained
-  development/release checklists preserve verification rules and outstanding
-  hardware checks.
-
 - The first-launch `pending.csv` → `ops.jsonl` migration (#27). If deleting
   `pending.csv` failed, the migration re-ran on every refresh and re-starred
   stations the user had since unstarred. A leftover `pending.csv` is now

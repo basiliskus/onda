@@ -55,16 +55,46 @@ tracked in [the smoke checklist](docs/smoke-checklist.md#outstanding-verificatio
 
 ## Completed
 
-- v0.5.2 — Integrity and sweep (2026-08-08). See the milestone above.
-- v0.5.1 — Contract hardening (2026-08-07). See the milestone above.
-- v0.5.0 — Correct, then ship (2026-07-26), including the untagged v0.4.0 work.
-- v0.3.0 — Playlist editing round-trip (2026-07-24): ops journal, optimistic
-  overlay, snapshot undo, moves and targeted adds; desktop consumer coordinated
-  in parallel. [Design](docs/superpowers/specs/2026-07-23-ops-journal-design.md).
-- v0.2.0 — Daily-driver polish (2026-07-24): playback resumption, release
-  workflow guards and Discover state handling.
-- v0.1.0 — MVP (2026-07-23): watched playlists, playback, discovery, Android Auto
-  and signed releases. [Design](docs/superpowers/specs/2026-07-23-onda-design.md).
+Historical test totals below are retained from the release records and reproduced
+by counting `@Test` declarations at the named tags; they aren't new suite runs.
+
+- v0.5.2 — Integrity and sweep (2026-08-08, PRs #60–#68 including the release PR).
+  #60–#63 close out v0.5.1 documentation; #64 plans this milestone; #65–#67
+  deliver undo integrity, UI polish and verification tooling. `:core` 132
+  unchanged; `:app` 75 → 84. The contract-source diff below is empty even though
+  app-side journal writers changed. Outstanding device checks remain in the
+  [smoke checklist](docs/smoke-checklist.md#outstanding-verification-carried-from-v052).
+- v0.5.1 — Contract hardening (2026-08-07, PRs #54–#59 through the release tag).
+  Station attribution (#56), shared batch IDs and monotone timestamps (#57),
+  annotated-tag instructions (#58). `:core` 117 → 132; `:app` 68 → 75.
+  #60's smoke-row clarification followed the tag and ships in v0.5.2; the
+  hardware pass tracked by #33 was discharged on 2026-08-07/08.
+- v0.5.0 — Correct, then ship (2026-07-26, PRs #21–#50 including the release PR).
+  Includes untagged v0.4.0 work: app harness (#23), song capture (#29),
+  cross-playlist moves (#34), plus M3U parsing (#43), resumption (#47) and the
+  release gate (#45). `:core` 68 → 117; `:app` 0 → 68.
+- v0.3.0 — Playlist editing round-trip (2026-07-24, PR #17): ops journal,
+  optimistic overlay, snapshot undo, moves and targeted adds; desktop consumer
+  coordinated in parallel. [Design](docs/superpowers/specs/2026-07-23-ops-journal-design.md).
+- v0.2.0 — Daily-driver polish (2026-07-24, PRs #6–#8): playback resumption,
+  release workflow guards and Discover state handling.
+- v0.1.0 — MVP (2026-07-23, PR #3): watched playlists, playback, discovery,
+  Android Auto and signed releases. [Design](docs/superpowers/specs/2026-07-23-onda-design.md).
+
+Contract-source evidence, bounded to the released tags rather than a moving HEAD:
+
+```sh
+git diff --exit-code v0.5.1..v0.5.2 -- \
+  core/src/main/kotlin/dev/basiliskus/onda/core/ops \
+  core/src/main/kotlin/dev/basiliskus/onda/core/capture \
+  core/src/main/kotlin/dev/basiliskus/onda/core/m3u
+```
+
+Expected: empty output, exit 0. The tag commits are
+[v0.5.1 (`4979a01`)](https://github.com/basiliskus/onda/commit/4979a01acbc51bd97a69e3b798b2e418232b607e)
+and [v0.5.2 (`ce6e8b4`)](https://github.com/basiliskus/onda/commit/ce6e8b44be51bccf0317b6c100dec33d1e25c246).
+This proves those source directories match; it doesn't prove unchanged app-side
+behavior or replace the device checks.
 
 ## Future
 

@@ -2,7 +2,8 @@
 
 **Status**: Accepted
 **Date**: 2026-07-26
-**Supersedes**: the mid-milestone release ordering chosen on 2026-07-26
+**Supersedes**: the mid-milestone release ordering in the
+[2026-07-26 strategy record](https://github.com/basiliskus/onda/blob/fd89257c2649c4e87dbaa5952527c9b394f04477/docs/strategy-sessions/2026-07-26-v0.5.0.md).
 
 ## Context
 
@@ -105,6 +106,14 @@ explain the 2026-07-26 decision; a manual checklist without the executable gate
 remains rejected. `docs/release.md` now explicitly owns the tag and artifact
 steps whose omission motivated the rejection of a gate without a template.
 
+**Clarified 2026-10-24 — distinguish candidate checks from artifact proof.**
+Run candidate debug regression smoke before tagging where the available test
+phone permits it safely. After tagging, verify the published signed, minified
+APK; a debug pass cannot establish its behavior. The earlier after-tag statement
+explains that artifact requirement. Record unavailable pre-tag rows with an
+owner and carry them to the published-APK pass; unverified behavior alone does
+not become a `release-blocker`. Known must-not-ship defects still block the tag.
+
 ## Consequences
 
 - The tag moves later in every milestone. For v0.5.0 that means #35 and #38
@@ -137,3 +146,7 @@ feature pipeline reading a documented procedure. Rejected because the two steps
 that actually got dropped (pushing the tag, confirming the published artifact)
 happen *after* a normal pipeline's last stage, so no ordinary template can own
 them.
+
+This was the 2026-07-26 alternative. The 2026-10-19 amendment retains the gate
+and gives [the release checklist](../release.md) explicit ownership of tagging
+and artifact verification, replacing the template.

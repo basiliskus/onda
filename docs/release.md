@@ -49,6 +49,10 @@ and repository state. It doesn't check CI or the published artifact.
 4. Run the [development checks](development.md#verify-and-document), forcing
    fresh tests and recording JUnit counts and raw outputs. The debug build
    doesn't verify release signing or minification; CI produces the signed APK.
+   Before tagging, run the standing [smoke checks](smoke-checklist.md) against
+   the candidate debug build on a test phone. Record unavailable rows and their
+   owner for the published-APK pass; don't erase the daily-driver installation
+   just to run this pass. Known must-not-ship failures block the tag.
 5. Commit only `app/build.gradle.kts`, `CHANGELOG.md` and `ROADMAP.md` as
    `chore: release vX.Y.Z`. Open a PR with the release notes and evidence. Get
    independent review, resolve findings, and verify CI on the exact PR head.

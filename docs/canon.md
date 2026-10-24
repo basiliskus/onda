@@ -51,7 +51,7 @@ Each entry names the PR that caught the class on that substrate.
    a harness reporting someone else's exit code (`cmd | tail` twice — the
    canon-closure run and the release gate), and a value used as a
    discriminator that cannot discriminate (file mtime twice — the release
-   checklist's freshness check, where the suite necessarily predates the
+   template's freshness check, where the suite necessarily predates the
    commit, and hardware row R1, where `stations.m3u` proved the timestamp
    was a sync touch). Both fail toward *confident* false verification,
    which is worse than no check.

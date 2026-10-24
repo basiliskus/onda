@@ -36,7 +36,9 @@ This repo owns the release step:
 - **The release is the last row of its milestone**, always.
 - **How:** on a `release-vX.Y.Z` branch, walk
   [docs/release.md](docs/release.md). Get user approval before merge and
-  tagging; CI builds and publishes the APK, then verify that artifact.
+  tagging. After CI publishes, confirm the APK asset, signature and version;
+  install it and record the required smoke results before calling the release
+  complete.
 
 Policy and the reasoning behind it:
 `docs/adr/0001-release-at-milestone-end.md`.

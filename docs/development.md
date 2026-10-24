@@ -71,8 +71,8 @@ Use the checked-in Gradle wrapper.
 
 - [ ] Compare the final diff with the plan and account for every deliverable and
   planned test. Commit on the task branch with an appropriate conventional
-  prefix (`feat:`, `fix:`, `refactor:` or `chore:`). Give a fresh reviewer from a different
-  model family the base/head SHAs, changed files, raw check output and known gaps.
+  prefix (`feat:`, `fix:`, `refactor:`, `docs:` or `chore:`). Give a fresh reviewer
+  from a different model family the base/head SHAs, changed files, raw check output and known gaps.
 - [ ] Reviewers declare their method (for example mutation, differential execution
   or driving the real consumer). For tests claiming a production mechanism is
   enforced, remove/invert that mechanism and confirm failure. Use

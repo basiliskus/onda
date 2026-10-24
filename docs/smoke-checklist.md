@@ -1,10 +1,17 @@
 # Release smoke checklist
 
-Run on a real phone against the published release APK, following the
-[release checklist](release.md). One station per quirk class. Record version,
-device, date, pass/fail/skip(reason), and evidence for each applicable row.
-Unverified behavior alone does not block a tag; a known must-not-ship defect
-does, per [release policy](adr/0001-release-at-milestone-end.md).
+Before tagging, run this standing regression checklist against the candidate
+debug build on a test phone. Record rows that cannot be run safely with the
+available device and carry them to the published-APK pass; don't uninstall the
+daily-driver build or discard its data to make the debug pass possible.
+
+After tagging, install the published release APK and repeat the applicable
+checks, including the carried rows, following the [release checklist](release.md).
+A debug pass cannot verify release signing or minification. Use one station
+per quirk class; record build type, version, commit, device, date,
+pass/fail/skip(reason), and evidence for each applicable row. Unverified behavior
+alone does not block a tag; a known must-not-ship defect does, per
+[release policy](adr/0001-release-at-milestone-end.md).
 
 While the pass runs, watch the synced artifacts from the desktop —
 a loop that snapshots every content transition of `ops.jsonl` (and
@@ -50,10 +57,20 @@ states per sync, not intermediate ones.
 
 The retired process records did not record results for PR #66's search-text
 rotation, double-tap navigation/back-stack, sheet survival and voided-undo
-snackbar checks, or for release playback. These remain unverified; use rows
-26–29 (plus 23 for move sheets) and the playback rows above. Each requires a
-**device**. Record the actual release tested; a later release pass doesn't establish a
-historical v0.5.2 result.
+snackbar checks, or for release playback.
+
+**Owner:** the releasing maintainer, with the release coordinator retaining the
+results. **Requires:** a real phone, the current published release APK, and the
+synced playlists. At the next release verification, run rows 26–29 (plus 23 for
+move sheets) and applicable playback rows 1–7 and 12–13. Close this carry when
+those rows pass and their evidence is recorded with the tested version, device
+and date. Skipped rows stay open with an owner and next verification occasion;
+failed rows require a defect record and a passing rerun.
+
+The exit condition verifies the current release and does not require a downgrade
+or data loss. Record this as "carried checks passed on <actual version>"; it
+doesn't establish a historical v0.5.2 result. The missing v0.5.2 evidence remains
+a historical limitation, separate from completing this actionable carry.
 
 R1 (fast-undo suppression under the journal watcher) is closed as not
 hardware-observable: the synced final bytes cannot distinguish its paths.
