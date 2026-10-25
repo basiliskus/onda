@@ -2,7 +2,8 @@
 
 **Status**: Accepted
 **Date**: 2026-07-26
-**Supersedes**: the release ordering chosen in `docs/strategy-sessions/2026-07-26-v0.5.0.md`
+**Supersedes**: the mid-milestone release ordering in the
+[2026-07-26 strategy record](https://github.com/basiliskus/onda/blob/fd89257c2649c4e87dbaa5952527c9b394f04477/docs/strategy-sessions/2026-07-26-v0.5.0.md).
 
 ## Context
 
@@ -87,14 +88,31 @@ blockers, unstruck milestone rows, release-row position, non-empty
 `[Unreleased]`, tag availability, repo state. Exit 0 READY / 1 BLOCKED.
 A checklist you have to remember to read is what produced the v0.4.0 miss.
 
-**4. The release runs as its own pipeline.**
-`.pipeline-templates/release-state.json` — 12 stages, gate → bump → changelog →
-build → PR → review → merge → tag → verify → retro. It is not selected by
-`/pipeline-next` (no ROADMAP row type maps to it); it is copied into
-`.pipeline-state/` by hand and run with `/pipeline-run`. Stage 1 refuses to
-proceed unless the gate script exits READY, and stage 11 refuses to call the
-release done until the GitHub release carries an actual APK asset — a green
-workflow with no asset is a failed release.
+**4. The release has a dedicated checklist.** Follow [docs/release.md](../release.md)
+from readiness gate through version bump, changelog, checks, independent review,
+user-approved merge and tag, and published APK verification. The release is not
+done until the GitHub release carries the APK and its signature, version and
+on-device behavior have been checked.
+
+**Amended 2026-10-19 — retire pipeline-skills artifacts.** The maintained
+[development](../development.md) and [release](../release.md) checklists replace
+the JSON stage templates and retrospective tracker. The readiness policy is
+unchanged: the executable gate remains mandatory, the release remains the last
+milestone row, and open `release-blocker` issues still block a tag. The checklist
+also makes APK signature, certificate continuity and version checks mandatory;
+these were not explicit template items. Outstanding device checks live in
+[the smoke checklist](../smoke-checklist.md). The original alternatives below
+explain the 2026-07-26 decision; a manual checklist without the executable gate
+remains rejected. `docs/release.md` now explicitly owns the tag and artifact
+steps whose omission motivated the rejection of a gate without a template.
+
+**Clarified 2026-10-24 — distinguish candidate checks from artifact proof.**
+Run candidate debug regression smoke before tagging where the available test
+phone permits it safely. After tagging, verify the published signed, minified
+APK; a debug pass cannot establish its behavior. The earlier after-tag statement
+explains that artifact requirement. Record unavailable pre-tag rows with an
+owner and carry them to the published-APK pass; unverified behavior alone does
+not become a `release-blocker`. Known must-not-ship defects still block the tag.
 
 ## Consequences
 
@@ -104,8 +122,8 @@ workflow with no asset is a failed release.
   cheap and reversible in both directions: label it later, or remove it.
 - The gate can be wrong. It reads a markdown table and a label, so a ROADMAP
   formatting change can silently break the milestone-completeness check. The
-  release template's retro stage asks explicitly whether the gate's verdict
-  matched reality, so a wrong verdict is a finding about the gate.
+  release checklist asks whether the gate's verdict matched reality, so a
+  wrong verdict is a finding about the gate.
 - The gate is only as good as the label discipline. It cannot detect a critical
   bug nobody filed. It replaces "did anyone remember?" with "did anyone label
   it?", which is a weaker question but an auditable one.
@@ -128,3 +146,7 @@ feature pipeline reading a documented procedure. Rejected because the two steps
 that actually got dropped (pushing the tag, confirming the published artifact)
 happen *after* a normal pipeline's last stage, so no ordinary template can own
 them.
+
+This was the 2026-07-26 alternative. The 2026-10-19 amendment retains the gate
+and gives [the release checklist](../release.md) explicit ownership of tagging
+and artifact verification, replacing the template.

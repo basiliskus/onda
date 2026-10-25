@@ -1,6 +1,17 @@
-# Pre-release smoke checklist
+# Release smoke checklist
 
-Run on a real phone before tagging. One station per quirk class.
+Before tagging, run this standing regression checklist against the candidate
+debug build on a test phone. Record rows that cannot be run safely with the
+available device and carry them to the published-APK pass; don't uninstall the
+daily-driver build or discard its data to make the debug pass possible.
+
+After tagging, install the published release APK and repeat the applicable
+checks, including the carried rows, following the [release checklist](release.md).
+A debug pass cannot verify release signing or minification. Use one station
+per quirk class; record build type, version, commit, device, date,
+pass/fail/skip(reason), and evidence for each applicable row. Unverified behavior
+alone does not block a tag; a known must-not-ship defect does, per
+[release policy](adr/0001-release-at-milestone-end.md).
 
 While the pass runs, watch the synced artifacts from the desktop —
 a loop that snapshots every content transition of `ops.jsonl` (and
@@ -31,9 +42,39 @@ states per sync, not intermediate ones.
 | 17 | Titles log creation & format | (creation) rename `~/Sync/Radio/recordings` aside on the desktop, let sync propagate, like once from the notification. (format) run the real `radio-titles-to-json.py` over the log | (creation) `recordings/` recreated; file named exactly `onda-titles.log` (not `.log.txt`); Toast "Liked". If the provider mangles the name and the rename fails, the only correct outcome is the failure Toast and NO stray file left behind — never a "Liked" Toast with a sharded log (the JVM row covers the caller's half only; the SAF ladder is device-only). (format) every entry ingests with correct timestamps and, since v0.5.1, station attribution — the consumer is the authority `docs/spec.md` names, so ingestion IS the format proof. The pyradio byte-compare was dropped 2026-08-08 (#33): pyradio's log has no liked lines to compare against, and ingestion has passed twice (2026-07-26, 2026-08-07) |
 | 18 | Append across likes | like three tracks in a row | three lines, earlier ones intact, file not truncated (only proof SAF honours `"wa"` append); `pyradio-titles.log` untouched; no `onda-titles_*_Conflict.log` after a sync cycle |
 | 19 | Sheet like button | FIP vs KEXP in the Now Playing sheet | greyed and untappable on FIP, TalkBack announces disabled; enabled on KEXP, and a tap closes the sheet (by design — the snackbar draws where the sheet sits) then shows "Liked" |
-| 20 | Cross-playlist move | any `stations` station → `nts` | long-press → "Move to playlist…" → pick playlist → pick group: both sheets close, the row leaves the source screen, snackbar "Moved … to … in …" with Undo; the target playlist shows it pending (italic) in the chosen group; Undo returns it to the source, unpending. The feature has no JVM-testable UI at all — this row is its only pre-merge evidence |
+| 20 | Cross-playlist move | any `stations` station → `nts` | long-press → "Move to playlist…" → pick playlist → pick group: both sheets close, the row leaves the source screen, snackbar "Moved … to … in …" with Undo; the target playlist shows it pending (italic) in the chosen group; Undo returns it to the source, unpending. The feature has no JVM-testable UI at all — this row is its only device evidence |
 | 21 | New group in the target playlist | same station, target `nts` | pick "New group" at the second sheet: IME Done and the trailing + button both commit; the pending row lands under a new group header in the target (row 15 composed with the new flow) |
 | 22 | Move flow dismissal | any station | back/scrim at the playlist picker, then repeat and dismiss at the group picker: the flow aborts at either step, no snackbar, the row is unchanged and `ops.jsonl` mtime unchanged |
-| 23 | Rotation during the move flow | any station | known debt, not a regression (GitHub #18): rotating with either sheet open drops the sheet and aborts the flow, exactly as the existing sheet flows do. Record as observed/expected |
+| 23 | Rotation during the move flow | any station | rotate with either picker open: the same step survives, and completing or dismissing it still works (fixed by PR #66) |
 | 24 | Move a url the target already holds | a station present in both `stations` and `nts` | the row leaves the source; the target shows exactly one row for it, unpending and in its existing group (no duplicate). The desktop merge reports it skipped, never rejected |
 | 25 | Resumption after a move | play a `stations` station, move it to `nts`, force-stop the app, then media button | it resumes (row 13 covers the unmoved case; this row covers the id the move invalidated). Load-bearing twice over: the JVM rows cover only the *read* side, so a transposed `setLastPlayed(id, url)` would compile and pass all 185 of them — this row is the sole check on the write side, as well as the only proof Media3 replays what `onPlaybackResumption` hands back |
+| 26 | Discover search rotation | enter search text, then rotate | text survives rotation |
+| 27 | Double-tap navigation | double-tap a playlist or group, then press Back | one destination is pushed; Back returns to the preceding screen without a duplicate destination |
+| 28 | Sheet survival | rotate with station actions, move or add-to-playlist sheet open | the active sheet survives and its actions still target the intended station; row 23 covers the cross-playlist picker steps |
+| 29 | Voided undo feedback | swipe-delete station A and wait for its row to disappear, then delete B while A's snackbar remains; once B's row disappears, tap Undo on A's snackbar before it expires. Let B's queued snackbar expire without tapping its Undo | a subsequent snackbar says "Nothing to undo"; both rows remain deleted |
+
+## Outstanding verification carried from v0.5.2
+
+The retired process records did not record results for PR #66's search-text
+rotation, double-tap navigation/back-stack, sheet survival and voided-undo
+snackbar checks, or for release playback.
+
+**Owner:** the releasing maintainer, with the release coordinator retaining the
+results. **Requires:** a real phone, the current published release APK, and the
+synced playlists. At the next release verification, run rows 26–29 (plus 23 for
+move sheets) and applicable playback rows 1–7 and 12–13. Close this carry when
+those rows pass and their evidence is recorded with the tested version, device
+and date. Skipped rows stay open with an owner and next verification occasion;
+failed rows require a defect record and a passing rerun.
+
+The exit condition verifies the current release and does not require a downgrade
+or data loss. Record this as "carried checks passed on <actual version>"; it
+doesn't establish a historical v0.5.2 result. The missing v0.5.2 evidence remains
+a historical limitation, separate from completing this actionable carry.
+
+R1 (fast-undo suppression under the journal watcher) is closed as not
+hardware-observable: the synced final bytes cannot distinguish its paths.
+`UndoIntegrityTest."an undo tapped before the mutate runs suppresses the mutation entirely"`
+pins suppression with a write-count assertion. Don't reopen that carry.
+Row 17's fresh-folder scenario remains a standing release check, not unpaid
+v0.5.2 verification debt.
